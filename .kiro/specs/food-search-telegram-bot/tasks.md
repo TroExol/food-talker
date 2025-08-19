@@ -1,0 +1,163 @@
+# Implementation Plan
+
+- [x] 1. Set up project structure and core dependencies
+  - Install Telegraf.js, database client, and other required dependencies
+  - Create directory structure for models, services, bot handlers
+  - Set up environment configuration and validation
+  - _Requirements: 1.1, 9.1, 10.1_
+
+- [ ] 2. Implement core data models and types
+  - [ ] 2.1 Create TypeScript interfaces for all data models
+    - Write TUser, TRestaurant, TMenuItem, TSearchResult interfaces
+    - Define TStructuredQuery and supporting types
+    - Create error types and enums
+    - _Requirements: 1.1, 2.3, 4.1_
+
+  - [ ] 2.2 Implement validation utilities
+    - Create input validation functions for search queries and user data
+    - Write sanitization utilities for user inputs
+    - Implement city validation for supported locations
+    - _Requirements: 2.1, 3.1, 10.2_
+
+- [ ] 3. Create database layer and user management
+  - [ ] 3.1 Set up database schema and connection
+    - Create database connection utilities with connection pooling
+    - Define database tables for users, search history, restaurant cache
+    - Write database migration scripts
+    - _Requirements: 1.1, 9.3, 10.3_
+
+  - [ ] 3.2 Implement UserService and UserRepository
+    - Code user creation, retrieval, and update methods
+    - Implement subscription management and expiry checking
+    - Write unit tests for user management functionality
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+
+- [ ] 4. Implement Yandex.Eda API integration
+  - [ ] 4.1 Create YandexEdaService based on research data
+    - Implement getPlaces method using existing API patterns
+    - Implement getPlaceMenu method with proper headers
+    - Add rate limiting and error handling for API calls
+    - _Requirements: 7.1, 7.2, 7.5_
+
+  - [ ] 4.2 Add data transformation and caching
+    - Transform Yandex.Eda responses to internal data models
+    - Implement caching layer for restaurant and menu data
+    - Create data collection service for periodic updates
+    - _Requirements: 7.3, 7.4, 9.1_
+
+- [ ] 5. Build LLM integration for natural language processing
+  - [ ] 5.1 Implement LLMService for query transformation
+    - Create prompt templates for query structure extraction
+    - Implement API client for Llama 3.1 8B integration
+    - Add response validation and error handling
+    - _Requirements: 2.2, 2.3, 2.6_
+
+  - [ ] 5.2 Add result enhancement capabilities
+    - Implement LLM-based result ranking and filtering
+    - Create fallback mechanisms for LLM failures
+    - Add caching for LLM responses to reduce costs
+    - _Requirements: 2.5, 9.1, 11.3_
+
+- [ ] 6. Create search engine and geolocation services
+  - [ ] 6.1 Implement SearchService core functionality
+    - Combine LLM processing with data aggregation
+    - Create search result ranking and filtering logic
+    - Implement search history tracking
+    - _Requirements: 2.1, 2.4, 2.6, 8.4_
+
+  - [ ] 6.2 Build GeolocationService
+    - Implement city coordinate mapping for Perm and Voronezh
+    - Create delivery zone filtering logic
+    - Add restaurant availability checking based on location
+    - _Requirements: 3.1, 3.2, 3.4_
+
+- [ ] 7. Develop Telegram bot handlers and middleware
+  - [ ] 7.1 Create basic bot setup and command handlers
+    - Set up Telegraf bot with webhook/polling configuration
+    - Implement /start, /help, /address, /history, /cancel commands
+    - Create middleware for authentication and rate limiting
+    - _Requirements: 1.1, 1.3, 8.1, 8.2, 8.3, 9.2_
+
+  - [ ] 7.2 Implement message handlers and user interaction
+    - Create text message handler for search queries
+    - Implement callback query handlers for inline keyboards
+    - Add user registration flow and city selection
+    - _Requirements: 1.2, 2.1, 8.5_
+
+- [ ] 8. Build message formatting and result display
+  - [ ] 8.1 Create MessageFormatter service
+    - Implement search result formatting with photos and details
+    - Create inline keyboard generation for "Order" buttons
+    - Add pagination support for "Show more" functionality
+    - _Requirements: 4.1, 4.2, 4.3, 4.4_
+
+  - [ ] 8.2 Add rich message formatting
+    - Implement restaurant card formatting with all required fields
+    - Create error message templates for user-friendly errors
+    - Add placeholder image handling for missing photos
+    - _Requirements: 4.1, 4.5_
+
+- [ ] 9. Implement error handling and monitoring
+  - [ ] 9.1 Create comprehensive error handling system
+    - Implement AppError classes with proper categorization
+    - Create error recovery strategies and fallback mechanisms
+    - Add admin notification system for critical errors
+    - _Requirements: 7.5, 10.4, 11.5_
+
+  - [ ] 9.2 Add logging and metrics collection
+    - Implement structured logging with different log levels
+    - Create metrics collection for performance monitoring
+    - Add health check endpoints for system monitoring
+    - _Requirements: 11.1, 11.2, 11.3, 11.4_
+
+- [ ] 10. Create caching and performance optimization
+  - [ ] 10.1 Implement multi-level caching strategy
+    - Set up in-memory cache for frequently accessed data
+    - Implement Redis integration for distributed caching
+    - Create cache invalidation strategies
+    - _Requirements: 7.4, 9.1, 9.5_
+
+  - [ ] 10.2 Add rate limiting and performance monitoring
+    - Implement user and API rate limiting
+    - Create performance monitoring and alerting
+    - Add resource usage tracking and optimization
+    - _Requirements: 9.2, 9.5, 11.2_
+
+- [ ] 11. Write comprehensive tests
+  - [ ] 11.1 Create unit tests for all services
+    - Write tests for UserService, SearchService, LLMService
+    - Test YandexEdaService API integration with mocks
+    - Create tests for validation and error handling utilities
+    - _Requirements: All requirements validation_
+
+  - [ ] 11.2 Implement integration tests
+    - Test bot command flows with mock Telegram updates
+    - Create end-to-end search flow tests
+    - Test external API integration with proper mocking
+    - _Requirements: Complete user journey validation_
+
+- [ ] 12. Add configuration and deployment setup
+  - [ ] 12.1 Create environment configuration
+    - Set up environment variable validation
+    - Create configuration files for different environments
+    - Add Docker configuration for deployment
+    - _Requirements: 9.3, 10.1, 10.5_
+
+  - [ ] 12.2 Add production readiness features
+    - Implement graceful shutdown handling
+    - Create health check endpoints
+    - Add monitoring and alerting configuration
+    - _Requirements: 9.3, 9.4, 11.1, 11.2_
+
+- [ ] 13. Final integration and optimization
+  - [ ] 13.1 Connect all components and test full system
+    - Wire together all services in main application
+    - Test complete user journeys from registration to search
+    - Verify all requirements are met through automated tests
+    - _Requirements: All requirements integration_
+
+  - [ ] 13.2 Performance tuning and final validation
+    - Optimize database queries and caching strategies
+    - Validate response times meet performance requirements
+    - Test system under load with concurrent users
+    - _Requirements: 9.1, 9.2, 9.5_

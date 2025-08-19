@@ -1,0 +1,14 @@
+node_modules/
+.idea/
+.vscode/*
+!.vscode/settings.json
+dist/
+.DS_Store
+nohup.out
+*.log
+.husky/_
+logs/
+test.js
+test.ts
+test.json
+*.temp

@@ -1,0 +1,20 @@
+Headers:
+
+user-agent
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+x-app-version
+17.52.4
+x-client-session
+mei8lrkd-d49t83iglm-2sset7rzpp6-8qnt1cacvd
+x-device-id
+mei8lrkd-fnbl951fo7-vqvkmfvgb8f-cgrtjueuxx8
+x-platform
+desktop_web
+x-retpath-y
+https://eda.yandex.ru/perm?shippingType=delivery
+x-taxi
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 platform=eats_desktop_web
+x-ya-client-time
+2025-08-19T07:43:26.574Z
+x-ya-coordinates
+latitude=58.010454,longitude=56.229441

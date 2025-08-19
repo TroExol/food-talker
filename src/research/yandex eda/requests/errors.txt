@@ -1,0 +1,5 @@
+status: 200
+{
+  code: '400',
+  message: "Invalid Content-Type, must be one of ['application/json']"
+}

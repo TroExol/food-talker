@@ -1,0 +1,25 @@
+{
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "files.autoSave": "onFocusChange",
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "eslint.format.enable": true,
+    "eslint.useFlatConfig": true,
+    "eslint.options": {
+        "overrideConfigFile": "./eslint.config.mjs"
+    },
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
+    },
+    "chat.promptFilesLocations": {
+        ".github/prompts": true,
+        "prompts": true
+    },
+    "[javascript]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features"
+    },
+    "editor.tabSize": 2,
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    }
+}

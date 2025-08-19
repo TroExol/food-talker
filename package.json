@@ -1,0 +1,51 @@
+{
+  "name": "food-talker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "engines": {
+    "node": ">=22.15.0 <23.0.0",
+    "npm": ">=10.0.0"
+  },
+  "packageManager": "npm@10.0.0",
+  "scripts": {
+    "postinstall": "husky",
+    "start": "ts-node -r tsconfig-paths/register src/index.ts",
+    "edit-file": "ts-node -r tsconfig-paths/register src/scripts/editFile.ts",
+    "typecheck": "tsc --noEmit",
+    "eslint": "eslint .",
+    "eslint:fix": "eslint . --fix",
+    "test": "vitest --config vitest.config.mts -w=false --silent --passWithNoTests",
+    "test:watch": "vitest --config vitest.config.mts --passWithNoTests",
+    "lint": "npm run typecheck && npm run eslint && npm run test"
+  },
+  "author": "troexol",
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "node-cron": "^4.2.1",
+    "sqlite3": "^5.1.7",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.1",
+    "@stylistic/eslint-plugin": "^4.2.0",
+    "@types/crypto-js": "^4.2.2",
+    "@types/lodash": "^4.17.13",
+    "@types/node-cron": "^3.0.11",
+    "@types/notp": "^2.0.5",
+    "@types/prompts": "^2.4.9",
+    "@types/steam-totp": "^2.1.2",
+    "@types/steamid": "^2.0.3",
+    "eslint": "^9.25.1",
+    "eslint-plugin-import-newlines": "^1.4.0",
+    "eslint-plugin-perfectionist": "^3.9.1",
+    "husky": "^9.1.7",
+    "memfs": "^4.17.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.31.0",
+    "vitest": "^3.2.4"
+  }
+}
