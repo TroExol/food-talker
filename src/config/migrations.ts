@@ -13,7 +13,7 @@ export interface TMigration {
 export class MigrationRunner {
   constructor(private db: TDatabaseConnection) {}
 
-  async runMigrations(): Promise<void> {
+  public runMigrations = async (): Promise<void> => {
     // Создаем таблицу миграций если её нет
     await this.createMigrationsTable();
 
@@ -26,9 +26,9 @@ export class MigrationRunner {
         await this.runMigration(migration);
       }
     }
-  }
+  };
 
-  private async createMigrationsTable(): Promise<void> {
+  private createMigrationsTable = async (): Promise<void> => {
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS migrations (
         version INTEGER PRIMARY KEY,
@@ -36,16 +36,16 @@ export class MigrationRunner {
         applied_at TEXT DEFAULT (datetime('now'))
       )
     `);
-  }
+  };
 
-  private async getCurrentVersion(): Promise<number> {
+  private getCurrentVersion = async (): Promise<number> => {
     const result = await this.db.get<{ version: number }>(`
       SELECT version FROM migrations ORDER BY version DESC LIMIT 1
     `);
     return result?.version || 0;
-  }
+  };
 
-  private async runMigration(migration: TMigration): Promise<void> {
+  private runMigration = async (migration: TMigration): Promise<void> => {
     try {
       logger.info(`Применение миграции ${migration.version}: ${migration.description}`);
 
@@ -60,7 +60,7 @@ export class MigrationRunner {
       logger.error(`Ошибка применения миграции ${migration.version}`, error as Error);
       throw AppError.databaseError('MIGRATION_FAILED', `Не удалось применить миграцию ${migration.version}`);
     }
-  }
+  };
 }
 
 const migrations: TMigration[] = [
@@ -75,7 +75,7 @@ const migrations: TMigration[] = [
           chat_id INTEGER NOT NULL,
           city TEXT NOT NULL,
           subscription_type TEXT NOT NULL DEFAULT 'basic',
-          subscription_expiry TEXT NOT NULL,
+          subscription_expiry TEXT,
           created_at TEXT DEFAULT (datetime('now')),
           updated_at TEXT DEFAULT (datetime('now'))
         )

@@ -33,7 +33,7 @@ class SQLiteConnection implements TDatabaseConnection {
     });
   }
 
-  async query<T = unknown>(sql: string, params: unknown[] = []): Promise<T[]> {
+  public query = async <T = unknown>(sql: string, params: unknown[] = []): Promise<T[]> => {
     return new Promise((resolve, reject) => {
       this.db.all(sql, params, (err, rows) => {
         if (err) {
@@ -44,9 +44,9 @@ class SQLiteConnection implements TDatabaseConnection {
         }
       });
     });
-  }
+  };
 
-  async get<T = unknown>(sql: string, params: unknown[] = []): Promise<T | undefined> {
+  public get = async <T = unknown>(sql: string, params: unknown[] = []): Promise<T | undefined> => {
     return new Promise((resolve, reject) => {
       this.db.get(sql, params, (err, row) => {
         if (err) {
@@ -57,9 +57,9 @@ class SQLiteConnection implements TDatabaseConnection {
         }
       });
     });
-  }
+  };
 
-  async run(sql: string, params: unknown[] = []): Promise<{ lastID: number; changes: number }> {
+  public run = async (sql: string, params: unknown[] = []): Promise<{ lastID: number; changes: number }> => {
     return new Promise((resolve, reject) => {
       this.db.run(sql, params, function (err) {
         if (err) {
@@ -70,9 +70,9 @@ class SQLiteConnection implements TDatabaseConnection {
         }
       });
     });
-  }
+  };
 
-  async close(): Promise<void> {
+  public close = async (): Promise<void> => {
     if (!this.isConnected) return;
 
     return new Promise((resolve, reject) => {
@@ -87,7 +87,7 @@ class SQLiteConnection implements TDatabaseConnection {
         }
       });
     });
-  }
+  };
 }
 
 class DatabasePool implements TDatabasePool {
@@ -99,7 +99,7 @@ class DatabasePool implements TDatabasePool {
     this.maxConnections = maxConnections;
   }
 
-  getConnection(): Promise<TDatabaseConnection> {
+  public getConnection = (): Promise<TDatabaseConnection> => {
     if (this.currentConnections < this.maxConnections) {
       const connection = new SQLiteConnection(environment.DATABASE_URL);
       this.connections.push(connection);
@@ -109,34 +109,34 @@ class DatabasePool implements TDatabasePool {
 
     // Простая стратегия - возвращаем первое доступное соединение
     return Promise.resolve(this.connections[0]);
-  }
+  };
 
-  async closeAll(): Promise<void> {
+  public closeAll = async (): Promise<void> => {
     await Promise.all(this.connections.map(conn => conn.close()));
     this.connections = [];
     this.currentConnections = 0;
     logger.info('Все соединения с базой данных закрыты');
-  }
+  };
 
-  getActiveConnections(): number {
+  public getActiveConnections = (): number => {
     return this.currentConnections;
-  }
+  };
 }
 
 // Глобальный пул соединений
 export const databasePool = new DatabasePool();
 
-export async function createDatabaseConnection(): Promise<TDatabaseConnection> {
+export const createDatabaseConnection = async (): Promise<TDatabaseConnection> => {
   const connection = await databasePool.getConnection();
 
   // Run migrations on first connection
   await runMigrations(connection);
 
   return connection;
-}
+};
 
-export async function runMigrations(db: TDatabaseConnection): Promise<void> {
+export const runMigrations = async (db: TDatabaseConnection): Promise<void> => {
   const { MigrationRunner } = await import('./migrations');
   const migrationRunner = new MigrationRunner(db);
   await migrationRunner.runMigrations();
-}
+};

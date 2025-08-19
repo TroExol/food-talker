@@ -22,11 +22,11 @@ export const environment: TEnvironment = {
   WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
 };
 
-export function validateEnvironment(): void {
+export const validateEnvironment = (): void => {
   const required = ['BOT_TOKEN', 'LLM_API_URL', 'LLM_API_KEY'];
   const missing = required.filter(key => !environment[key as keyof TEnvironment]);
 
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
-}
+};

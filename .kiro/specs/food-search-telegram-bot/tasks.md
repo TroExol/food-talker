@@ -19,14 +19,14 @@
     - Implement city validation for supported locations
     - _Requirements: 2.1, 3.1, 10.2_
 
-- [ ] 3. Create database layer and user management
+- [x] 3. Create database layer and user management
   - [x] 3.1 Set up database schema and connection
     - Create database connection utilities with connection pooling
     - Define database tables for users, search history, restaurant cache
     - Write database migration scripts
     - _Requirements: 1.1, 9.3, 10.3_
 
-  - [ ] 3.2 Implement UserService and UserRepository
+  - [x] 3.2 Implement UserService and UserRepository
     - Code user creation, retrieval, and update methods
     - Implement subscription management and expiry checking
     - Write unit tests for user management functionality

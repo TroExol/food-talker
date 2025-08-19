@@ -1,3 +1,4 @@
+import { ESubscriptionType } from '@/models/user';
 import { botConfig, type EAvailableCities } from '@/config/bot';
 
 import { type Sanitizer, sanitizer as sanitizerInstance } from './sanitizer';
@@ -95,8 +96,8 @@ export class Validator implements TValidator {
   validateChatId(chatId: number): TValidationResult {
     const errors: string[] = [];
 
-    if (typeof chatId !== 'number' || !Number.isInteger(chatId)) {
-      errors.push('Chat ID должен быть целым числом');
+    if (typeof chatId !== 'number' || !Number.isInteger(chatId) || chatId <= 0) {
+      errors.push('Chat ID должен быть целым положительным числом');
     }
 
     return {
@@ -108,13 +109,13 @@ export class Validator implements TValidator {
 
   validateSubscriptionType(subscription: string): TValidationResult {
     const errors: string[] = [];
-    const validSubscriptions = ['basic'];
+    const validSubscriptions: ESubscriptionType[] = Object.values(ESubscriptionType);
 
     if (typeof subscription !== 'string') {
       errors.push('Тип подписки должен быть строкой');
     }
 
-    if (typeof subscription === 'string' && !validSubscriptions.includes(subscription)) {
+    if (typeof subscription === 'string' && !validSubscriptions.includes(subscription as ESubscriptionType)) {
       errors.push(`Тип подписки должен быть одним из: ${validSubscriptions.join(', ')}`);
     }
 

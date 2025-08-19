@@ -70,7 +70,7 @@ interface TUser {
   chatId: number
   city: EAvailableCities
   subscription: ESubscriptionType
-  subscriptionExpiry: Date
+  subscriptionExpiry: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -219,7 +219,7 @@ interface TUser {
   chatId: number
   city: EAvailableCities
   subscription: TSubscriptionType
-  subscriptionExpiry: Date
+  subscriptionExpiry: Date | null
   searchHistory: TSearchHistoryItem[]
   createdAt: Date
   updatedAt: Date
@@ -427,7 +427,7 @@ interface TUserEntity {
   chat_id: number
   city: string
   subscription_type: string
-  subscription_expiry: string // ISO string
+  subscription_expiry: string | null // ISO string
   created_at: string // ISO string
   updated_at: string // ISO string
 }

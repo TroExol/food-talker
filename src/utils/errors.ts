@@ -7,6 +7,7 @@ export enum TErrorType {
   LLM_ERROR = 'LLM_ERROR',
   NETWORK_ERROR = 'NETWORK_ERROR',
   RATE_LIMIT_ERROR = 'RATE_LIMIT_ERROR',
+  SYSTEM_ERROR = 'SYSTEM_ERROR',
   USER_NOT_FOUND = 'USER_NOT_FOUND',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
 }
@@ -61,6 +62,10 @@ export class AppError extends Error implements TAppError {
 
   static rateLimitError(message: string, details?: unknown): AppError {
     return new AppError(TErrorType.RATE_LIMIT_ERROR, 'RATE_LIMIT_EXCEEDED', message, true, details);
+  }
+
+  static systemError(message: string, details?: unknown): AppError {
+    return new AppError(TErrorType.SYSTEM_ERROR, 'SYSTEM_FAILED', message, false, details);
   }
 
   static userNotFound(telegramId: number): AppError {
