@@ -5,6 +5,11 @@ export enum EAvailableCities {
   VORONEZH = 'Воронеж',
 }
 
+export interface TSanitizerConfig {
+  maxLength: number;
+  minLength: number;
+}
+
 export interface TBotConfig {
   telegramToken: string;
   llmApiUrl: string;
@@ -13,6 +18,7 @@ export interface TBotConfig {
   cache: TCacheConfig;
   yandexEda: TYandexEdaConfig;
   availableCities: EAvailableCities[];
+  sanitizer: TSanitizerConfig;
 }
 
 export interface TDatabaseConfig {
@@ -51,6 +57,10 @@ export const botConfig: TBotConfig = {
     maxSize: 1000,
     type: environment.REDIS_URL ? 'redis' : 'memory',
     redisUrl: environment.REDIS_URL,
+  },
+  sanitizer: {
+    maxLength: 500,
+    minLength: 2,
   },
   availableCities: [EAvailableCities.PERM, EAvailableCities.VORONEZH],
   yandexEda: {

@@ -1,5 +1,7 @@
 import { botConfig, type EAvailableCities } from '@/config/bot';
 
+import { type Sanitizer, sanitizer as sanitizerInstance } from './sanitizer';
+
 export interface TValidationResult {
   isValid: boolean;
   errors: string[];
@@ -7,29 +9,43 @@ export interface TValidationResult {
 }
 
 export interface TValidator {
+  // Input validation (from user)
   validateSearchQuery(query: string): TValidationResult;
   validateCity(city: string): TValidationResult;
+  validateTelegramId(telegramId: number): TValidationResult;
+  validateChatId(chatId: number): TValidationResult;
+  validateSubscriptionType(subscription: string): TValidationResult;
+
+  // Business logic validation (internal structures)
+  validatePriceRange(min?: number, max?: number): TValidationResult;
+  validateCoordinates(latitude: number, longitude: number): TValidationResult;
 }
 
 export class Validator implements TValidator {
-  private readonly maxQueryLength = 500;
+  private readonly maxQueryLength = botConfig.sanitizer.maxLength;
+  private readonly minQueryLength = botConfig.sanitizer.minLength;
+
+  constructor(private readonly sanitizer: Sanitizer) {}
 
   validateSearchQuery(query: string): TValidationResult {
     const errors: string[] = [];
 
     if (!query || typeof query !== 'string') {
-      errors.push('Query must be a non-empty string');
+      errors.push('Запрос должен быть непустой строкой');
+      return { isValid: false, errors };
     }
 
-    if (query.length > this.maxQueryLength) {
-      errors.push(`Query must be less than ${this.maxQueryLength} characters`);
+    const trimmedQuery = query.trim();
+
+    if (trimmedQuery.length < this.minQueryLength) {
+      errors.push('Запрос не может быть пустым');
     }
 
-    if (query.trim().length === 0) {
-      errors.push('Query cannot be empty or contain only whitespace');
+    if (trimmedQuery.length > this.maxQueryLength) {
+      errors.push(`Запрос должен быть менее ${this.maxQueryLength} символов`);
     }
 
-    const sanitizedQuery = query.trim().slice(0, this.maxQueryLength);
+    const sanitizedQuery = this.sanitizer.sanitizeSearchQuery(trimmedQuery);
 
     return {
       isValid: errors.length === 0,
@@ -42,12 +58,13 @@ export class Validator implements TValidator {
     const errors: string[] = [];
 
     if (!city || typeof city !== 'string') {
-      errors.push('City must be a non-empty string');
+      errors.push('Город должен быть непустой строкой');
+      return { isValid: false, errors };
     }
 
-    const normalizedCity = city.trim() as EAvailableCities;
-    if (!botConfig.availableCities.includes(normalizedCity)) {
-      errors.push(`City must be one of: ${botConfig.availableCities.join(', ')}`);
+    const normalizedCity = this.sanitizer.sanitizeCity(city);
+    if (!botConfig.availableCities.includes(normalizedCity as EAvailableCities)) {
+      errors.push(`Город должен быть одним из: ${botConfig.availableCities.join(', ')}`);
     }
 
     return {
@@ -56,6 +73,101 @@ export class Validator implements TValidator {
       sanitizedInput: normalizedCity,
     };
   }
+
+  validateTelegramId(telegramId: number): TValidationResult {
+    const errors: string[] = [];
+
+    if (typeof telegramId !== 'number' || !Number.isInteger(telegramId)) {
+      errors.push('Telegram ID должен быть целым числом');
+    }
+
+    if (typeof telegramId === 'number' && telegramId <= 0) {
+      errors.push('Telegram ID должен быть положительным числом');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      sanitizedInput: telegramId,
+    };
+  }
+
+  validateChatId(chatId: number): TValidationResult {
+    const errors: string[] = [];
+
+    if (typeof chatId !== 'number' || !Number.isInteger(chatId)) {
+      errors.push('Chat ID должен быть целым числом');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      sanitizedInput: chatId,
+    };
+  }
+
+  validateSubscriptionType(subscription: string): TValidationResult {
+    const errors: string[] = [];
+    const validSubscriptions = ['basic'];
+
+    if (typeof subscription !== 'string') {
+      errors.push('Тип подписки должен быть строкой');
+    }
+
+    if (typeof subscription === 'string' && !validSubscriptions.includes(subscription)) {
+      errors.push(`Тип подписки должен быть одним из: ${validSubscriptions.join(', ')}`);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      sanitizedInput: subscription,
+    };
+  }
+
+  validatePriceRange(min?: number, max?: number): TValidationResult {
+    const errors: string[] = [];
+
+    if (min !== undefined) {
+      if (typeof min !== 'number' || min < 0) {
+        errors.push('Минимальная цена должна быть положительным числом');
+      }
+    }
+
+    if (max !== undefined) {
+      if (typeof max !== 'number' || max < 0) {
+        errors.push('Максимальная цена должна быть положительным числом');
+      }
+    }
+
+    if (min !== undefined && max !== undefined && min > max) {
+      errors.push('Минимальная цена не может быть больше максимальной');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      sanitizedInput: { min, max },
+    };
+  }
+
+  validateCoordinates(latitude: number, longitude: number): TValidationResult {
+    const errors: string[] = [];
+
+    if (typeof latitude !== 'number' || latitude < -90 || latitude > 90) {
+      errors.push('Широта должна быть числом от -90 до 90');
+    }
+
+    if (typeof longitude !== 'number' || longitude < -180 || longitude > 180) {
+      errors.push('Долгота должна быть числом от -180 до 180');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      sanitizedInput: { latitude, longitude },
+    };
+  }
 }
 
-export const validator = new Validator();
+export const validator = new Validator(sanitizerInstance);

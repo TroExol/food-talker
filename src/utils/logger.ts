@@ -8,11 +8,7 @@ export interface TLogger {
 }
 
 class ConsoleLogger implements TLogger {
-  private logLevel: string;
-
-  constructor() {
-    this.logLevel = environment.LOG_LEVEL;
-  }
+  private logLevel = environment.LOG_LEVEL;
 
   private shouldLog(level: string): boolean {
     const levels = ['debug', 'info', 'warn', 'error'];

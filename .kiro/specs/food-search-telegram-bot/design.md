@@ -68,15 +68,20 @@ interface TUserService {
 interface TUser {
   telegramId: number
   chatId: number
-  city: string
-  subscription: TSubscriptionType
+  city: EAvailableCities
+  subscription: ESubscriptionType
   subscriptionExpiry: Date
   createdAt: Date
   updatedAt: Date
 }
 
-enum TSubscriptionType {
+enum ESubscriptionType {
   BASIC = 'basic',
+}
+
+enum EAvailableCities {
+  PERM = 'Пермь',
+  VORONEZH = 'Воронеж',
 }
 ```
 
@@ -92,12 +97,19 @@ interface TSearchService {
 }
 
 interface TStructuredQuery {
-  dishType?: string
-  cuisine?: string
   restaurants?: string[]
-  diets?: string[]
-  priceRange?: { min: number; max: number }
-  exclusions?: string[]
+  ingredients?: string[]
+  priceRange?: TPriceRange
+  exclusions?: {
+    restaurants?: string[]
+    ingredients?: string[]
+    priceRange?: TPriceRange
+  }
+}
+
+interface TPriceRange {
+  min: number
+  max: number
 }
 
 interface TSearchResult {
@@ -105,13 +117,10 @@ interface TSearchResult {
   name: string
   restaurant: TRestaurantInfo
   description: string
-  ingredients: string
+  ingredients: string[]
   price: number
   image?: string
-  weight?: string
-  nutrition?: TNutritionInfo
   orderUrl: string
-  available: boolean
 }
 ```
 
@@ -134,30 +143,28 @@ interface TYandexEdaService {
   searchItems(query: TStructuredQuery, coordinates: TCoordinates): Promise<TMenuItem[]>
 }
 
-interface TRestaurant {
-  slug: string
+interface TYERestaurant {
+  id: string
   name: string
-  brand: TBrandInfo
-  rating: number
-  deliveryTime: string
-  image: string
-  chips: TChip[]
   coordinates: TCoordinates
   workingHours: TWorkingHours
   minimumOrderAmount?: number
+  isActive: boolean
+  lastUpdated: Date
+  additionalInfo: {
+    brandSlug: string
+  }
 }
 
-interface TMenuItem {
-  id: number
+interface TYEMenuItem {
+  id: string
   name: string
   description: string
-  ingredients: string
+  ingredients: string[]
   price: number
-  weight: string
-  image: string
-  nutrition: TNutritionInfo
+  image?: string
   available: boolean
-  restaurant: TRestaurant
+  restaurant: TYERestaurant
 }
 ```
 
@@ -180,7 +187,6 @@ interface TGeolocationService {
   getCityCoordinates(cityName: string): Promise<TCoordinates>
   isDeliveryAvailable(restaurant: TRestaurant, userCity: string): Promise<boolean>
   filterByDeliveryZone(restaurants: TRestaurant[], city: string): Promise<TRestaurant[]>
-  getSupportedCities(): string[]
 }
 
 interface TCoordinates {
@@ -211,7 +217,7 @@ interface TMessageFormatter {
 interface TUser {
   telegramId: number
   chatId: number
-  city: string
+  city: EAvailableCities
   subscription: TSubscriptionType
   subscriptionExpiry: Date
   searchHistory: TSearchHistoryItem[]
@@ -230,61 +236,32 @@ interface TSearchHistoryItem {
 
 // Restaurant Data
 interface TRestaurant {
-  slug: string
+  id: string
   name: string
-  brand: TBrandInfo
-  rating: number
-  deliveryTime: string
-  image: string
   coordinates: TCoordinates
   workingHours: TWorkingHours
   minimumOrderAmount?: number
-  deliveryZones: string[]
   isActive: boolean
   lastUpdated: Date
+  additionalInfo?: object
 }
 
 // Menu Item
 interface TMenuItem {
-  id: number
+  id: string
   name: string
   description: string
-  ingredients: string
+  ingredients: string[]
   price: number
-  weight: string
-  image: string
-  nutrition: TNutritionInfo
+  image?: string
   available: boolean
   restaurant: TRestaurant
-  category: string
-  tags: string[]
-}
-
-// Supporting Types
-interface TBrandInfo {
-  slug: string
-  name: string
-  business: string
-}
-
-interface TNutritionInfo {
-  calories: number
-  proteins: number
-  fats: number
-  carbohydrates: number
 }
 
 interface TWorkingHours {
-  open: string
-  close: string
+  open: string // HH:MM
+  close: string // HH:MM
   isOpen: boolean
-}
-
-interface TChip {
-  type: string
-  text: string
-  color: string
-  background: string
 }
 ```
 
@@ -413,8 +390,8 @@ class YandexEdaClient {
     'x-ya-coordinates': 'latitude=58.010454,longitude=56.229441',
   }
 
-  async getPlaces(coordinates: TCoordinates): Promise<TRestaurant[]> // Header 'x-retpath-y': 'https://eda.yandex.ru/perm?shippingType=delivery'
-  async getPlaceMenu(placeSlug: string, coordinates: TCoordinates): Promise<TMenuItem[]> // Header 'x-retpath-y': `https://eda.yandex.ru/r/${placeBrandSlug}?placeSlug=${placeSlug}`
+  async getPlaces(coordinates: TCoordinates): Promise<TRestaurant[]> // Additional Header 'x-retpath-y': 'https://eda.yandex.ru/perm?shippingType=delivery'
+  async getPlaceMenu(placeSlug: string, coordinates: TCoordinates): Promise<TMenuItem[]> // Additional Header 'x-retpath-y': `https://eda.yandex.ru/r/${placeBrandSlug}?placeSlug=${placeSlug}`
   async searchByCategory(category: string, coordinates: TCoordinates): Promise<TMenuItem[]>
 }
 ```
@@ -450,9 +427,9 @@ interface TUserEntity {
   chat_id: number
   city: string
   subscription_type: string
-  subscription_expiry: Date
-  created_at: Date
-  updated_at: Date
+  subscription_expiry: string // ISO string
+  created_at: string // ISO string
+  updated_at: string // ISO string
 }
 
 // Search History Table
@@ -460,19 +437,19 @@ interface TSearchHistoryEntity {
   id: string // UUID PRIMARY KEY
   user_telegram_id: number // FOREIGN KEY
   query: string
-  structured_query: JSON
+  structured_query: string // JSON string
   results_count: number
-  created_at: Date
+  created_at: string // ISO string
 }
 
 // Restaurants Cache Table
 interface TRestaurantCacheEntity {
-  slug: string // PRIMARY KEY
+  id: string // PRIMARY KEY
   name: string
-  data: JSON // Полные данные ресторана
-  city: string
-  last_updated: Date
-  is_active: boolean
+  data: string // JSON string
+  city: EAvailableCities
+  last_updated: string // ISO string
+  is_active: number
 }
 ```
 
@@ -533,9 +510,16 @@ interface TRestaurantCacheEntity {
 
 ```typescript
 interface TValidator {
+  // Input validation (from user)
   validateSearchQuery(query: string): TValidationResult
   validateCity(city: string): TValidationResult
-  validateTelegramUpdate(update: any): TValidationResult
+  validateTelegramId(telegramId: number): TValidationResult
+  validateChatId(chatId: number): TValidationResult
+  validateSubscriptionType(subscription: string): TValidationResult
+  
+  // Business logic validation (internal structures)
+  validatePriceRange(min?: number, max?: number): TValidationResult
+  validateCoordinates(latitude: number, longitude: number): TValidationResult
 }
 
 interface TValidationResult {
