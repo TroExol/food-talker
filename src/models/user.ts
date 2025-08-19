@@ -21,7 +21,7 @@ export interface TUserEntity {
   chat_id: number;
   city: EAvailableCities;
   subscription_type: string;
-  subscription_expiry: string;
+  subscription_expiry: string; // ISO string
   created_at: string; // ISO string
   updated_at: string; // ISO string
 }

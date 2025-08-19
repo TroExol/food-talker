@@ -20,7 +20,7 @@
     - _Requirements: 2.1, 3.1, 10.2_
 
 - [ ] 3. Create database layer and user management
-  - [ ] 3.1 Set up database schema and connection
+  - [x] 3.1 Set up database schema and connection
     - Create database connection utilities with connection pooling
     - Define database tables for users, search history, restaurant cache
     - Write database migration scripts
