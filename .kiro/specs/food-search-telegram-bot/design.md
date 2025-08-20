@@ -135,12 +135,13 @@ interface TLLMService {
 
 ### 4. Data Aggregation (`src/services/data/`)
 
-**YandexEdaService** - Интеграция с Яндекс.Еда
+**YEService** - Базовый API клиент для Яндекс.Еда
 ```typescript
-interface TYandexEdaService {
-  getPlaces(coordinates: TCoordinates): Promise<TRestaurant[]>
-  getPlaceMenu(placeSlug: string, coordinates: TCoordinates): Promise<TMenuItem[]>
-  searchItems(query: TStructuredQuery, coordinates: TCoordinates): Promise<TMenuItem[]>
+interface TYEService {
+  getRestaurants(coordinates: TCoordinates): Promise<TYERestaurant[]>
+  getRestaurantMenu(placeSlug: string, coordinates: TCoordinates, brandSlug?: string): Promise<TYEMenuItem[]>
+  searchRestaurants(query: TStructuredQuery, coordinates: TCoordinates): Promise<TYERestaurant[]>
+  checkRateLimit(): boolean
 }
 
 interface TYERestaurant {
@@ -168,14 +169,65 @@ interface TYEMenuItem {
 }
 ```
 
-**DataCollectionService** - Сбор и обновление данных
+
+**CachedYEService** - Обёртка с кэшированием для YEService
 ```typescript
-interface TDataCollectionService {
+interface TCachedYEService {
+  getRestaurants(coordinates: TCoordinates, city: EAvailableCities): Promise<TYERestaurant[]>
+  getRestaurantMenu(placeSlug: string, coordinates: TCoordinates, city: EAvailableCities, brandSlug?: string): Promise<TMenuItem[]>
+  searchItems(query: TStructuredQuery, coordinates: TCoordinates, city: EAvailableCities): Promise<TMenuItem[]>
+  invalidateCache(pattern?: string): void
+  getCacheStats(): { restaurants: number; menus: number; searches: number }
+}
+```
+
+**YEDataTransformer** - Трансформация данных API в внутренние модели
+```typescript
+interface TYEDataTransformer {
+  transformRestaurant(yePlace: TYEPlace, coordinates: TCoordinates): TYERestaurant
+  transformMenuItem(yeMenuItem: TYEMenuItem, restaurant: TYERestaurant): TMenuItem
+  transformRestaurants(yePlaces: TYEPlace[], coordinates: TCoordinates): TYERestaurant[]
+  transformMenuItems(yeMenuItems: TYEMenuItem[], restaurant: TYERestaurant): TMenuItem[]
+}
+```
+
+**YEDataCollectionService** - Планировщик обновления данных
+```typescript
+interface TYEDataCollectionService {
   startCollection(): Promise<void>
-  updateRestaurantData(): Promise<void>
+  stopCollection(): void
+  updateRestaurantData(city?: EAvailableCities): Promise<void>
+  updateMenuData(restaurantId: string, city: EAvailableCities): Promise<void>
   scheduleUpdates(): void
-  getCachedData(key: string): Promise<any>
-  setCachedData(key: string, data: any, ttl: number): Promise<void>
+  getCollectionStats(): TCollectionStats
+}
+
+interface TCollectionStats {
+  lastUpdateTime: Date | null
+  totalRestaurants: number
+  totalMenuItems: number
+  updateFrequency: string
+  isRunning: boolean
+  errors: number
+}
+```
+
+**CacheService** - Универсальный кэш с TTL и LRU
+```typescript
+interface TCacheService {
+  get<T>(key: string): T | null
+  set<T>(key: string, value: T, ttlSeconds?: number): void
+  delete(key: string): void
+  clear(): void
+  has(key: string): boolean
+  getStats(): TCacheStats
+}
+
+interface TCacheStats {
+  totalKeys: number
+  memoryUsage: number // bytes
+  hitRate: number // 0-1
+  missRate: number // 0-1
 }
 ```
 
@@ -275,14 +327,14 @@ interface TBotConfig {
   database: TDatabaseConfig
   cache: TCacheConfig
   yandexEda: TYandexEdaConfig
+  sanitizer: TSanitizerConfig
+  availableCities: EAvailableCities[]
 }
 
 interface TDatabaseConfig {
-  host: string
-  port: number
-  database: string
-  username: string
-  password: string
+  path: string // SQLite file path
+  maxConnections: number
+  busyTimeout: number
 }
 
 interface TCacheConfig {
@@ -300,6 +352,11 @@ interface TYandexEdaConfig {
     requestsPerHour: number
   }
 }
+
+interface TSanitizerConfig {
+  maxLength: number
+  minLength: number
+}
 ```
 
 ## Error Handling
@@ -308,22 +365,31 @@ interface TYandexEdaConfig {
 
 ```typescript
 enum TErrorType {
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
   API_ERROR = 'API_ERROR',
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  LLM_ERROR = 'LLM_ERROR',
+  CACHE_ERROR = 'CACHE_ERROR',
+  CITY_NOT_SUPPORTED = 'CITY_NOT_SUPPORTED',
+  DATA_COLLECTION_ERROR = 'DATA_COLLECTION_ERROR',
   DATABASE_ERROR = 'DATABASE_ERROR',
+  LLM_ERROR = 'LLM_ERROR',
+  NETWORK_ERROR = 'NETWORK_ERROR',
   RATE_LIMIT_ERROR = 'RATE_LIMIT_ERROR',
+  SYSTEM_ERROR = 'SYSTEM_ERROR',
   USER_NOT_FOUND = 'USER_NOT_FOUND',
-  CITY_NOT_SUPPORTED = 'CITY_NOT_SUPPORTED'
+  VALIDATION_ERROR = 'VALIDATION_ERROR',
 }
 
 interface TAppError extends Error {
   type: TErrorType
   code: string
-  details?: any
+  details?: unknown
   isUserFacing: boolean
 }
+
+// Реализованы статические фабричные методы:
+// AppError.validationError(), .apiError(), .networkError()
+// AppError.llmError(), .databaseError(), .rateLimitError()
+// AppError.systemError(), .userNotFound(), .cityNotSupported()
+// AppError.cacheError(), .dataCollectionError()
 ```
 
 ### Error Handling Strategy
@@ -348,23 +414,58 @@ interface TErrorHandler {
 
 ### Caching Strategy
 
-1. **User Data Cache** - Кэширование профилей пользователей (TTL: 1 час)
-2. **Restaurant Data Cache** - Кэширование данных ресторанов (TTL: 1 час)
-3. **Search Results Cache** - Кэширование результатов поиска (TTL: 15 минут)
-4. **LLM Response Cache** - Кэширование ответов LLM для похожих запросов (TTL: 24 часа)
+Реализован многоуровневый кэш с автоматической очисткой:
+
+1. **CacheService** - Универсальный кэш с вариантами in-memory или Redis
+   - LRU eviction при превышении maxSize
+   - TTL с автоматической очисткой каждые 5 минут
+   - Статистика hit/miss rate и memory usage
+
+2. **Restaurant Data Cache** - TTL: 1 час (3600 сек)
+   - Ключ: `restaurants:{city}:{coordinates}`
+   - Автообновление каждые 40 минут
+
+3. **Menu Data Cache** - TTL: 30 минут (1800 сек)  
+   - Ключ: `menu:{restaurantId}:{city}:{coordinates}`
+   - Ленивая загрузка при запросе
+
+4. **Search Results Cache** - TTL: 15 минут (900 сек)
+   - Ключ: `search:{city}:{coordinates}:{normalizedQuery}`
+   - Стабильные ключи с нормализацией порядка параметров
+
+5. **Cache Invalidation**
+   - Автоматическая очистка просроченных записей
+   - Ручная инвалидация по паттернам
+   - Graceful degradation при ошибках кэша
+
+**LLM Response Cache** - Кэширование ответов LLM для похожих запросов (TTL: 24 часа)
 
 ### Rate Limiting
 
+Реализован в YEService с использованием sliding window:
+
 ```typescript
-interface TRateLimiter {
-  checkUserLimit(userId: number, action: string): Promise<boolean>
-  checkAPILimit(service: string): Promise<boolean>
-  incrementCounter(key: string): Promise<void>
+interface TYERateLimitState {
+  requests: number[]
+  lastReset: number
 }
 
+interface TYEApiConfig {
+  rateLimits: {
+    requestsPerMinute: number
+    requestsPerHour: number
+    windowSizeMs: number
+  }
+  timeout: number
+  retries: number
+}
+
+// Лимиты (из botConfig):
+// - Яндекс.Еда API: настраивается в конфигурации
+// - Автоматические повторы с exponential backoff
+// - Проверка лимитов перед каждым запросом
+
 // Лимиты:
-// - Пользователи: 10 запросов в минуту
-// - Яндекс.Еда API: 100 запросов в минуту
 // - LLM API: 50 запросов в минуту
 ```
 
@@ -372,27 +473,61 @@ interface TRateLimiter {
 
 ### Yandex.Eda Integration
 
-Основано на существующих research файлах:
+Реализованная архитектура состоит из трёх слоёв:
 
+#### 1. YEService - Базовый API клиент
 ```typescript
-class YandexEdaClient {
-  private baseUrl = 'https://eda.yandex.ru'
-  private headers = {
-    'Content-Type': 'application/json',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'x-app-version': '17.52.4',
-    'x-platform': 'desktop_web'
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-    'x-client-session': 'mei8lrkd-d49t83iglm-2sset7rzpp6-8qnt1cacvd',
-    'x-device-id': 'mei8lrkd-fnbl951fo7-vqvkmfvgb8f-cgrtjueuxx8'
-    'x-taxi': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 platform=eats_desktop_web',
-    'x-ya-client-time': new Date().toISOString(),
-    'x-ya-coordinates': 'latitude=58.010454,longitude=56.229441',
+class YEService {
+  private readonly config: TYEApiConfig
+  private rateLimitState: TYERateLimitState
+
+  async getRestaurants(coordinates: TCoordinates): Promise<TYERestaurant[]>
+  async getRestaurantMenu(placeSlug: string, coordinates: TCoordinates, brandSlug?: string): Promise<TYEMenuItem[]>
+  async searchRestaurants(query: TStructuredQuery, coordinates: TCoordinates): Promise<TYERestaurant[]>
+  checkRateLimit(): boolean
+}
+```
+
+#### 2. YEDataTransformer - Трансформация данных
+```typescript
+class YEDataTransformer {
+  transformPlace(yePlace: TYEPlace, coordinates: TCoordinates): TYERestaurant
+  transformMenuItem(yeMenuItem: TYEMenuItem, restaurant: TRestaurant): TMenuItem
+  
+  // Умное извлечение ингредиентов из разных форматов описаний:
+  // - Точный title "Состав"
+  // - Текст с "Состав:"
+  // - Автоопределение списков ингредиентов по структуре
+  private extractIngredients(yeMenuItem: TYEMenuItem): string[]
+}
+```
+
+#### 3. CachedYEService - Кэширующая обёртка
+```typescript
+class CachedYEService {
+  private cacheTTL = {
+    restaurants: 3600, // 1 час
+    menu: 1800,        // 30 минут  
+    search: 900,       // 15 минут
   }
 
-  async getPlaces(coordinates: TCoordinates): Promise<TRestaurant[]> // Additional Header 'x-retpath-y': 'https://eda.yandex.ru/perm?shippingType=delivery'
-  async getPlaceMenu(placeSlug: string, coordinates: TCoordinates): Promise<TMenuItem[]> // Additional Header 'x-retpath-y': `https://eda.yandex.ru/r/${placeBrandSlug}?placeSlug=${placeSlug}`
-  async searchByCategory(category: string, coordinates: TCoordinates): Promise<TMenuItem[]>
+  async getRestaurants(coordinates: TCoordinates, city: EAvailableCities): Promise<TYERestaurant[]>
+  async getRestaurantMenu(placeSlug: string, coordinates: TCoordinates, city: EAvailableCities, brandSlug?: string): Promise<TMenuItem[]>
+  async searchItems(query: TStructuredQuery, coordinates: TCoordinates, city: EAvailableCities): Promise<TMenuItem[]>
+}
+```
+
+#### 4. YEDataCollectionService - Планировщик обновлений
+```typescript
+class YEDataCollectionService {
+  private frequencyMin = {
+    restaurant: 40, // Обновление ресторанов каждые 40 минут
+    cache: 30,      // Очистка кэша каждые 30 минут
+  }
+
+  async startCollection(): Promise<void>
+  stopCollection(): void
+  scheduleUpdates(): void // Использует node-cron
 }
 ```
 
@@ -420,6 +555,8 @@ class LlamaService implements TLLMClient {
 
 ### Database Schema
 
+Реализована SQLite база данных с системой миграций:
+
 ```typescript
 // Users Table
 interface TUserEntity {
@@ -428,18 +565,18 @@ interface TUserEntity {
   city: string
   subscription_type: string
   subscription_expiry: string | null // ISO string
-  created_at: string // ISO string
-  updated_at: string // ISO string
+  created_at: string // ISO string DEFAULT (datetime('now'))
+  updated_at: string // ISO string DEFAULT (datetime('now'))
 }
 
-// Search History Table
+// Search History Table  
 interface TSearchHistoryEntity {
   id: string // UUID PRIMARY KEY
   user_telegram_id: number // FOREIGN KEY
   query: string
   structured_query: string // JSON string
   results_count: number
-  created_at: string // ISO string
+  created_at: string // ISO string DEFAULT (datetime('now'))
 }
 
 // Restaurants Cache Table
@@ -447,9 +584,21 @@ interface TRestaurantCacheEntity {
   id: string // PRIMARY KEY
   name: string
   data: string // JSON string
-  city: EAvailableCities
-  last_updated: string // ISO string
-  is_active: number
+  city: string
+  last_updated: string // ISO string DEFAULT (datetime('now'))
+  is_active: number // INTEGER DEFAULT 1 (SQLite boolean)
+}
+
+// Database Connection Management
+interface TDatabaseConnection {
+  query<T>(sql: string, params?: unknown[]): Promise<T[]>
+  run(sql: string, params?: unknown[]): Promise<{ lastID?: number; changes: number }>
+  close(): Promise<void>
+}
+
+interface TDatabasePool {
+  getConnection(): Promise<TDatabaseConnection>
+  closeAll(): Promise<void>
 }
 ```
 
@@ -462,11 +611,30 @@ interface TRestaurantCacheEntity {
    - SearchService логика
    - LLMService трансформации
    - YandexEdaService API calls
-
+  
 2. **Utility Function Tests**
    - Query parsing
    - Data validation
    - Error handling
+
+**Реализованные тесты:**
+
+1. **User Service Tests** (`src/services/user/__tests__/userService.test.ts`)
+   - Полное покрытие UserService методов
+   - Мокирование UserRepository
+   - Тестирование валидации и error handling
+   - Dependency injection через factory pattern
+
+2. **Data Service Tests**
+   - **YEService** (`yeService.test.ts`) - API calls, rate limiting, retry logic
+   - **YEDataTransformer** (`yeDataTransformer.test.ts`) - трансформация данных, извлечение ингредиентов
+   - **CachedYEService** (`cachedYeService.test.ts`) - кэширование, cache keys, фильтрация
+   - **YEDataCollectionService** (`yeDataCollectionService.test.ts`) - cron задачи, статистика
+
+3. **Utility Function Tests**
+   - Мокирование fetch для API тестов
+   - Использование vi.useFakeTimers() для тестирования TTL
+   - Тестирование error scenarios и edge cases
 
 ### Integration Testing
 
@@ -508,6 +676,9 @@ interface TRestaurantCacheEntity {
 
 ### Input Validation
 
+Реализована модульная система валидации и санитизации:
+
+#### Validation (`src/utils/validation.ts`)
 ```typescript
 interface TValidator {
   // Input validation (from user)
@@ -525,7 +696,30 @@ interface TValidator {
 interface TValidationResult {
   isValid: boolean
   errors: string[]
-  sanitizedInput?: any
+  sanitizedInput?: unknown
+}
+```
+
+#### Sanitizer (`src/utils/sanitizer.ts`)
+```typescript
+interface TSanitizer {
+  sanitizeSearchQuery(query: string): string
+  sanitizeCity(city: string): string
+  sanitizeRestaurantName(name: string): string
+  removeHarmfulContent(text: string): string
+  normalizeWhitespace(text: string): string
+}
+```
+
+#### City Validator (`src/utils/cityValidator.ts`)
+```typescript
+interface TCityValidator {
+  isSupported(city: string): boolean
+  getCityCoordinates(city: EAvailableCities): TCoordinates | null
+  normalizeCityName(city: string): string
+  getSupportedCities(): EAvailableCities[]
+  isInDeliveryZone(coordinates: TCoordinates, city: EAvailableCities): boolean
+  calculateDistance(coord1: TCoordinates, coord2: TCoordinates): number
 }
 ```
 
@@ -633,15 +827,27 @@ src/
 ├── services/
 │   ├── user/
 │   │   ├── userService.ts
-│   │   └── userRepository.ts
+│   │   ├── userRepository.ts
+│   │   ├── userServiceFactory.ts
+│   │   └── __tests__/
+│   │       └── userService.test.ts
 │   ├── search/
 │   │   ├── searchService.ts
 │   │   ├── llmService.ts
 │   │   └── queryProcessor.ts
 │   ├── data/
-│   │   ├── yandexEdaService.ts
-│   │   ├── dataCollectionService.ts
-│   │   └── cacheService.ts
+│   │   ├── cache/
+│   │   │   └── cacheService.ts
+│   │   └── yandexEda/
+│   │       ├── yeService.ts
+│   │       ├── yeDataTransformer.ts
+│   │       ├── cachedYEService.ts
+│   │       ├── yeDataCollectionService.ts
+│   │       └── __tests__/
+│   │           ├── yeService.test.ts
+│   │           ├── yeDataTransformer.test.ts
+│   │           ├── cachedYeService.test.ts
+│   │           └── yeDataCollectionService.test.ts
 │   ├── geo/
 │   │   └── geolocationService.ts
 │   └── message/
@@ -650,14 +856,21 @@ src/
 │   ├── user.ts
 │   ├── restaurant.ts
 │   ├── menuItem.ts
-│   └── searchResult.ts
+│   ├── search.ts
+│   ├── telegram.ts
+│   └── yandexEda.ts
 ├── utils/
 │   ├── validation.ts
+│   ├── sanitizer.ts
+│   ├── cityValidator.ts
+│   ├── errors.ts
 │   ├── logger.ts
 │   ├── metrics.ts
+│   ├── database.ts
 │   └── healthChecker.ts
 ├── config/
 │   ├── database.ts
+│   ├── migrations.ts
 │   ├── bot.ts
 │   └── environment.ts
 └── index.ts
@@ -667,10 +880,25 @@ src/
 
 ### Yandex.Eda API Flow
 
-1. **Get Places** - Получение списка ресторанов по координатам
-2. **Get Menu** - Получение меню конкретного ресторана
-3. **Filter & Transform** - Фильтрация и преобразование данных
-4. **Cache Results** - Кэширование для ускорения
+1. **YEService Layer**:
+   - Прямые API вызовы с rate limiting
+   - Retry логика с exponential backoff
+   - Обработка ошибок и таймаутов
+
+2. **Data Transformation**:
+   - YEDataTransformer преобразует TYERestaurantResponsed → TYERestaurant
+   - TYEMenuItem → TMenuItem с умным извлечением ингредиентов
+   - Обработка разных форматов описаний состава
+
+3. **Caching Layer**:
+   - CachedYEService добавляет кэширование поверх YEService
+   - Разные TTL для разных типов данных
+   - Автоматическая инвалидация просроченных записей
+
+4. **Data Collection**:
+   - YEDataCollectionService планирует обновления через cron
+   - Первоначальная загрузка при старте
+   - Статистика и мониторинг процесса сбора
 
 ### LLM Processing Flow
 
