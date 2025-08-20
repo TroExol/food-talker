@@ -8,9 +8,9 @@ import { ESubscriptionType } from '@/models/user';
 import { createDatabaseConnection } from '@/config/database';
 import { EAvailableCities } from '@/config/bot';
 
-import { type TUserRepository, UserRepository } from './userRepository';
+import { UserRepository } from './userRepository';
 
-export interface TUserService {
+interface TUserService {
   createUser(telegramId: number, chatId: number): Promise<TUser>;
   getUser(telegramId: number): Promise<TUser | null>;
   updateUserCity(telegramId: number, city: EAvailableCities): Promise<TUser>;
@@ -28,9 +28,9 @@ export interface TUserService {
 }
 
 export class UserService implements TUserService {
-  private userRepository: TUserRepository;
+  private userRepository: UserRepository;
 
-  constructor(userRepository?: TUserRepository) {
+  constructor(userRepository?: UserRepository) {
     if (userRepository) {
       this.userRepository = userRepository;
     } else {
@@ -39,7 +39,7 @@ export class UserService implements TUserService {
     }
   }
 
-  static create = async (userRepository?: TUserRepository): Promise<UserService> => {
+  static create = async (userRepository?: UserRepository): Promise<UserService> => {
     if (userRepository) {
       return new UserService(userRepository);
     }

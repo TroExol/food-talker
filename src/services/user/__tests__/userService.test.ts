@@ -13,12 +13,12 @@ import { AppError } from '@/utils/errors';
 import { ESubscriptionType } from '@/models/user';
 import { EAvailableCities } from '@/config/bot';
 
-import type { TUserRepository } from '../userRepository';
+import type { UserRepository } from '../userRepository';
 
 import { UserService } from '../userService';
 
 // Mock UserRepository
-const mockUserRepository: TUserRepository = {
+const mockUserRepository = {
   create: vi.fn(),
   findByTelegramId: vi.fn(),
   update: vi.fn(),
@@ -27,7 +27,7 @@ const mockUserRepository: TUserRepository = {
   addSearchHistory: vi.fn(),
   getSearchHistory: vi.fn(),
   clearSearchHistory: vi.fn(),
-};
+} as unknown as UserRepository;
 
 describe('UserService', () => {
   let userService: UserService;

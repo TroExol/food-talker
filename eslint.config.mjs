@@ -10,7 +10,10 @@ import js from '@eslint/js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ignoreFiles = [];
+const ignoreFiles = [
+  'src/test/**/*',
+  'src/research/**/*',
+];
 
 export default tseslint.config(
   {

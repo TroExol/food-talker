@@ -8,7 +8,7 @@ nohup.out
 *.log
 .husky/_
 logs/
-test/
+src/test/
 test.js
 test.ts
 test.json

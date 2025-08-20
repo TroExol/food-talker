@@ -7,7 +7,7 @@ import { botConfig } from '../config/bot';
  * Специализированная валидация городов и координат
  */
 
-export interface TCityValidator {
+interface TCityValidator {
   isSupported(city: EAvailableCities): boolean;
   getCityCoordinates(city: EAvailableCities): TCoordinates | null;
   normalizeCityName(city: EAvailableCities): EAvailableCities;

@@ -2,7 +2,9 @@ import { botConfig } from '@/config/bot';
 
 export enum TErrorType {
   API_ERROR = 'API_ERROR',
+  CACHE_ERROR = 'CACHE_ERROR',
   CITY_NOT_SUPPORTED = 'CITY_NOT_SUPPORTED',
+  DATA_COLLECTION_ERROR = 'DATA_COLLECTION_ERROR',
   DATABASE_ERROR = 'DATABASE_ERROR',
   LLM_ERROR = 'LLM_ERROR',
   NETWORK_ERROR = 'NETWORK_ERROR',
@@ -12,7 +14,7 @@ export enum TErrorType {
   VALIDATION_ERROR = 'VALIDATION_ERROR',
 }
 
-export interface TAppError extends Error {
+interface TAppError extends Error {
   type: TErrorType;
   code: string;
   details?: unknown;
@@ -86,5 +88,13 @@ export class AppError extends Error implements TAppError {
       true,
       { city },
     );
+  }
+
+  static cacheError(message: string, details?: unknown): AppError {
+    return new AppError(TErrorType.CACHE_ERROR, 'CACHE_FAILED', message, false, details);
+  }
+
+  static dataCollectionError(message: string, details?: unknown): AppError {
+    return new AppError(TErrorType.DATA_COLLECTION_ERROR, 'DATA_COLLECTION_FAILED', message, false, details);
   }
 }

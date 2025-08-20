@@ -12,7 +12,7 @@ import type { TDatabaseConnection } from '@/config/database';
 import { logger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
 
-export interface TUserRepository {
+interface TUserRepository {
   create: (userData: Omit<TUser, 'createdAt' | 'updatedAt'>) => Promise<TUser>;
   findByTelegramId: (telegramId: number) => Promise<TUser | null>;
   update: (telegramId: number, updates: Partial<Pick<TUser, 'city' | 'subscription' | 'subscriptionExpiry'>>) => Promise<TUser>;

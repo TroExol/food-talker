@@ -1,5 +1,7 @@
 // Yandex.Eda API Response Types
 
+import type { TRestaurant } from './restaurant';
+
 export interface TYECoordinates {
   latitude: number;
   longitude: number;
@@ -65,7 +67,7 @@ export interface TYELeftMeta {
   };
 }
 
-export interface TYEPlace {
+export interface TYERestaurantResponsed {
   name: TYEText;
   slug: string;
   brand: TYEBrand;
@@ -76,11 +78,11 @@ export interface TYEPlace {
   chips?: TYEChip[];
 }
 
-export interface TYEPlacesResponse {
+export interface TYERestaurantsResponse {
   data: {
     places_v2_lists: Array<{
       payload: {
-        places: TYEPlace[];
+        places: TYERestaurantResponsed[];
       };
     }>;
   };
@@ -180,6 +182,12 @@ export interface TYEMenuResponse {
     categories: TYECategory[];
   };
 }
+
+export type TYERestaurant = {
+  additionalInfo: {
+    brandSlug: string;
+  };
+} & TRestaurant;
 
 // Rate Limiting Types
 export interface TYERateLimitConfig {

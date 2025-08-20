@@ -3,9 +3,9 @@ import type {
   TYECoordinates,
   TYEMenuItem,
   TYEMenuResponse,
-  TYEPlace,
-  TYEPlacesResponse,
   TYERateLimitState,
+  TYERestaurantResponsed,
+  TYERestaurantsResponse,
 } from '@/models/yandexEda';
 import type { TStructuredQuery } from '@/models/search';
 import type { TCoordinates } from '@/models/restaurant';
@@ -14,10 +14,10 @@ import { logger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
 import { botConfig } from '@/config/bot';
 
-export interface TYEService {
-  getPlaces: (coordinates: TCoordinates) => Promise<TYEPlace[]>;
-  getPlaceMenu: (placeSlug: string, coordinates: TCoordinates, brandSlug?: string) => Promise<TYEMenuItem[]>;
-  searchPlaces: (query: TStructuredQuery, coordinates: TCoordinates) => Promise<TYEPlace[]>;
+interface TYEService {
+  getRestaurants: (coordinates: TCoordinates) => Promise<TYERestaurantResponsed[]>;
+  getRestaurantMenu: (placeSlug: string, coordinates: TCoordinates, brandSlug?: string) => Promise<TYEMenuItem[]>;
+  searchRestaurants: (query: TStructuredQuery, coordinates: TCoordinates) => Promise<TYERestaurantResponsed[]>;
   checkRateLimit: () => boolean;
 }
 
@@ -48,7 +48,7 @@ export class YEService implements TYEService {
     };
   }
 
-  public getPlaces = async (coordinates: TCoordinates): Promise<TYEPlace[]> => {
+  public getRestaurants = async (coordinates: TCoordinates): Promise<TYERestaurantResponsed[]> => {
     this.enforceRateLimit();
 
     try {
@@ -64,7 +64,7 @@ export class YEService implements TYEService {
         'x-ya-coordinates': `latitude=${coordinates.latitude},longitude=${coordinates.longitude}`,
       };
 
-      const response = await this.makeRequest<TYEPlacesResponse>(
+      const response = await this.makeRequest<TYERestaurantsResponse>(
         '/eats/v1/layout-constructor/v1/layout',
         {
           method: 'POST',
@@ -75,19 +75,19 @@ export class YEService implements TYEService {
 
       const places = response.data?.places_v2_lists?.[0]?.payload?.places || [];
 
-      logger.info('Получены места из Yandex.Eda', {
+      logger.info('Получены места из Яндекс.Еда', {
         count: places.length,
         coordinates,
       });
 
       return places;
     } catch (error) {
-      logger.error('Ошибка получения мест из Yandex.Eda', error as Error, { coordinates });
-      throw AppError.apiError('YANDEX_EDA_PLACES_FAILED', 'Не удалось получить список ресторанов');
+      logger.error('Ошибка получения мест из Яндекс.Еда', error as Error, { coordinates });
+      throw AppError.apiError('YANDEX_EDA_PLACES_FAILED', 'Не удалось получить список ресторанов Яндекс.Еда');
     }
   };
 
-  public getPlaceMenu = async (
+  public getRestaurantMenu = async (
     placeSlug: string,
     coordinates: TCoordinates,
     brandSlug?: string,
@@ -111,22 +111,25 @@ export class YEService implements TYEService {
         headers,
       });
 
-      logger.info('Получено меню ресторана из Yandex.Eda', {
+      logger.info('Получено меню ресторана из Яндекс.Еда', {
         placeSlug,
         categoriesCount: response.payload?.categories?.length || 0,
       });
 
       return response.payload.categories.flatMap(category => category.items);
     } catch (error) {
-      logger.error('Ошибка получения меню из Yandex.Eda', error as Error, { placeSlug });
-      throw AppError.apiError('YANDEX_EDA_MENU_FAILED', 'Не удалось получить меню ресторана');
+      logger.error('Ошибка получения меню из Яндекс.Еда', error as Error, { placeSlug });
+      throw AppError.apiError('YANDEX_EDA_MENU_FAILED', 'Не удалось получить меню ресторана Яндекс.Еда');
     }
   };
 
-  public searchPlaces = async (query: TStructuredQuery, coordinates: TCoordinates): Promise<TYEPlace[]> => {
+  public searchRestaurants = async (
+    query: TStructuredQuery,
+    coordinates: TCoordinates,
+  ): Promise<TYERestaurantResponsed[]> => {
     // Для поиска используем общий метод получения мест
     // В будущем можно добавить специфичные фильтры на основе query
-    const places = await this.getPlaces(coordinates);
+    const places = await this.getRestaurants(coordinates);
 
     // Простая фильтрация по названиям ресторанов если указаны
     if (query.restaurants && query.restaurants.length > 0) {
@@ -166,8 +169,8 @@ export class YEService implements TYEService {
 
     if (!canMakeRequest) {
       const waitTime = this.config.rateLimits.windowSizeMs;
-      logger.warn('Rate limit достигнут для Yandex.Eda API', { waitTime });
-      throw AppError.rateLimitError('YANDEX_EDA_RATE_LIMIT', 'Превышен лимит запросов к Yandex.Eda API');
+      logger.warn('Rate limit достигнут для Яндекс.Еда API', { waitTime });
+      throw AppError.rateLimitError('YANDEX_EDA_RATE_LIMIT', 'Превышен лимит запросов к Яндекс.Еда API');
     }
 
     // Записываем текущий запрос
@@ -196,7 +199,7 @@ export class YEService implements TYEService {
 
         const data = await response.json() as T;
 
-        logger.debug('Yandex.Eda API запрос выполнен', {
+        logger.debug('Яндекс.Еда API запрос выполнен', {
           endpoint,
           attempt,
           status: response.status,
@@ -212,7 +215,7 @@ export class YEService implements TYEService {
 
         // Экспоненциальная задержка между попытками
         const delay = Math.pow(2, attempt) * 1000;
-        logger.warn(`Yandex.Eda API запрос неудачен, повтор через ${delay}ms`, {
+        logger.warn(`Яндекс.Еда API запрос неудачен, повтор через ${delay}ms`, {
           endpoint,
           attempt,
           error: lastError.message,
@@ -222,7 +225,7 @@ export class YEService implements TYEService {
       }
     }
 
-    logger.error('Yandex.Eda API запрос окончательно неудачен', lastError!, { endpoint });
+    logger.error('Яндекс.Еда API запрос окончательно неудачен', lastError!, { endpoint });
     throw AppError.networkError('YANDEX_EDA_REQUEST_FAILED', `Не удалось выполнить запрос: ${lastError?.message}`);
   };
 }

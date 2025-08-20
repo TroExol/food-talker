@@ -3,7 +3,7 @@ import { botConfig, type EAvailableCities } from '@/config/bot';
 
 import { type Sanitizer, sanitizer as sanitizerInstance } from './sanitizer';
 
-export interface TValidationResult {
+interface TValidationResult {
   isValid: boolean;
   errors: string[];
   sanitizedInput?: unknown;

@@ -4,21 +4,27 @@ import {
   it,
 } from 'vitest';
 
-import type { TYEMenuItem, TYEPlace } from '@/models/yandexEda';
-import type { TRestaurant } from '@/models/restaurant';
+import type {
+  TYEMenuItem,
+  TYERestaurant,
+  TYERestaurantResponsed,
+} from '@/models/yandexEda';
 
 import { YEDataTransformer } from '../yeDataTransformer';
 
 describe('DataTransformer', () => {
   const transformer = new YEDataTransformer();
 
-  const mockRestaurant: TRestaurant = {
+  const mockRestaurant: TYERestaurant = {
     id: 'test-restaurant',
     name: 'Тест Ресторан',
     coordinates: { latitude: 0, longitude: 0 },
     workingHours: { open: '00:00', close: '23:59', isOpen: true },
     isActive: true,
     lastUpdated: new Date(),
+    additionalInfo: {
+      brandSlug: 'test-brand',
+    },
   };
 
   describe('extractIngredients', () => {
@@ -82,7 +88,7 @@ describe('DataTransformer', () => {
 
       const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
-      expect(result.ingredients).toContain('Рис');
+      expect(result.ingredients).toContain('рис');
       expect(result.ingredients).toContain('сыр сливочный');
       expect(result.ingredients).toContain('крабовое мясо');
       expect(result.ingredients.length).toBeGreaterThan(10);
@@ -189,8 +195,8 @@ describe('DataTransformer', () => {
       expect(result.ingredients).toContain('рис');
       expect(result.ingredients).toContain('лосось');
       expect(result.ingredients).toContain('авокадо');
-      expect(result.ingredients).toContain('Калифорния');
-      expect(result.ingredients).toContain('Лава темпура');
+      expect(result.ingredients).toContain('калифорния');
+      expect(result.ingredients).toContain('лава темпура');
     });
 
     it('должен вернуть пустой массив если нет descriptions', () => {
@@ -217,7 +223,7 @@ describe('DataTransformer', () => {
 
   describe('transformPlace', () => {
     it('должен трансформировать YE место в Restaurant', () => {
-      const yePlace: TYEPlace = {
+      const yePlace: TYERestaurantResponsed = {
         name: { value: 'Тест Ресторан', color: { light: '#000', dark: '#fff' } },
         slug: 'test-restaurant',
         brand: { slug: 'test-brand', name: 'Тест Бренд', business: 'restaurant' },
@@ -249,7 +255,7 @@ describe('DataTransformer', () => {
       };
 
       const coordinates = { latitude: 58.01, longitude: 56.23 };
-      const result = transformer.transformPlace(yePlace, coordinates);
+      const result = transformer.transformRestaurant(yePlace, coordinates);
 
       expect(result).toEqual({
         id: 'test-restaurant',

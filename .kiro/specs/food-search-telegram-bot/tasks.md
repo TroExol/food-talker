@@ -32,15 +32,15 @@
     - Write unit tests for user management functionality
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 4. Implement Yandex.Eda API integration
+- [x] 4. Implement Yandex.Eda API integration
   - [x] 4.1 Create YandexEdaService based on research data
     - Implement getPlaces method using existing API patterns
     - Implement getPlaceMenu method with proper headers
     - Add rate limiting and error handling for API calls
     - _Requirements: 7.1, 7.2, 7.5_
 
-  - [ ] 4.2 Add data transformation and caching
-    - [x] Transform Yandex.Eda responses to internal data models
+  - [x] 4.2 Add data transformation and caching
+    - Transform Yandex.Eda responses to internal data models
     - Implement caching layer for restaurant and menu data
     - Create data collection service for periodic updates
     - _Requirements: 7.3, 7.4, 9.1_

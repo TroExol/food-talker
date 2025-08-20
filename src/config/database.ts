@@ -12,7 +12,7 @@ export interface TDatabaseConnection {
   close(): Promise<void>;
 }
 
-export interface TDatabasePool {
+interface TDatabasePool {
   getConnection(): Promise<TDatabaseConnection>;
   closeAll(): Promise<void>;
   getActiveConnections(): number;

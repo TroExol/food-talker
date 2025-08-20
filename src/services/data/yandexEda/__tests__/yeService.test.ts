@@ -9,8 +9,8 @@ import {
 
 import type {
   TYEMenuResponse,
-  TYEPlace,
-  TYEPlacesResponse,
+  TYERestaurantResponsed,
+  TYERestaurantsResponse,
 } from '@/models/yandexEda';
 import type { TStructuredQuery } from '@/models/search';
 import type { TCoordinates } from '@/models/restaurant';
@@ -35,7 +35,7 @@ describe('YandexEdaService', () => {
   });
 
   describe('getPlaces', () => {
-    const mockPlace: TYEPlace = {
+    const mockPlace: TYERestaurantResponsed = {
       name: { value: 'Тест Ресторан', color: { light: '#000', dark: '#fff' } },
       slug: 'test-restaurant',
       brand: { slug: 'test-brand', name: 'Тест Бренд', business: 'restaurant' },
@@ -47,7 +47,7 @@ describe('YandexEdaService', () => {
       },
     };
 
-    const mockResponse: TYEPlacesResponse = {
+    const mockResponse: TYERestaurantsResponse = {
       data: {
         places_v2_lists: [
           {
@@ -65,7 +65,7 @@ describe('YandexEdaService', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await service.getPlaces(mockCoordinates);
+      const result = await service.getRestaurants(mockCoordinates);
 
       expect(result).toEqual([mockPlace]);
       expect(mockFetch).toHaveBeenCalledWith(
@@ -87,7 +87,7 @@ describe('YandexEdaService', () => {
         json: () => Promise.resolve({ data: {} }),
       });
 
-      const result = await service.getPlaces(mockCoordinates);
+      const result = await service.getRestaurants(mockCoordinates);
 
       expect(result).toEqual([]);
     });
@@ -102,7 +102,7 @@ describe('YandexEdaService', () => {
         retries: 0,
       });
 
-      await expect(service.getPlaces(mockCoordinates)).rejects.toThrow(AppError);
+      await expect(service.getRestaurants(mockCoordinates)).rejects.toThrow(AppError);
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
@@ -115,7 +115,7 @@ describe('YandexEdaService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-      const sendingRequest = service.getPlaces(mockCoordinates);
+      const sendingRequest = service.getRestaurants(mockCoordinates);
       await vitest.advanceTimersToNextTimerAsync();
       await vitest.advanceTimersToNextTimerAsync();
       await vitest.advanceTimersToNextTimerAsync();
@@ -163,7 +163,7 @@ describe('YandexEdaService', () => {
         json: () => Promise.resolve(mockMenuResponse),
       });
 
-      const result = await service.getPlaceMenu('test-place', mockCoordinates, 'test-brand');
+      const result = await service.getRestaurantMenu('test-place', mockCoordinates, 'test-brand');
 
       expect(result).toEqual(mockMenuResponse.payload.categories.flatMap(category => category.items));
       expect(mockFetch).toHaveBeenCalledWith(
@@ -183,7 +183,7 @@ describe('YandexEdaService', () => {
         json: () => Promise.resolve(mockMenuResponse),
       });
 
-      await service.getPlaceMenu('test-place', mockCoordinates);
+      await service.getRestaurantMenu('test-place', mockCoordinates);
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/v2/menu/retrieve/test-place'),
@@ -206,18 +206,18 @@ describe('YandexEdaService', () => {
         statusText: 'Not Found',
       });
 
-      await expect(service.getPlaceMenu('test-place', mockCoordinates)).rejects.toThrow(AppError);
+      await expect(service.getRestaurantMenu('test-place', mockCoordinates)).rejects.toThrow(AppError);
     });
   });
 
   describe('searchItems', () => {
-    const mockPlace: TYEPlace = {
+    const mockPlace: TYERestaurantResponsed = {
       name: { value: 'Додо Пицца', color: { light: '#000', dark: '#fff' } },
       slug: 'dodo-pizza',
       brand: { slug: 'dodo', name: 'Додо', business: 'restaurant' },
     };
 
-    const mockResponse: TYEPlacesResponse = {
+    const mockResponse: TYERestaurantsResponse = {
       data: {
         places_v2_lists: [
           {
@@ -239,7 +239,7 @@ describe('YandexEdaService', () => {
         restaurants: ['Додо'],
       };
 
-      const result = await service.searchPlaces(query, mockCoordinates);
+      const result = await service.searchRestaurants(query, mockCoordinates);
 
       expect(result).toEqual([mockPlace]);
     });
@@ -252,7 +252,7 @@ describe('YandexEdaService', () => {
 
       const query: TStructuredQuery = {};
 
-      const result = await service.searchPlaces(query, mockCoordinates);
+      const result = await service.searchRestaurants(query, mockCoordinates);
 
       expect(result).toEqual([mockPlace]);
     });
@@ -267,7 +267,7 @@ describe('YandexEdaService', () => {
         restaurants: ['Несуществующий ресторан'],
       };
 
-      const result = await service.searchPlaces(query, mockCoordinates);
+      const result = await service.searchRestaurants(query, mockCoordinates);
 
       expect(result).toEqual([]);
     });
@@ -315,10 +315,10 @@ describe('YandexEdaService', () => {
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
       });
 
-      await service.getPlaces(mockCoordinates);
+      await service.getRestaurants(mockCoordinates);
 
       // Второй запрос должен быть заблокирован
-      await expect(service.getPlaces(mockCoordinates)).rejects.toThrow(
+      await expect(service.getRestaurants(mockCoordinates)).rejects.toThrow(
         expect.objectContaining({
           code: 'RATE_LIMIT_EXCEEDED',
         }) as AppError,

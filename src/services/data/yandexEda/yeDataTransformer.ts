@@ -1,20 +1,24 @@
-import type { TYEMenuItem, TYEPlace } from '@/models/yandexEda';
-import type { TCoordinates, TRestaurant } from '@/models/restaurant';
+import type {
+  TYEMenuItem,
+  TYERestaurant,
+  TYERestaurantResponsed,
+} from '@/models/yandexEda';
+import type { TCoordinates } from '@/models/restaurant';
 import type { TMenuItem } from '@/models/menuItem';
 
 import { logger } from '@/utils/logger';
 
-export interface TYEDataTransformer {
-  transformPlace: (yePlace: TYEPlace, coordinates: TCoordinates) => TRestaurant;
-  transformMenuItem: (yeMenuItem: TYEMenuItem, restaurant: TRestaurant) => TMenuItem;
-  transformPlaces: (yePlaces: TYEPlace[], coordinates: TCoordinates) => TRestaurant[];
-  transformMenuItems: (yeMenuItems: TYEMenuItem[], restaurant: TRestaurant) => TMenuItem[];
+interface TYEDataTransformer {
+  transformRestaurant: (yePlace: TYERestaurantResponsed, coordinates: TCoordinates) => TYERestaurant;
+  transformMenuItem: (yeMenuItem: TYEMenuItem, restaurant: TYERestaurant) => TMenuItem;
+  transformRestaurants: (yePlaces: TYERestaurantResponsed[], coordinates: TCoordinates) => TYERestaurant[];
+  transformMenuItems: (yeMenuItems: TYEMenuItem[], restaurant: TYERestaurant) => TMenuItem[];
 }
 
 export class YEDataTransformer implements TYEDataTransformer {
-  public transformPlace = (yePlace: TYEPlace, coordinates: TCoordinates): TRestaurant => {
+  public transformRestaurant = (yePlace: TYERestaurantResponsed, coordinates: TCoordinates): TYERestaurant => {
     try {
-      const restaurant: TRestaurant = {
+      const restaurant: TYERestaurant = {
         id: yePlace.slug,
         name: yePlace.name.value,
         coordinates: {
@@ -36,12 +40,12 @@ export class YEDataTransformer implements TYEDataTransformer {
 
       return restaurant;
     } catch (error) {
-      logger.error('Ошибка трансформации места', error as Error, { placeSlug: yePlace.slug });
-      throw new Error(`Не удалось трансформировать место: ${yePlace.slug}`);
+      logger.error('Ошибка трансформации ресторана Яндекс.Еда', error as Error, { placeSlug: yePlace.slug });
+      throw new Error(`Не удалось трансформировать ресторан Яндекс.Еда: ${yePlace.slug}`);
     }
   };
 
-  public transformMenuItem = (yeMenuItem: TYEMenuItem, restaurant: TRestaurant): TMenuItem => {
+  public transformMenuItem = (yeMenuItem: TYEMenuItem, restaurant: TYERestaurant): TMenuItem => {
     try {
       // Извлекаем ингредиенты из descriptions
       const ingredients = this.extractIngredients(yeMenuItem);
@@ -64,18 +68,18 @@ export class YEDataTransformer implements TYEDataTransformer {
 
       return menuItem;
     } catch (error) {
-      logger.error('Ошибка трансформации элемента меню', error as Error, {
+      logger.error('Ошибка трансформации элемента меню Яндекс.Еда', error as Error, {
         menuItemId: yeMenuItem.id,
         restaurantId: restaurant.id,
       });
-      throw new Error(`Не удалось трансформировать элемент меню: ${yeMenuItem.id}`);
+      throw new Error(`Не удалось трансформировать элемент меню Яндекс.Еда: ${yeMenuItem.id}`);
     }
   };
 
-  public transformPlaces = (yePlaces: TYEPlace[], coordinates: TCoordinates): TRestaurant[] =>
-    yePlaces.map(place => this.transformPlace(place, coordinates));
+  public transformRestaurants = (yePlaces: TYERestaurantResponsed[], coordinates: TCoordinates): TYERestaurant[] =>
+    yePlaces.map(place => this.transformRestaurant(place, coordinates));
 
-  public transformMenuItems = (yeMenuItems: TYEMenuItem[], restaurant: TRestaurant): TMenuItem[] =>
+  public transformMenuItems = (yeMenuItems: TYEMenuItem[], restaurant: TYERestaurant): TMenuItem[] =>
     yeMenuItems.map(item => this.transformMenuItem(item, restaurant));
 
   private extractIngredients = (yeMenuItem: TYEMenuItem): string[] => {
@@ -148,7 +152,7 @@ export class YEDataTransformer implements TYEDataTransformer {
 
           if (!excludePatterns.some(pattern => lowercased.includes(pattern))
                && ingredient.length > 1) {
-            ingredients.push(ingredient);
+            ingredients.push(lowercased);
           }
         });
     }
@@ -156,7 +160,7 @@ export class YEDataTransformer implements TYEDataTransformer {
     return ingredients;
   };
 
-  private extractMinimumOrder = (yePlace: TYEPlace): number | undefined => {
+  private extractMinimumOrder = (yePlace: TYERestaurantResponsed): number | undefined => {
     // Ищем информацию о минимальном заказе в chips
     const minOrderChip = yePlace.chips?.find(chip =>
       chip.payload?.text?.value?.includes('от')

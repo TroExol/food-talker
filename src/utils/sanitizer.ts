@@ -4,7 +4,7 @@
 
 import { botConfig } from '@/config/bot';
 
-export interface TSanitizer {
+interface TSanitizer {
   sanitizeSearchQuery(query: string): string;
   sanitizeCity(city: string): string;
   sanitizeRestaurantName(name: string): string;

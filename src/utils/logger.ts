@@ -1,6 +1,6 @@
 import { environment } from '../config/environment';
 
-export interface TLogger {
+interface TLogger {
   info(message: string, meta?: object): void;
   warn(message: string, meta?: object): void;
   error(message: string, error?: Error, meta?: object): void;
