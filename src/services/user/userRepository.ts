@@ -24,7 +24,7 @@ export interface TUserRepository {
 }
 
 export class UserRepository implements TUserRepository {
-  constructor(private db: TDatabaseConnection) {}
+  constructor(private readonly db: TDatabaseConnection) {}
 
   public create = async (userData: Omit<TUser, 'createdAt' | 'updatedAt'>): Promise<TUser> => {
     try {

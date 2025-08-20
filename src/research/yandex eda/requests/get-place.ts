@@ -1,30 +1,30 @@
-const coordinates = {
-  latitude: 57.97857164606642,
-  longitude: 56.19363649099609,
-};
-const place = {
-  brandSlug: 'tsuru_cmszp',
-  slug: 'tsuru_yaponskij_restoran_lunacharskogo_69',
-};
+// const coordinates = {
+//   latitude: 57.97857164606642,
+//   longitude: 56.19363649099609,
+// };
+// const place = {
+//   brandSlug: 'tsuru_cmszp',
+//   slug: 'tsuru_yaponskij_restoran_lunacharskogo_69',
+// };
 
-fetch(`https://eda.yandex.ru/api/v2/menu/retrieve/${place.slug}?longitude=${coordinates.longitude}&latitude=${coordinates.latitude}&autoTranslate=false`, {
-  headers: {
-    'Content-Type': 'application/json',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-    'x-app-version': '17.52.4',
-    'x-client-session': 'mei8lrkd-d49t83iglm-2sset7rzpp6-8qnt1cacvd',
-    'x-device-id': 'mei8lrkd-fnbl951fo7-vqvkmfvgb8f-cgrtjueuxx8',
-    'x-platform': 'desktop_web',
-    'x-retpath-y': `https://eda.yandex.ru/r/${place.brandSlug}?placeSlug=${place.slug}`,
-    'x-taxi': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 platform=eats_desktop_web',
-    'x-ya-client-time': new Date().toISOString(),
-    'x-ya-coordinates': `latitude=${coordinates.latitude},longitude=${coordinates.longitude}`,
-  },
-})
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  .then(res => res.json() as any)
-  .then(data => console.log(data.payload.categories))
-  .catch(err => console.error(err));
+// fetch(`https://eda.yandex.ru/api/v2/menu/retrieve/${place.slug}?longitude=${coordinates.longitude}&latitude=${coordinates.latitude}&autoTranslate=false`, {
+//   headers: {
+//     'Content-Type': 'application/json',
+//     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+//     'x-app-version': '17.52.4',
+//     'x-client-session': 'mei8lrkd-d49t83iglm-2sset7rzpp6-8qnt1cacvd',
+//     'x-device-id': 'mei8lrkd-fnbl951fo7-vqvkmfvgb8f-cgrtjueuxx8',
+//     'x-platform': 'desktop_web',
+//     'x-retpath-y': `https://eda.yandex.ru/r/${place.brandSlug}?placeSlug=${place.slug}`,
+//     'x-taxi': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 platform=eats_desktop_web',
+//     'x-ya-client-time': new Date().toISOString(),
+//     'x-ya-coordinates': `latitude=${coordinates.latitude},longitude=${coordinates.longitude}`,
+//   },
+// })
+//   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+//   .then(res => res.json() as any)
+//   .then(data => console.log(data.payload.categories))
+//   .catch(err => console.error(err));
 
 /*
 response.payload.categories -

@@ -33,7 +33,6 @@ describe('UserService', () => {
   let userService: UserService;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     userService = new UserService(mockUserRepository);
   });
 

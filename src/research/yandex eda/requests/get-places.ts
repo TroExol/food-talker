@@ -1,29 +1,29 @@
-const coordinates = {
-  latitude: 57.97857164606642,
-  longitude: 56.19363649099609,
-};
+// const coordinates = {
+//   latitude: 57.97857164606642,
+//   longitude: 56.19363649099609,
+// };
 
-fetch('https://eda.yandex.ru/eats/v1/layout-constructor/v1/layout', {
-  method: 'POST',
-  body: JSON.stringify({ location: coordinates }),
-  headers: {
-    'Content-Type': 'application/json',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-    'x-app-version': '17.52.4',
-    'x-client-session': 'mei8lrkd-d49t83iglm-2sset7rzpp6-8qnt1cacvd',
-    'x-device-id': 'mei8lrkd-fnbl951fo7-vqvkmfvgb8f-cgrtjueuxx8',
-    'x-platform': 'desktop_web',
-    'x-retpath-y': 'https://eda.yandex.ru/perm?shippingType=delivery',
-    'x-taxi': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 platform=eats_desktop_web',
-    'x-ya-client-time': new Date().toISOString(),
-    'x-ya-coordinates': `latitude=${coordinates.latitude},longitude=${coordinates.longitude}`,
-  },
-})
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  .then(res => res.json() as any)
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  .then(data => console.log(data.data.places_v2_lists[0].payload.places[0]))
-  .catch(err => console.error(err));
+// fetch('https://eda.yandex.ru/eats/v1/layout-constructor/v1/layout', {
+//   method: 'POST',
+//   body: JSON.stringify({ location: coordinates }),
+//   headers: {
+//     'Content-Type': 'application/json',
+//     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+//     'x-app-version': '17.52.4',
+//     'x-client-session': 'mei8lrkd-d49t83iglm-2sset7rzpp6-8qnt1cacvd',
+//     'x-device-id': 'mei8lrkd-fnbl951fo7-vqvkmfvgb8f-cgrtjueuxx8',
+//     'x-platform': 'desktop_web',
+//     'x-retpath-y': 'https://eda.yandex.ru/perm?shippingType=delivery',
+//     'x-taxi': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 platform=eats_desktop_web',
+//     'x-ya-client-time': new Date().toISOString(),
+//     'x-ya-coordinates': `latitude=${coordinates.latitude},longitude=${coordinates.longitude}`,
+//   },
+// })
+//   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+//   .then(res => res.json() as any)
+//   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+//   .then(data => console.log(data.data.places_v2_lists[0].payload.places[0]))
+//   .catch(err => console.error(err));
 
 /*
 status: 200
