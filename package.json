@@ -22,8 +22,11 @@
   "author": "troexol",
   "license": "ISC",
   "dependencies": {
+    "@types/redis": "^4.0.10",
+    "dotenv": "^17.2.1",
     "lodash": "^4.17.21",
     "node-cron": "^4.2.1",
+    "redis": "^5.8.2",
     "sqlite3": "^5.1.7",
     "telegraf": "^4.16.3",
     "uuid": "^11.1.0"

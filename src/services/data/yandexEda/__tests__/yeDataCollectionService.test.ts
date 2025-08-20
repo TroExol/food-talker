@@ -70,7 +70,7 @@ describe('YEDataCollectionService', () => {
       getRestaurantBySlug: vi.fn().mockResolvedValue(mockRestaurants[0]),
       searchItems: vi.fn().mockResolvedValue(mockMenuItems),
       invalidateCache: vi.fn(),
-      getCacheStats: vi.fn().mockReturnValue({
+      getCacheStats: vi.fn().mockResolvedValue({
         restaurants: 5,
         menus: 25,
         searches: 3,
@@ -151,8 +151,8 @@ describe('YEDataCollectionService', () => {
   });
 
   describe('getCollectionStats', () => {
-    it('должен вернуть статистику сбора данных', () => {
-      const stats = dataCollectionService.getCollectionStats();
+    it('должен вернуть статистику сбора данных', async () => {
+      const stats = await dataCollectionService.getCollectionStats();
 
       expect(stats).toEqual({
         lastUpdateTime: null, // Еще не было обновлений
@@ -174,7 +174,7 @@ describe('YEDataCollectionService', () => {
         // Игнорируем ошибку
       }
 
-      const stats = dataCollectionService.getCollectionStats();
+      const stats = await dataCollectionService.getCollectionStats();
       expect(stats.errors).toBe(1);
     });
   });
@@ -185,7 +185,7 @@ describe('YEDataCollectionService', () => {
       await vi.advanceTimersToNextTimerAsync();
       dataCollectionService.stopCollection();
 
-      const stats = dataCollectionService.getCollectionStats();
+      const stats = await dataCollectionService.getCollectionStats();
       expect(stats.isRunning).toBe(false);
     });
   });

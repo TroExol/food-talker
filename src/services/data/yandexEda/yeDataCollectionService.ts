@@ -13,7 +13,7 @@ interface TYEDataCollectionService {
   updateRestaurantData(city?: EAvailableCities): Promise<void>;
   updateMenuData(restaurantId: string, city: EAvailableCities): Promise<void>;
   scheduleUpdates(): void;
-  getCollectionStats(): TCollectionStats;
+  getCollectionStats(): Promise<TCollectionStats>;
 }
 
 export interface TCollectionStats {
@@ -93,9 +93,9 @@ export class YEDataCollectionService implements TYEDataCollectionService {
       });
 
       // Очистка просроченного кэша каждые 30 минут
-      const cacheCleanupJob = cron.schedule(`*/${this.frequencyMin.cache} * * * *`, () => {
+      const cacheCleanupJob = cron.schedule(`*/${this.frequencyMin.cache} * * * *`, async () => {
         logger.debug('Начало очистки просроченного кэша Яндекс.Еда');
-        this.cleanupExpiredCache();
+        await this.cleanupExpiredCache();
       });
 
       this.cronJobs.push(restaurantUpdateJob, cacheCleanupJob);
@@ -152,10 +152,10 @@ export class YEDataCollectionService implements TYEDataCollectionService {
     }
   };
 
-  public getCollectionStats = (): TCollectionStats => {
+  public getCollectionStats = async (): Promise<TCollectionStats> => {
     try {
       // Используем статистику из CachedYEService
-      const cacheStats = this.cachedYEService.getCacheStats();
+      const cacheStats = await this.cachedYEService.getCacheStats();
 
       return {
         lastUpdateTime: this.lastUpdateTime,
@@ -233,11 +233,11 @@ export class YEDataCollectionService implements TYEDataCollectionService {
     }
   };
 
-  private cleanupExpiredCache = (): void => {
+  private cleanupExpiredCache = async (): Promise<void> => {
     try {
       // CacheService автоматически очищает просроченные записи при доступе
       // Здесь можем добавить дополнительную логику если нужно
-      const stats = this.cachedYEService.getCacheStats();
+      const stats = await this.cachedYEService.getCacheStats();
       logger.debug('Проверка очистки кэша Яндекс.Еда', {
         restaurants: stats.restaurants,
         menus: stats.menus,

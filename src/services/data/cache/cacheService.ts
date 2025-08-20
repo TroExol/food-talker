@@ -2,14 +2,21 @@ import type { TCacheConfig } from '@/config/bot';
 
 import { logger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
+import { botConfig } from '@/config/bot';
+
+import type { TCacheProvider } from './providers/baseCacheProvider';
+
+import { RedisCacheProvider } from './providers/redisCacheProvider';
+import { MemoryCacheProvider } from './providers/memoryCacheProvider';
 
 interface TCacheService {
-  get<T>(key: string): T | null;
-  set<T>(key: string, value: T, ttlSeconds?: number): void;
-  delete(key: string): void;
-  clear(): void;
-  has(key: string): boolean;
-  getStats(): TCacheStats;
+  get<T>(key: string): Promise<T | null>;
+  set<T>(key: string, value: T, ttlSeconds?: number): Promise<void>;
+  delete(key: string): Promise<void>;
+  clear(): Promise<void>;
+  has(key: string): Promise<boolean>;
+  getStats(): Promise<TCacheStats>;
+  close(): Promise<void>;
 }
 
 export interface TCacheStats {
@@ -19,197 +26,112 @@ export interface TCacheStats {
   missRate: number; // 0-1
 }
 
-interface TCacheItem<T> {
-  value: T;
-  expiresAt: number;
-  accessCount: number;
-  lastAccessed: number;
-}
+export type TCacheServiceConfig = { type: 'memory' | 'redis' } & TCacheConfig;
 
 export class CacheService implements TCacheService {
-  private readonly cache = new Map<string, TCacheItem<unknown>>();
-  private readonly config: TCacheConfig;
-  private hits = 0;
-  private misses = 0;
+  private readonly provider: TCacheProvider;
 
-  constructor(config: TCacheConfig) {
-    this.config = config;
-
-    // Запускаем очистку просроченных записей каждые 5 минут
-    setInterval(() => this.cleanupExpired(), 5 * 60 * 1000);
+  constructor(config: TCacheServiceConfig) {
+    this.provider = this.createProvider(config);
   }
 
-  public get = <T>(key: string): T | null => {
+  public get = async <T>(key: string): Promise<T | null> => {
     try {
-      const item = this.cache.get(key);
-
-      if (!item) {
-        this.misses++;
-        logger.debug('Cache не найден', { key });
-        return null;
-      }
-
-      // Проверяем срок действия
-      if (Date.now() > item.expiresAt) {
-        this.cache.delete(key);
-        this.misses++;
-        logger.debug('Кэш просрочен', { key });
-        return null;
-      }
-
-      // Обновляем статистику доступа
-      item.accessCount++;
-      item.lastAccessed = Date.now();
-      this.hits++;
-
-      logger.debug('Кэш найден', { key });
-      return item.value as T;
+      return await this.provider.get<T>(key);
     } catch (error) {
       logger.error('Ошибка получения кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось получить кэш по ключу: ${key}`, error);
     }
   };
 
-  public set = <T>(key: string, value: T, ttlSeconds?: number): void => {
+  public set = async <T>(key: string, value: T, ttlSeconds?: number): Promise<void> => {
     try {
-      const ttl = ttlSeconds ?? this.config.ttl;
-      const expiresAt = Date.now() + (ttl * 1000);
-
-      // Проверяем лимит размера кэша
-      if (this.cache.size >= this.config.maxSize && !this.cache.has(key)) {
-        this.evictLRU();
-      }
-
-      this.cache.set(key, {
-        value,
-        expiresAt,
-        accessCount: 0,
-        lastAccessed: Date.now(),
-      });
-
-      logger.debug('Кэш установлен', { key, ttl });
+      await this.provider.set(key, value, ttlSeconds);
     } catch (error) {
       logger.error('Ошибка установки кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось установить кэш по ключу: ${key}`, error);
     }
   };
 
-  public delete = (key: string): void => {
+  public delete = async (key: string): Promise<void> => {
     try {
-      const deleted = this.cache.delete(key);
-      logger.debug('Кэш удален', { key, deleted });
+      await this.provider.delete(key);
     } catch (error) {
       logger.error('Ошибка удаления кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось удалить кэш по ключу: ${key}`, error);
     }
   };
 
-  public clear = (): void => {
+  public clear = async (): Promise<void> => {
     try {
-      const size = this.cache.size;
-      this.cache.clear();
-      this.hits = 0;
-      this.misses = 0;
-      logger.info('Кэш очищен', { previousSize: size });
+      await this.provider.clear();
     } catch (error) {
       logger.error('Ошибка очистки кэша', error as Error);
       throw AppError.cacheError('Не удалось очистить кэш', error);
     }
   };
 
-  public has = (key: string): boolean => {
+  public has = async (key: string): Promise<boolean> => {
     try {
-      const item = this.cache.get(key);
-      if (!item) return false;
-
-      // Проверяем срок действия
-      if (Date.now() > item.expiresAt) {
-        this.cache.delete(key);
-        return false;
-      }
-
-      return true;
+      return await this.provider.has(key);
     } catch (error) {
       logger.error('Ошибка проверки кэша', error as Error, { key });
       return false;
     }
   };
 
-  public getStats = (): TCacheStats => {
+  public getStats = async (): Promise<TCacheStats> => {
     try {
-      const totalRequests = this.hits + this.misses;
-      const memoryUsage = this.estimateMemoryUsage();
-
-      return {
-        totalKeys: this.cache.size,
-        memoryUsage,
-        hitRate: totalRequests > 0 ? this.hits / totalRequests : 0,
-        missRate: totalRequests > 0 ? this.misses / totalRequests : 0,
-      };
+      return await this.provider.getStats();
     } catch (error) {
       logger.error('Ошибка получения статистики кэша', error as Error);
       throw AppError.cacheError('Не удалось получить статистику кэша', error);
     }
   };
 
-  private cleanupExpired = (): void => {
+  public close = async (): Promise<void> => {
     try {
-      const now = Date.now();
-      let cleanedCount = 0;
-
-      for (const [key, item] of this.cache.entries()) {
-        if (now > item.expiresAt) {
-          this.cache.delete(key);
-          cleanedCount++;
-        }
-      }
-
-      if (cleanedCount > 0) {
-        logger.debug('Очистка кэша завершена', { cleanedCount, remainingKeys: this.cache.size });
-      }
+      await this.provider.close();
+      logger.info('CacheService закрыт');
     } catch (error) {
-      logger.error('Ошибка очистки кэша', error as Error);
+      logger.error('Ошибка закрытия CacheService', error as Error);
+      throw AppError.cacheError('Не удалось закрыть CacheService', error);
     }
   };
 
-  private evictLRU = (): void => {
-    try {
-      let oldestKey: string | null = null;
-      let oldestTime = Date.now();
+  private createProvider = (config: TCacheServiceConfig): TCacheProvider => {
+    switch (config.type) {
+      case 'memory':
+        logger.info('Создан Memory cache provider');
+        return new MemoryCacheProvider(config);
 
-      // Находим самый старый элемент по времени последнего доступа
-      for (const [key, item] of this.cache.entries()) {
-        if (item.lastAccessed < oldestTime) {
-          oldestTime = item.lastAccessed;
-          oldestKey = key;
-        }
+      case 'redis': {
+        logger.info('Создан Redis cache provider', { redisUrl: config.redisUrl });
+        const redisProvider = new RedisCacheProvider(config);
+
+        // Инициализируем подключение к Redis
+        redisProvider.connect().catch(error => {
+          logger.error('Ошибка подключения к Redis при создании provider', error as Error);
+        });
+
+        return redisProvider;
       }
 
-      if (oldestKey) {
-        this.cache.delete(oldestKey);
-        logger.debug('Удаление LRU', { evictedKey: oldestKey });
-      }
-    } catch (error) {
-      logger.error('Ошибка удаления LRU', error as Error);
-      throw AppError.cacheError('Не удалось удалить LRU элемент', error);
-    }
-  };
-
-  private estimateMemoryUsage = (): number => {
-    try {
-      let totalSize = 0;
-
-      for (const [key, item] of this.cache.entries()) {
-        // Приблизительная оценка размера
-        totalSize += key.length * 2; // Unicode characters
-        totalSize += JSON.stringify(item.value).length * 2;
-        totalSize += 32; // Metadata (timestamps, counters)
-      }
-
-      return totalSize;
-    } catch (error) {
-      logger.error('Ошибка оценки памяти', error as Error);
-      return 0;
+      default:
+        throw AppError.cacheError(`Неподдерживаемый тип кэша: ${config.type as string}`);
     }
   };
 }
+
+export const memoryCacheService = new CacheService({
+  ttl: botConfig.cache.ttl,
+  maxSize: botConfig.cache.maxSize,
+  type: 'memory',
+});
+
+export const redisCacheService = new CacheService({
+  ttl: botConfig.cache.ttl,
+  maxSize: botConfig.cache.maxSize,
+  type: 'redis',
+  redisUrl: botConfig.cache.redisUrl,
+});

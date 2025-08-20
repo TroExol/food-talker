@@ -30,7 +30,6 @@ export interface TDatabaseConfig {
 export interface TCacheConfig {
   ttl: number;
   maxSize: number;
-  type: 'memory' | 'redis';
   redisUrl?: string;
 }
 
@@ -54,8 +53,7 @@ export const botConfig: TBotConfig = {
   },
   cache: {
     ttl: 3600, // 1 hour
-    maxSize: 1000,
-    type: environment.REDIS_URL ? 'redis' : 'memory',
+    maxSize: 2000,
     redisUrl: environment.REDIS_URL,
   },
   sanitizer: {

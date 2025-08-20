@@ -340,7 +340,6 @@ interface TDatabaseConfig {
 interface TCacheConfig {
   ttl: number
   maxSize: number
-  type: 'memory' | 'redis'
   redisUrl?: string
 }
 

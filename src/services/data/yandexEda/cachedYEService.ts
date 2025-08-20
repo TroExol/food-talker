@@ -6,11 +6,13 @@ import type { TMenuItem } from '@/models/menuItem';
 import { logger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
 import { cityValidator } from '@/utils/cityValidator';
-import { botConfig, type EAvailableCities } from '@/config/bot';
+import { type EAvailableCities } from '@/config/bot';
+
+import type { CacheService } from '../cache/cacheService';
 
 import { type YEService, yeService as yeServiceInstance } from './yeService';
 import { type YEDataTransformer, yeDataTransformer as yeDataTransformerInstance } from './yeDataTransformer';
-import { CacheService } from '../cache/cacheService';
+import { redisCacheService as redisCacheServiceInstance } from '../cache/cacheService';
 
 interface TCachedYEService {
   getRestaurants: (city: EAvailableCities) => Promise<TYERestaurant[]>;
@@ -20,8 +22,8 @@ interface TCachedYEService {
     brandSlug?: string,
   ) => Promise<TMenuItem[]>;
   searchItems: (query: TStructuredQuery, city: EAvailableCities) => Promise<TMenuItem[]>;
-  invalidateCache: (pattern?: string) => void;
-  getCacheStats: () => { restaurants: number; menus: number; searches: number };
+  invalidateCache: (pattern?: string) => Promise<void>;
+  getCacheStats: () => Promise<{ restaurants: number; menus: number; searches: number }>;
 }
 
 export class CachedYEService implements TCachedYEService {
@@ -53,7 +55,7 @@ export class CachedYEService implements TCachedYEService {
 
     try {
       // Проверяем кэш
-      const cached = this.cacheService.get<TYERestaurant[]>(cacheKey);
+      const cached = await this.cacheService.get<TYERestaurant[]>(cacheKey);
 
       if (cached) {
         logger.debug('Кэш ресторанов Яндекс.Еда найден', { city, cacheKey });
@@ -68,7 +70,7 @@ export class CachedYEService implements TCachedYEService {
       const restaurants = this.yeDataTransformer.transformRestaurants(yePlaces, coordinates);
 
       // Кэшируем результат
-      this.cacheService.set(cacheKey, restaurants, this.cacheTTL.restaurants);
+      await this.cacheService.set(cacheKey, restaurants, this.cacheTTL.restaurants);
 
       logger.info('Рестораны Яндекс.Еда загружены и кэшированы', {
         city,
@@ -97,7 +99,7 @@ export class CachedYEService implements TCachedYEService {
 
     try {
       // Проверяем кэш
-      const cached = this.cacheService.get<TMenuItem[]>(cacheKey);
+      const cached = await this.cacheService.get<TMenuItem[]>(cacheKey);
       if (cached) {
         logger.debug('Кэш меню Яндекс.Еда найден', { placeSlug, city, cacheKey });
         return cached;
@@ -117,7 +119,7 @@ export class CachedYEService implements TCachedYEService {
       const menuItems = this.yeDataTransformer.transformMenuItems(yeMenuItems, restaurant);
 
       // Кэшируем результат
-      this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);
+      await this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);
 
       logger.info('Меню Яндекс.Еда загружено и кэшировано', {
         placeSlug,
@@ -146,7 +148,7 @@ export class CachedYEService implements TCachedYEService {
 
     try {
       // Проверяем кэш
-      const cached = this.cacheService.get<TMenuItem[]>(cacheKey);
+      const cached = await this.cacheService.get<TMenuItem[]>(cacheKey);
       if (cached) {
         logger.debug('Кэш поиска Яндекс.Еда найден', { query, city, cacheKey });
         return cached;
@@ -175,7 +177,7 @@ export class CachedYEService implements TCachedYEService {
         .filter(item => item.available);
 
       // Кэшируем результат
-      this.cacheService.set(cacheKey, filteredItems, this.cacheTTL.search);
+      await this.cacheService.set(cacheKey, filteredItems, this.cacheTTL.search);
 
       logger.info('Поиск Яндекс.Еда завершен и кэширован', {
         query,
@@ -192,15 +194,15 @@ export class CachedYEService implements TCachedYEService {
     }
   };
 
-  public invalidateCache = (pattern?: string): void => {
+  public invalidateCache = async (pattern?: string): Promise<void> => {
     try {
       if (pattern) {
         // Простая реализация - очищаем весь кэш если указан паттерн
         // В продакшене можно реализовать более умную логику
-        this.cacheService.clear();
+        await this.cacheService.clear();
         logger.info('Кэш Яндекс.Еда очищен по паттерну', { pattern });
       } else {
-        this.cacheService.clear();
+        await this.cacheService.clear();
         logger.info('Все кэш Яндекс.Еда очищен');
       }
     } catch (error) {
@@ -209,11 +211,11 @@ export class CachedYEService implements TCachedYEService {
     }
   };
 
-  public getCacheStats = (): { restaurants: number; menus: number; searches: number } => {
+  public getCacheStats = async (): Promise<{ restaurants: number; menus: number; searches: number }> => {
     try {
       // Приблизительная статистика по типам кэша
       // В реальности нужно было бы отслеживать это более точно
-      const stats = this.cacheService.getStats();
+      const stats = await this.cacheService.getStats();
 
       return {
         restaurants: Math.floor(stats.totalKeys * 0.1), // ~10% ключей - рестораны
@@ -319,6 +321,6 @@ export class CachedYEService implements TCachedYEService {
 
 export const cachedYeService = new CachedYEService(
   yeServiceInstance,
-  new CacheService(botConfig.cache),
+  redisCacheServiceInstance,
   yeDataTransformerInstance,
 );

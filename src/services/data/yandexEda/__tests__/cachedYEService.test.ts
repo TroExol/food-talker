@@ -251,13 +251,13 @@ describe('CachedYeService', () => {
   });
 
   describe('cache management', () => {
-    it('должен инвалидировать кэш', () => {
-      cachedYeService.invalidateCache();
+    it('должен инвалидировать кэш', async () => {
+      await cachedYeService.invalidateCache();
       expect(mockCacheService.clear).toHaveBeenCalled();
     });
 
-    it('должен вернуть статистику кэша', () => {
-      const stats = cachedYeService.getCacheStats();
+    it('должен вернуть статистику кэша', async () => {
+      const stats = await cachedYeService.getCacheStats();
 
       expect(stats).toEqual({
         restaurants: 1, // 10% от 10 ключей
