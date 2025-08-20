@@ -178,5 +178,3 @@ export class YEDataTransformer implements TYEDataTransformer {
     return undefined;
   };
 }
-
-export const yeDataTransformer = new YEDataTransformer();

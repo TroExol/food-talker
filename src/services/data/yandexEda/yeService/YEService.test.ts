@@ -17,7 +17,7 @@ import type { TCoordinates } from '@/models/restaurant';
 
 import { AppError } from '@/utils/errors';
 
-import { YEService } from '../yeService';
+import { YEService } from './YEService';
 
 // Mock fetch
 const mockFetch = vi.fn();

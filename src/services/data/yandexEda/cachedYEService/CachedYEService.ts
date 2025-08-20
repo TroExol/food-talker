@@ -8,11 +8,10 @@ import { AppError } from '@/utils/errors';
 import { cityValidator } from '@/utils/cityValidator';
 import { type EAvailableCities } from '@/config/bot';
 
-import type { CacheService } from '../cache/cacheService';
+import type { CacheService } from '../../cache/cacheService/CacheService';
 
-import { type YEService, yeService as yeServiceInstance } from './yeService';
-import { type YEDataTransformer, yeDataTransformer as yeDataTransformerInstance } from './yeDataTransformer';
-import { redisCacheService as redisCacheServiceInstance } from '../cache/cacheService';
+import { type YEService } from '../yeService/YEService';
+import { type YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
 
 interface TCachedYEService {
   getRestaurants: (city: EAvailableCities) => Promise<TYERestaurant[]>;
@@ -318,9 +317,3 @@ export class CachedYEService implements TCachedYEService {
     });
   };
 }
-
-export const cachedYeService = new CachedYEService(
-  yeServiceInstance,
-  redisCacheServiceInstance,
-  yeDataTransformerInstance,
-);

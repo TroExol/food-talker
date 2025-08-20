@@ -1,7 +1,7 @@
 import { createDatabaseConnection } from '@/config/database';
 
-import { UserService } from './userService';
-import { UserRepository } from './userRepository';
+import { UserService } from './UserService';
+import { UserRepository } from './UserRepository';
 
 export class UserServiceFactory {
   private static instance: UserService | null = null;

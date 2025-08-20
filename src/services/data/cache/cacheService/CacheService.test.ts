@@ -9,7 +9,7 @@ import {
 
 import { MOCKED_CURRENT_DATE } from '@/vitest/constants';
 
-import { CacheService, type TCacheServiceConfig } from '../cacheService';
+import { CacheService, type TCacheServiceConfig } from './CacheService';
 
 describe('CacheService', () => {
   let cacheService: CacheService;

@@ -9,7 +9,7 @@ import {
 
 import type { TCacheConfig } from '@/config/bot';
 
-import { RedisCacheProvider } from '../redisCacheProvider';
+import { RedisCacheProvider } from './RedisCacheProvider';
 
 // Мокируем Redis клиент
 const mockRedisClient = {

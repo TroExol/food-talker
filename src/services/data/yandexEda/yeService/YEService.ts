@@ -229,5 +229,3 @@ export class YEService implements TYEService {
     throw AppError.networkError('YANDEX_EDA_REQUEST_FAILED', `Не удалось выполнить запрос: ${lastError?.message}`);
   };
 }
-
-export const yeService = new YEService();

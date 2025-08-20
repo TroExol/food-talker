@@ -8,7 +8,7 @@ import { ESubscriptionType } from '@/models/user';
 import { createDatabaseConnection } from '@/config/database';
 import { EAvailableCities } from '@/config/bot';
 
-import { UserRepository } from './userRepository';
+import { UserRepository } from './UserRepository';
 
 interface TUserService {
   createUser(telegramId: number, chatId: number): Promise<TUser>;

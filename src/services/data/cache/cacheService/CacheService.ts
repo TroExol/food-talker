@@ -2,12 +2,11 @@ import type { TCacheConfig } from '@/config/bot';
 
 import { logger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
-import { botConfig } from '@/config/bot';
 
 import type { TCacheProvider } from './providers/baseCacheProvider';
 
-import { RedisCacheProvider } from './providers/redisCacheProvider';
-import { MemoryCacheProvider } from './providers/memoryCacheProvider';
+import { RedisCacheProvider } from './providers/RedisCacheProvider';
+import { MemoryCacheProvider } from './providers/MemoryCacheProvider';
 
 interface TCacheService {
   get<T>(key: string): Promise<T | null>;
@@ -122,16 +121,3 @@ export class CacheService implements TCacheService {
     }
   };
 }
-
-export const memoryCacheService = new CacheService({
-  ttl: botConfig.cache.ttl,
-  maxSize: botConfig.cache.maxSize,
-  type: 'memory',
-});
-
-export const redisCacheService = new CacheService({
-  ttl: botConfig.cache.ttl,
-  maxSize: botConfig.cache.maxSize,
-  type: 'redis',
-  redisUrl: botConfig.cache.redisUrl,
-});

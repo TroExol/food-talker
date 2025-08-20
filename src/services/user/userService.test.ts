@@ -13,9 +13,9 @@ import { AppError } from '@/utils/errors';
 import { ESubscriptionType } from '@/models/user';
 import { EAvailableCities } from '@/config/bot';
 
-import type { UserRepository } from '../userRepository';
+import type { UserRepository } from './UserRepository';
 
-import { UserService } from '../userService';
+import { UserService } from './UserService';
 
 // Mock UserRepository
 const mockUserRepository = {

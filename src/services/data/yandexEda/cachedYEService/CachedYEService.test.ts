@@ -14,11 +14,11 @@ import type { TMenuItem } from '@/models/menuItem';
 import { cityValidator } from '@/utils/cityValidator';
 import { EAvailableCities } from '@/config/bot';
 
-import type { YEService } from '../yeService';
-import type { YEDataTransformer } from '../yeDataTransformer';
-import type { CacheService } from '../../cache/cacheService';
+import type { YEService } from '../yeService/YEService';
+import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
+import type { CacheService } from '../../cache/cacheService/CacheService';
 
-import { CachedYEService } from '../cachedYEService';
+import { CachedYEService } from './CachedYEService';
 
 describe('CachedYeService', () => {
   let cachedYeService: CachedYEService;

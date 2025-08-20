@@ -10,7 +10,7 @@ import type {
   TYERestaurantResponsed,
 } from '@/models/yandexEda';
 
-import { YEDataTransformer } from '../yeDataTransformer';
+import { YEDataTransformer } from './YEDataTransformer';
 
 describe('DataTransformer', () => {
   const transformer = new YEDataTransformer();

@@ -11,9 +11,9 @@ import type { TMenuItem } from '@/models/menuItem';
 
 import { EAvailableCities } from '@/config/bot';
 
-import type { CachedYEService } from '../cachedYEService';
+import type { CachedYEService } from '../cachedYEService/CachedYEService';
 
-import { YEDataCollectionService } from '../yeDataCollectionService';
+import { YEDataCollectionService } from './YEDataCollectionService';
 
 // Мокаем node-cron
 vi.mock('node-cron', () => ({
