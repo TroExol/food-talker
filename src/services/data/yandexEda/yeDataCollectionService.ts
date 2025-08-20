@@ -5,7 +5,7 @@ import { AppError } from '@/utils/errors';
 import { cityValidator } from '@/utils/cityValidator';
 import { botConfig, type EAvailableCities } from '@/config/bot';
 
-import type { CachedYEService } from './cachedYEService';
+import { cachedYeService, type CachedYEService } from './cachedYEService';
 
 interface TYEDataCollectionService {
   startCollection(): Promise<void>;
@@ -251,3 +251,5 @@ export class YEDataCollectionService implements TYEDataCollectionService {
   private delay = (ms: number): Promise<void> =>
     new Promise(resolve => setTimeout(resolve, ms));
 }
+
+export const yeDataCollectionService = new YEDataCollectionService(cachedYeService);

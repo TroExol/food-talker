@@ -2,15 +2,15 @@ import type { TYERestaurant } from '@/models/yandexEda';
 import type { TStructuredQuery } from '@/models/search';
 import type { TCoordinates } from '@/models/restaurant';
 import type { TMenuItem } from '@/models/menuItem';
-import type { EAvailableCities } from '@/config/bot';
 
 import { logger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
 import { cityValidator } from '@/utils/cityValidator';
+import { botConfig, type EAvailableCities } from '@/config/bot';
 
-import type { YEService } from './yeService';
-import type { YEDataTransformer } from './yeDataTransformer';
-import type { CacheService } from '../cache/cacheService';
+import { type YEService, yeService as yeServiceInstance } from './yeService';
+import { type YEDataTransformer, yeDataTransformer as yeDataTransformerInstance } from './yeDataTransformer';
+import { CacheService } from '../cache/cacheService';
 
 interface TCachedYEService {
   getRestaurants: (city: EAvailableCities) => Promise<TYERestaurant[]>;
@@ -27,7 +27,7 @@ interface TCachedYEService {
 export class CachedYEService implements TCachedYEService {
   private readonly yeService: YEService;
   private readonly cacheService: CacheService;
-  private readonly dataTransformer: YEDataTransformer;
+  private readonly yeDataTransformer: YEDataTransformer;
 
   // TTL для разных типов данных (в секундах)
   private readonly cacheTTL = {
@@ -36,10 +36,10 @@ export class CachedYEService implements TCachedYEService {
     search: 900, // 15 минут
   };
 
-  constructor(yeService: YEService, cacheService: CacheService, dataTransformer: YEDataTransformer) {
+  constructor(yeService: YEService, cacheService: CacheService, yeDataTransformer: YEDataTransformer) {
     this.yeService = yeService;
     this.cacheService = cacheService;
-    this.dataTransformer = dataTransformer;
+    this.yeDataTransformer = yeDataTransformer;
   }
 
   public getRestaurants = async (city: EAvailableCities): Promise<TYERestaurant[]> => {
@@ -65,7 +65,7 @@ export class CachedYEService implements TCachedYEService {
       const yePlaces = await this.yeService.getRestaurants(coordinates);
 
       // Трансформируем данные
-      const restaurants = this.dataTransformer.transformRestaurants(yePlaces, coordinates);
+      const restaurants = this.yeDataTransformer.transformRestaurants(yePlaces, coordinates);
 
       // Кэшируем результат
       this.cacheService.set(cacheKey, restaurants, this.cacheTTL.restaurants);
@@ -114,7 +114,7 @@ export class CachedYEService implements TCachedYEService {
       }
 
       // Трансформируем данные
-      const menuItems = this.dataTransformer.transformMenuItems(yeMenuItems, restaurant);
+      const menuItems = this.yeDataTransformer.transformMenuItems(yeMenuItems, restaurant);
 
       // Кэшируем результат
       this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);
@@ -316,3 +316,9 @@ export class CachedYEService implements TCachedYEService {
     });
   };
 }
+
+export const cachedYeService = new CachedYEService(
+  yeServiceInstance,
+  new CacheService(botConfig.cache),
+  yeDataTransformerInstance,
+);
