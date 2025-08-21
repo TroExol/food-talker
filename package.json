@@ -24,6 +24,7 @@
   "dependencies": {
     "@types/redis": "^4.0.10",
     "dotenv": "^17.2.1",
+    "jsonrepair": "^3.13.0",
     "lodash": "^4.17.21",
     "node-cron": "^4.2.1",
     "redis": "^5.8.2",

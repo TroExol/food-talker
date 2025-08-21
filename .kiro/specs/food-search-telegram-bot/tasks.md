@@ -46,7 +46,7 @@
     - _Requirements: 7.3, 7.4, 9.1_
 
 - [ ] 5. Build LLM integration for natural language processing
-  - [ ] 5.1 Implement LLMService for query transformation
+  - [x] 5.1 Implement LLMService for query transformation
     - Create prompt templates for query structure extraction
     - Implement API client for Llama 3.1 8B integration
     - Add response validation and error handling
@@ -64,12 +64,6 @@
     - Create search result ranking and filtering logic
     - Implement search history tracking
     - _Requirements: 2.1, 2.4, 2.6, 8.4_
-
-  - [ ] 6.2 Build GeolocationService
-    - Implement city coordinate mapping for Perm and Voronezh
-    - Create delivery zone filtering logic
-    - Add restaurant availability checking based on location
-    - _Requirements: 3.1, 3.2, 3.4_
 
 - [ ] 7. Develop Telegram bot handlers and middleware
   - [ ] 7.1 Create basic bot setup and command handlers

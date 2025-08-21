@@ -618,17 +618,17 @@ interface TDatabasePool {
 
 **Реализованные тесты:**
 
-1. **User Service Tests** (`src/services/user/__tests__/userService.test.ts`)
+1. **User Service Tests** (`src/services/user/UserService.test.ts`)
    - Полное покрытие UserService методов
    - Мокирование UserRepository
    - Тестирование валидации и error handling
    - Dependency injection через factory pattern
 
 2. **Data Service Tests**
-   - **YEService** (`yeService.test.ts`) - API calls, rate limiting, retry logic
-   - **YEDataTransformer** (`yeDataTransformer.test.ts`) - трансформация данных, извлечение ингредиентов
-   - **CachedYEService** (`cachedYeService.test.ts`) - кэширование, cache keys, фильтрация
-   - **YEDataCollectionService** (`yeDataCollectionService.test.ts`) - cron задачи, статистика
+   - **YEService** (`YEService.test.ts`) - API calls, rate limiting, retry logic
+   - **YEDataTransformer** (`YEDataTransformer.test.ts`) - трансформация данных, извлечение ингредиентов
+   - **CachedYEService** (`CachedYeService.test.ts`) - кэширование, cache keys, фильтрация
+   - **YEDataCollectionService** (`YEDataCollectionService.test.ts`) - cron задачи, статистика
 
 3. **Utility Function Tests**
    - Мокирование fetch для API тестов
@@ -828,8 +828,7 @@ src/
 │   │   ├── userService.ts
 │   │   ├── userRepository.ts
 │   │   ├── userServiceFactory.ts
-│   │   └── __tests__/
-│   │       └── userService.test.ts
+│   │   └── UserService.test.ts
 │   ├── search/
 │   │   ├── searchService.ts
 │   │   ├── llmService.ts
@@ -838,15 +837,18 @@ src/
 │   │   ├── cache/
 │   │   │   └── cacheService.ts
 │   │   └── yandexEda/
-│   │       ├── yeService.ts
-│   │       ├── yeDataTransformer.ts
-│   │       ├── cachedYEService.ts
-│   │       ├── yeDataCollectionService.ts
-│   │       └── __tests__/
-│   │           ├── yeService.test.ts
-│   │           ├── yeDataTransformer.test.ts
-│   │           ├── cachedYeService.test.ts
-│   │           └── yeDataCollectionService.test.ts
+│   │       ├── yeService/YEService.ts
+│   │       ├── yeService/instances.ts
+│   │       ├── yeDataTransformer/YEDataTransformer.ts
+│   │       ├── yeDataTransformer/instances.ts
+│   │       ├── cachedYEService/CachedYEService.ts
+│   │       ├── cachedYEService/instances.ts
+│   │       ├── yeDataCollectionService/YEDataCollectionService.ts
+│   │       ├── yeDataCollectionService/instances.ts
+│   │       ├── YEService.test.ts
+│   │       ├── YEDataTransformer.test.ts
+│   │       ├── CachedYeService.test.ts
+│   │       └── YEDataCollectionService.test.ts
 │   ├── geo/
 │   │   └── geolocationService.ts
 │   └── message/
