@@ -202,7 +202,8 @@ export class YEDataCollectionService implements TYEDataCollectionService {
       logger.debug('Обновление данных ресторанов Яндекс.Еда для города', { city, coordinates });
 
       // CachedYEService уже проверит кэш и загрузит данные если нужно
-      const restaurants = await this.cachedYEService.getRestaurants(city);
+      // TODO: Убрать slice после тестирования
+      const restaurants = (await this.cachedYEService.getRestaurants(city)).slice(0, 2);
 
       logger.info('Данные ресторанов Яндекс.Еда для города обновлены', {
         city,

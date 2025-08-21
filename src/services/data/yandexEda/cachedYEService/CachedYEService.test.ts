@@ -185,7 +185,7 @@ describe('CachedYeService', () => {
 
   describe('searchItems', () => {
     const mockQuery: TStructuredQuery = {
-      ingredients: ['лосось'],
+      tags: ['лосось'],
       priceRange: { min: 400, max: 600 },
     };
 
@@ -270,13 +270,13 @@ describe('CachedYeService', () => {
   describe('cache key generation', () => {
     it('должен генерировать стабильные ключи для поиска', async () => {
       const query1: TStructuredQuery = {
-        ingredients: ['лосось', 'рис'],
+        tags: ['лосось', 'рис'],
         restaurants: ['KFC', 'Burger King'],
       };
 
       const query2: TStructuredQuery = {
         restaurants: ['Burger King', 'KFC'], // Другой порядок
-        ingredients: ['рис', 'лосось'], // Другой порядок
+        tags: ['рис', 'лосось'], // Другой порядок
       };
 
       // Мокаем для перехвата ключей кэша

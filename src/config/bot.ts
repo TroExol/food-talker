@@ -54,7 +54,7 @@ export const botConfig: TBotConfig = {
   },
   cache: {
     ttl: 3600, // 1 hour
-    maxSize: 2000,
+    maxSize: 100000,
     redisUrl: environment.REDIS_URL,
   },
   sanitizer: {

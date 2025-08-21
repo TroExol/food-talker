@@ -258,7 +258,7 @@ describe('UserService', () => {
           name: 'Додо',
         },
         description: 'Пицца Маргарита',
-        ingredients: ['Молоко', 'Сыр', 'Помидоры'],
+        tags: ['Молоко', 'Сыр', 'Помидоры'],
         price: 100,
         orderUrl: 'https://dodo.ru/menu/pizza-margarita',
       }];

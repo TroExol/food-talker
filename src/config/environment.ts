@@ -1,3 +1,7 @@
+import dotenv from 'dotenv';
+
+dotenv.config();
+
 export interface TEnvironment {
   NODE_ENV: 'development' | 'production';
   BOT_TOKEN: string;

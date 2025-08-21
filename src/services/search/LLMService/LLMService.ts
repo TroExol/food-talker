@@ -7,7 +7,7 @@ import { AppError } from '@/utils/errors';
 import { botConfig } from '@/config/bot';
 
 interface TLLMService {
-  transformQuery: (naturalQuery: string) => Promise<TStructuredQuery>;
+  transformQuery: (naturalQuery: string, restaurants: string[]) => Promise<TStructuredQuery>;
   enhanceSearchResults: (results: TSearchResult[], query: string) => Promise<TSearchResult[]>;
 }
 
@@ -40,24 +40,27 @@ export class LLMService implements TLLMService {
   private readonly model: string;
   private readonly maxRetries: number;
   private readonly timeout: number;
+  private readonly systemPrompt: string;
 
   constructor(config?: {
     maxRetries?: number;
     timeout?: number;
     model?: string;
+    systemPrompt?: string;
   }) {
     this.apiUrl = botConfig.llmApiUrl;
     this.apiKey = botConfig.llmApiKey;
     this.model = config?.model ?? 'meta-llama/llama-3.1-8b-instruct';
     this.maxRetries = config?.maxRetries ?? 2;
-    this.timeout = config?.timeout ?? 10000; // 10 секунд
+    this.timeout = config?.timeout ?? 20000; // 10 секунд
+    this.systemPrompt = config?.systemPrompt ?? 'Ты - помощник для поиска еды. Reasoning: low';
   }
 
-  public transformQuery = async (naturalQuery: string): Promise<TStructuredQuery> => {
+  public transformQuery = async (naturalQuery: string, restaurants: string[]): Promise<TStructuredQuery> => {
     try {
       logger.info('Начинаю трансформацию запроса через LLM', { query: naturalQuery });
 
-      const prompt = this.buildQueryTransformPrompt(naturalQuery);
+      const prompt = this.buildQueryTransformPrompt(naturalQuery, restaurants);
       const response = await this.callLLM(prompt);
       const structuredQuery = this.parseStructuredQuery(response);
 
@@ -98,35 +101,75 @@ export class LLMService implements TLLMService {
     }
   };
 
-  private buildQueryTransformPrompt = (query: string): string => {
-    return `Ты - помощник для поиска еды. Преобразуй естественный запрос пользователя в структурированный JSON.
+  private buildQueryTransformPrompt = (query: string, restaurants: string[]): string => {
+    return `Ты получаешь:
+- naturalQuery — текстовое пожелание пользователя.
+- availableRestaurants — список ресторанов (массив строк).
 
-Запрос пользователя: "${query}"
+Требования к тегам:
+- Каждый смысловой тег в tags и exclusions.tags должен быть представлен в виде из 1 до 3 синонимичных вариантов, например: "острый", "пикант", "чилли"
+- Подбирай только реально короткие, используемые в карточках формы. Используй слово-ядро (основу), без окончания и ещё 2–3 наиболее частых синонима или варианты написания для поиска через .includes.
+- Если есть только 1 очевидный вариант — используй только его. Если есть 2–3 — укажи все в массиве.
+- Для exclusions.tags действуй так же: массивы синонимов для каждого запрета. Используй слово-ядро (основу), без окончания и ещё 2–3 наиболее частых синонима или варианты написания для поиска через .includes.
+- Не используй сложные словоформы и длинные выражения.
+- Никаких пустых массивов и несуществующих, неочевидных тегов.
+- В restaurants и exclusions.restaurants — только рестораны, явно указанные в naturalQuery и присутствующие в availableRestaurants.
+- В priceRange/exclusions.priceRange — только если явно названы числа.
 
-Извлеки из запроса следующую информацию:
-- restaurants: названия ресторанов (если упоминаются)
-- ingredients: ингредиенты блюд
-- priceRange: ценовой диапазон (min, max в рублях)
-- exclusions: что исключить (рестораны, ингредиенты, ценовой диапазон)
+Финальная структура (Только JSON, без лишних данных и пустых массивов):
 
-Ответь ТОЛЬКО валидным JSON в следующем формате:
 {
-  "restaurants": ["название1", "название2"],
-  "ingredients": ["ингредиент1", "ингредиент2"],
-  "priceRange": {"min": 100, "max": 500},
-  "exclusions": {
-    "restaurants": ["исключить1"],
-    "ingredients": ["исключить2"],
-    "priceRange": {"min": 0, "max": 50}
+  "restaurants"?: string[],
+  "tags"?: string[],
+  "priceRange"?: {"min": number, "max": number},
+  "exclusions"?: {
+    "restaurants"?: string[],
+    "tags"?: string[],
+    "priceRange"?: {"min": number, "max": number}
   }
 }
 
-Если какое-то поле не найдено, не включай его в JSON.`;
-  };
+Пример 1
+naturalQuery: "Очень острая веган пицца не из Domino’s и без бекона"
+availableRestaurants: ["Domino’s", "Dodo", "Papa John’s"]
+{
+  "tags": ["острый", "пикант", "чилли", "веган", "пост", "безмяс", "пицца"],
+  "exclusions": {
+    "restaurants": ["Domino’s"],
+    "tags": ["бекон", "bacon"]
+  }
+}
 
-  private buildEnhancementPrompt = (results: TSearchResult[], query: string): string => {
-    const resultsText = results.map((result, index) =>
-      `${index + 1}. ${result.name} (${result.restaurant.name}) - ${result.price}₽`,
+Пример 2
+naturalQuery: "Что-нибудь сладкое, до 400, только Burger King"
+availableRestaurants: ["Burger King", "KFC"]
+{
+  "restaurants": ["Burger King"],
+  "tags": ["сладкий", "десерт", "сахар"],
+  "priceRange": {"min": 0, "max": 400}
+}
+
+Пример 3
+naturalQuery: "Гриль или азиатское, без майонеза и без лука, до 800"
+availableRestaurants: ["SushiShop"]
+{
+  "tags": ["гриль", "барбекю", "азиат", "суши", "япон"],
+  "priceRange": {"min": 0, "max": 800},
+  "exclusions": {
+    "tags": ["майонез", "лук"]
+  }
+}
+
+Требуется только JSON по этой схеме для любого нового входа.
+Вход:
+naturalQuery: "${query}"
+availableRestaurants: ${JSON.stringify(restaurants)}
+`;
+  };
+  // Если какая-то информация не найдена или не упоминается, НЕ ВКЛЮЧАЙ её в JSON.
+  private buildEnhancementPrompt = (menuItems: TSearchResult[], query: string): string => {
+    const resultsText = menuItems.map((menuItem, index) =>
+      `${index + 1}. ${menuItem.name} (${menuItem.restaurant.name}) - ${menuItem.price}₽`,
     ).join('\n');
 
     return `Ты - помощник для ранжирования результатов поиска еды.
@@ -147,7 +190,7 @@ ${resultsText}
       messages: [
         {
           role: 'system',
-          content: 'Ты - помощник для поиска еды. Отвечай кратко и точно.',
+          content: this.systemPrompt,
         },
         {
           role: 'user',
@@ -233,10 +276,10 @@ ${resultsText}
         : [];
     }
 
-    if (query.ingredients) {
-      repairedQuery.ingredients = Array.isArray(query.ingredients)
+    if (query.tags) {
+      repairedQuery.tags = Array.isArray(query.tags)
         ? [...new Set(
-            query.ingredients
+            query.tags
               .filter((i: unknown) => typeof i === 'string' && i !== '')
               .map(i => i.toLowerCase().trim()),
           )]
@@ -276,10 +319,10 @@ ${resultsText}
           : [];
       }
 
-      if (query.exclusions?.ingredients) {
-        repairedQuery.exclusions.ingredients = Array.isArray(query.exclusions.ingredients)
+      if (query.exclusions?.tags) {
+        repairedQuery.exclusions.tags = Array.isArray(query.exclusions.tags)
           ? [...new Set(
-              query.exclusions.ingredients
+              query.exclusions.tags
                 .filter((i: unknown) => typeof i === 'string' && i !== '')
                 .map(i => i.toLowerCase().trim()),
             )]

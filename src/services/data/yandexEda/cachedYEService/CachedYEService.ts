@@ -246,10 +246,10 @@ export class CachedYEService implements TCachedYEService {
     // Создаем стабильный ключ из параметров запроса
     const queryParts = [
       query.restaurants?.sort().join(',') || '',
-      query.ingredients?.sort().join(',') || '',
+      query.tags?.sort().join(',') || '',
       query.priceRange ? `${query.priceRange.min}-${query.priceRange.max}` : '',
       query.exclusions?.restaurants?.sort().join(',') || '',
-      query.exclusions?.ingredients?.sort().join(',') || '',
+      query.exclusions?.tags?.sort().join(',') || '',
     ];
 
     return this.buildCacheKey('search', city, coordinates, queryParts.join('|'));
@@ -273,19 +273,20 @@ export class CachedYEService implements TCachedYEService {
       // Фильтрация по ресторанам
       if (query.restaurants?.length) {
         const restaurantMatch = query.restaurants.some(restaurant =>
-          item.restaurant.name.toLowerCase().includes(restaurant.toLowerCase()),
+          item.restaurant.name.toLowerCase().includes(restaurant),
         );
         if (!restaurantMatch) return false;
       }
 
-      // Фильтрация по ингредиентам
-      if (query.ingredients?.length) {
-        const ingredientMatch = query.ingredients.some(ingredient =>
-          item.ingredients.some(itemIngredient =>
-            itemIngredient.toLowerCase().includes(ingredient.toLowerCase()),
-          ) || item.name.toLowerCase().includes(ingredient.toLowerCase()),
-        );
-        if (!ingredientMatch) return false;
+      if (query.tags) {
+        // Если в запросе есть теги, то проверяем, что хотя бы один из тегов есть в меню
+        if (
+          !query.tags.some(tag => item.ingredients.some(i => i.includes(tag)))
+          && !query.tags.some(tag => item.description.includes(tag))
+          && !query.tags.some(tag => item.name.includes(tag))
+        ) {
+          return false;
+        }
       }
 
       // Фильтрация по цене
@@ -295,22 +296,25 @@ export class CachedYEService implements TCachedYEService {
         }
       }
 
-      // Исключения по ресторанам
-      if (query.exclusions?.restaurants?.length) {
-        const shouldExclude = query.exclusions.restaurants.some(restaurant =>
-          item.restaurant.name.toLowerCase().includes(restaurant.toLowerCase()),
-        );
-        if (shouldExclude) return false;
-      }
-
-      // Исключения по ингредиентам
-      if (query.exclusions?.ingredients?.length) {
-        const shouldExclude = query.exclusions.ingredients.some(ingredient =>
-          item.ingredients.some(itemIngredient =>
-            itemIngredient.toLowerCase().includes(ingredient.toLowerCase()),
-          ) || item.name.toLowerCase().includes(ingredient.toLowerCase()),
-        );
-        if (shouldExclude) return false;
+      // Исключения
+      if (query.exclusions) {
+        if (query.exclusions.restaurants?.includes(item.restaurant.name)) {
+          return false;
+        }
+        if (
+          query.exclusions.tags?.some(tag => item.ingredients.some(i => i.includes(tag)))
+          || query.exclusions.tags
+            ?.some(tag => item.description.toLowerCase().includes(tag))
+          || query.exclusions.tags
+            ?.some(tag => item.restaurant.name.toLowerCase().includes(tag))
+        ) {
+          return false;
+        }
+        if (query.exclusions.priceRange) {
+          if (item.price >= query.exclusions.priceRange.min && item.price <= query.exclusions.priceRange.max) {
+            return false;
+          }
+        }
       }
 
       return true;

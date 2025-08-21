@@ -5,11 +5,11 @@ interface TPriceRange {
 
 export interface TStructuredQuery {
   restaurants?: string[];
-  ingredients?: string[];
+  tags?: string[];
   priceRange?: TPriceRange;
   exclusions?: {
     restaurants?: string[];
-    ingredients?: string[];
+    tags?: string[];
     priceRange?: TPriceRange;
   };
 }
@@ -24,7 +24,7 @@ export interface TSearchResult {
   name: string;
   restaurant: TRestaurantInfo;
   description: string;
-  ingredients: string[];
+  tags: string[];
   price: number; // RUB
   image?: string;
   orderUrl: string;

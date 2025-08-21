@@ -53,12 +53,10 @@
     - _Requirements: 2.2, 2.3, 2.6_
 
   - [ ] 5.2 Add result enhancement capabilities
-    - Implement LLM-based result ranking and filtering
-    - Create fallback mechanisms for LLM failures
     - Add caching for LLM responses to reduce costs
     - _Requirements: 2.5, 9.1, 11.3_
 
-- [ ] 6. Create search engine and geolocation services
+- [ ] 6. Create search engine
   - [ ] 6.1 Implement SearchService core functionality
     - Combine LLM processing with data aggregation
     - Create search result ranking and filtering logic
@@ -154,3 +152,6 @@
     - Validate response times meet performance requirements
     - Test system under load with concurrent users
     - _Requirements: 9.1, 9.2, 9.5_
+
+- [ ] 14. Other
+  - [ ] 14.1 Add available to setup proxy for parsing API Yandex.Eda
