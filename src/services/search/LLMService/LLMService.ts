@@ -1,5 +1,7 @@
 import { jsonrepair } from 'jsonrepair';
+import { createHash } from 'crypto';
 
+import type { CacheService } from '@/services/data/cache/cacheService/CacheService';
 import type { TSearchResult, TStructuredQuery } from '@/models/search';
 
 import { logger } from '@/utils/logger';
@@ -39,30 +41,48 @@ export class LLMService implements TLLMService {
   private readonly apiKey: string;
   private readonly model: string;
   private readonly maxRetries: number;
-  private readonly timeout: number;
+  private readonly timeoutMs: number;
   private readonly systemPrompt: string;
+  private readonly cacheService: CacheService;
+  private readonly cacheTTL: number;
 
-  constructor(config?: {
-    maxRetries?: number;
-    timeout?: number;
-    model?: string;
-    systemPrompt?: string;
-  }) {
+  constructor(
+    cacheService: CacheService,
+    config?: {
+      maxRetries?: number;
+      timeoutMs?: number;
+      model?: string;
+      systemPrompt?: string;
+      cacheTTL?: number;
+    }) {
     this.apiUrl = botConfig.llmApiUrl;
     this.apiKey = botConfig.llmApiKey;
     this.model = config?.model ?? 'meta-llama/llama-3.1-8b-instruct';
     this.maxRetries = config?.maxRetries ?? 2;
-    this.timeout = config?.timeout ?? 20000; // 10 секунд
+    this.timeoutMs = config?.timeoutMs ?? 15000;
     this.systemPrompt = config?.systemPrompt ?? 'Ты - помощник для поиска еды. Reasoning: low';
+    this.cacheService = cacheService;
+    this.cacheTTL = config?.cacheTTL ?? 3600; // 1 час по умолчанию
   }
 
   public transformQuery = async (naturalQuery: string, restaurants: string[]): Promise<TStructuredQuery> => {
     try {
       logger.info('Начинаю трансформацию запроса через LLM', { query: naturalQuery });
 
+      // Проверяем кэш
+      const cacheKey = this.generateCacheKey('transform', naturalQuery, restaurants);
+      const cachedResult = await this.getFromCache<TStructuredQuery>(cacheKey);
+
+      if (cachedResult) {
+        logger.info('Найден кэшированный результат трансформации', { query: naturalQuery });
+        return cachedResult;
+      }
       const prompt = this.buildQueryTransformPrompt(naturalQuery, restaurants);
       const response = await this.callLLM(prompt);
       const structuredQuery = this.parseStructuredQuery(response);
+
+      // Сохраняем в кэш
+      await this.setCache(cacheKey, structuredQuery);
 
       logger.info('Запрос успешно трансформирован', {
         original: naturalQuery,
@@ -85,9 +105,21 @@ export class LLMService implements TLLMService {
         query,
       });
 
+      // Проверяем кэш
+      const cacheKey = this.generateCacheKey('enhance', query, results.length);
+      const cachedResult = await this.getFromCache<TSearchResult[]>(cacheKey);
+
+      if (cachedResult) {
+        logger.info('Найден кэшированный результат улучшения', { query });
+        return cachedResult;
+      }
+
       const prompt = this.buildEnhancementPrompt(results, query);
       const response = await this.callLLM(prompt);
       const enhancedResults = this.parseEnhancedResults(response, results);
+
+      // Сохраняем в кэш
+      await this.setCache(cacheKey, enhancedResults);
 
       logger.info('Результаты успешно улучшены', {
         originalCount: results.length,
@@ -198,7 +230,7 @@ ${resultsText}
         },
       ],
       temperature: 0.1, // Низкая температура для более предсказуемых ответов
-      max_tokens: 8000,
+      max_tokens: 20000,
     };
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -206,7 +238,7 @@ ${resultsText}
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
           controller.abort();
-        }, this.timeout);
+        }, this.timeoutMs);
 
         const response = await fetch(this.apiUrl, {
           method: 'POST',
@@ -391,4 +423,32 @@ ${resultsText}
 
   private delay = (ms: number): Promise<void> =>
     new Promise(resolve => setTimeout(resolve, ms));
+
+  // Кэширование методов
+  private generateCacheKey = (type: string, ...params: unknown[]): string => {
+    const data = JSON.stringify({ type, params });
+    return `llm:${createHash('sha256').update(data).digest('hex')}`;
+  };
+
+  private getFromCache = async <T>(key: string): Promise<T | null> => {
+    if (!this.cacheService) return null;
+
+    try {
+      return await this.cacheService.get<T>(key);
+    } catch (error) {
+      logger.warn('Ошибка получения из кэша LLM', { key, error: error as Error });
+      return null;
+    }
+  };
+
+  private setCache = async <T>(key: string, value: T): Promise<void> => {
+    if (!this.cacheService) return;
+
+    try {
+      await this.cacheService.set(key, value, this.cacheTTL);
+      logger.debug('Результат LLM сохранен в кэш', { key });
+    } catch (error) {
+      logger.warn('Ошибка сохранения в кэш LLM', { key, error: error as Error });
+    }
+  };
 }

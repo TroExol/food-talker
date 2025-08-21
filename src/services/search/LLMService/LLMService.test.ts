@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+
 import {
   beforeEach,
   describe,
@@ -6,6 +8,7 @@ import {
   vi,
 } from 'vitest';
 
+import type { CacheService } from '@/services/data/cache/cacheService/CacheService';
 import type { TSearchResult, TStructuredQuery } from '@/models/search';
 
 import { LLMService } from './LLMService';
@@ -24,9 +27,22 @@ vi.mock('@/config/bot', () => ({
 
 describe('LLMService', () => {
   let llmService: LLMService;
+  let mockCacheService: CacheService;
 
   beforeEach(() => {
-    llmService = new LLMService();
+    mockCacheService = {
+      get: vi.fn(),
+      set: vi.fn(),
+      delete: vi.fn(),
+      clear: vi.fn(),
+      has: vi.fn(),
+      getStats: vi.fn(),
+      close: vi.fn(),
+    } as unknown as CacheService;
+
+    llmService = new LLMService(mockCacheService, {
+      cacheTTL: 1800,
+    });
   });
 
   describe('transformQuery', () => {
@@ -155,20 +171,25 @@ describe('LLMService', () => {
     });
 
     it('должен обрабатывать таймауты', async () => {
-      const llmService = new LLMService({
+      const llmService = new LLMService(mockCacheService, {
         maxRetries: 0,
-        timeout: 10000,
+        timeoutMs: 10000,
       });
 
+      const onAbort = vi.fn();
       // Мокаем fetch чтобы он никогда не резолвился
       mockFetch.mockImplementation((url: string, options: { signal: AbortSignal }) => new Promise(resolve => {
-        options.signal.onabort = resolve;
+        options.signal.onabort = () => {
+          onAbort();
+          resolve(void 0);
+        };
       }));
 
       const expection = expect(llmService.transformQuery('тест', [])).rejects.toThrow('Не удалось трансформировать запрос');
-      vi.advanceTimersByTime(10000);
+      await vi.advanceTimersByTimeAsync(10000);
       await expection;
       expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(onAbort).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -215,7 +236,7 @@ describe('LLMService', () => {
     });
 
     it('должен возвращать оригинальные результаты при ошибке', async () => {
-      const llmService = new LLMService({
+      const llmService = new LLMService(mockCacheService, {
         maxRetries: 0,
       });
 
@@ -541,6 +562,251 @@ describe('LLMService', () => {
           tags: ['ананас'],
           priceRange: { min: 0, max: 100 },
         },
+      });
+    });
+  });
+
+  describe('Cache', () => {
+    describe('transformQuery with cache', () => {
+      it('должен использовать кэшированный результат при наличии', async () => {
+        const cachedQuery: TStructuredQuery = {
+          tags: ['пицца', 'сыр'],
+          priceRange: { min: 200, max: 800 },
+        };
+
+        mockCacheService.get = vi.fn().mockResolvedValue(cachedQuery);
+
+        const result = await llmService.transformQuery('хочу пиццу с сыром до 800 рублей', ['Додо']);
+
+        expect(result).toEqual(cachedQuery);
+        expect(mockCacheService.get).toHaveBeenCalledWith(expect.stringMatching(/^llm:/));
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
+      it('должен сохранять результат в кэш при отсутствии кэша', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(null);
+        mockCacheService.set = vi.fn().mockResolvedValue(undefined);
+
+        const mockResponse = {
+          choices: [{
+            message: {
+              content: '{"tags": ["пицца", "сыр"], "priceRange": {"min": 200, "max": 800}}',
+            },
+          }],
+          usage: { total_tokens: 150, prompt_tokens: 100, completion_tokens: 50 },
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        await llmService.transformQuery('хочу пиццу с сыром до 800 рублей', ['Додо']);
+
+        expect(mockCacheService.set).toHaveBeenCalledWith(
+          expect.stringMatching(/^llm:/),
+          expect.objectContaining({
+            tags: ['пицца', 'сыр'],
+            priceRange: { min: 200, max: 800 },
+          }),
+          1800,
+        );
+      });
+
+      it('должен работать без кэша если cacheService не передан', async () => {
+        const llmServiceWithoutCache = new LLMService(mockCacheService, {
+          cacheTTL: 1800, // 30 минут
+        });
+
+        const mockResponse = {
+          choices: [{
+            message: {
+              content: '{"tags": ["пицца"]}',
+            },
+          }],
+          usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await llmServiceWithoutCache.transformQuery('хочу пиццу', ['Додо']);
+
+        expect(result).toEqual({ tags: ['пицца'] });
+      });
+    });
+
+    describe('enhanceSearchResults with cache', () => {
+      const mockResults: TSearchResult[] = [
+        {
+          id: '1',
+          name: 'Пицца Маргарита',
+          restaurant: { id: '1', name: 'Додо Пицца' },
+          description: 'Классическая пицца',
+          tags: ['тесто', 'сыр', 'томаты'],
+          price: 500,
+          orderUrl: 'https://example.com/1',
+        },
+        {
+          id: '2',
+          name: 'Пицца Пепперони',
+          restaurant: { id: '1', name: 'Додо Пицца' },
+          description: 'Острая пицца',
+          tags: ['тесто', 'сыр', 'пепперони'],
+          price: 600,
+          orderUrl: 'https://example.com/2',
+        },
+      ];
+
+      it('должен использовать кэшированный результат улучшения', async () => {
+        const cachedEnhancedResults = [mockResults[1], mockResults[0]];
+
+        mockCacheService.get = vi.fn().mockResolvedValue(cachedEnhancedResults);
+
+        const result = await llmService.enhanceSearchResults(mockResults, 'острая пицца');
+
+        expect(result).toEqual(cachedEnhancedResults);
+        expect(mockCacheService.get).toHaveBeenCalledWith(expect.stringMatching(/^llm:/));
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
+      it('должен сохранять улучшенные результаты в кэш', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(null);
+        mockCacheService.set = vi.fn().mockResolvedValue(undefined);
+
+        const mockResponse = {
+          choices: [{
+            message: {
+              content: '2,1',
+            },
+          }],
+          usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        await llmService.enhanceSearchResults(mockResults, 'острая пицца');
+
+        expect(mockCacheService.set).toHaveBeenCalledWith(
+          expect.stringMatching(/^llm:/),
+          expect.arrayContaining([
+            expect.objectContaining({ id: '2' }),
+            expect.objectContaining({ id: '1' }),
+          ]),
+          1800,
+        );
+      });
+
+      it('должен возвращать пустой массив без обращения к кэшу', async () => {
+        const result = await llmService.enhanceSearchResults([], 'тест');
+
+        expect(result).toEqual([]);
+        expect(mockCacheService.get).not.toHaveBeenCalled();
+        expect(mockCacheService.set).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('cache error handling', () => {
+      it('должен обрабатывать ошибки получения из кэша', async () => {
+        mockCacheService.get = vi.fn().mockRejectedValue(new Error('Cache error'));
+
+        const mockResponse = {
+          choices: [{
+            message: {
+              content: '{"tags": ["пицца"]}',
+            },
+          }],
+          usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await llmService.transformQuery('хочу пиццу', ['Додо']);
+
+        expect(result).toEqual({ tags: ['пицца'] });
+        expect(mockCacheService.get).toHaveBeenCalled();
+      });
+
+      it('должен обрабатывать ошибки сохранения в кэш', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(null);
+        mockCacheService.set = vi.fn().mockRejectedValue(new Error('Cache save error'));
+
+        const mockResponse = {
+          choices: [{
+            message: {
+              content: '{"tags": ["пицца"]}',
+            },
+          }],
+          usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
+        };
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        const result = await llmService.transformQuery('хочу пиццу', ['Додо']);
+
+        expect(result).toEqual({ tags: ['пицца'] });
+        expect(mockCacheService.set).toHaveBeenCalled();
+      });
+    });
+
+    describe('cache key generation', () => {
+      it('должен генерировать уникальные ключи для разных запросов', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(null);
+
+        const mockResponse = {
+          choices: [{
+            message: {
+              content: '{"tags": ["пицца"]}',
+            },
+          }],
+          usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
+        };
+
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        await llmService.transformQuery('хочу пиццу', ['Додо']);
+        await llmService.transformQuery('хочу суши', ['Додо']);
+
+        const calls = (mockCacheService.get as Mock).mock.calls;
+        expect(calls[0][0]).not.toBe(calls[1][0]);
+      });
+
+      it('должен генерировать одинаковые ключи для одинаковых запросов', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(null);
+
+        const mockResponse = {
+          choices: [{
+            message: {
+              content: '{"tags": ["пицца"]}',
+            },
+          }],
+          usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
+        };
+
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        });
+
+        await llmService.transformQuery('хочу пиццу', ['Додо']);
+        await llmService.transformQuery('хочу пиццу', ['Додо']);
+
+        const calls = (mockCacheService.get as Mock).mock.calls;
+        expect(calls[0][0]).toBe(calls[1][0]);
       });
     });
   });
