@@ -208,4 +208,5 @@ export interface TYEApiConfig {
   rateLimits: TYERateLimitConfig;
   timeout: number;
   retries: number;
+  delayBetweenRequests: number; // Задержка между запросами в миллисекундах
 }

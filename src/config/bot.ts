@@ -40,6 +40,7 @@ export interface TYandexEdaConfig {
     requestsPerMinute: number;
     requestsPerHour: number;
   };
+  delayBetweenRequests: number; // Задержка между запросами в миллисекундах
 }
 
 export const botConfig: TBotConfig = {
@@ -76,5 +77,6 @@ export const botConfig: TBotConfig = {
       requestsPerMinute: 100,
       requestsPerHour: 1000,
     },
+    delayBetweenRequests: 100, // 100ms задержка между запросами
   },
 };

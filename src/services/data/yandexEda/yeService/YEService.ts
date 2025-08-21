@@ -39,6 +39,7 @@ export class YEService implements TYEService {
       },
       timeout: 10000, // 10 секунд
       retries: 3,
+      delayBetweenRequests: botConfig.yandexEda.delayBetweenRequests || 100, // Задержка между запросами
       ...config,
     };
 
@@ -49,7 +50,7 @@ export class YEService implements TYEService {
   }
 
   public getRestaurants = async (coordinates: TCoordinates): Promise<TYERestaurantResponsed[]> => {
-    this.enforceRateLimit();
+    await this.enforceRateLimit();
 
     try {
       const yeCoordinates: TYECoordinates = {
@@ -92,7 +93,7 @@ export class YEService implements TYEService {
     coordinates: TCoordinates,
     brandSlug?: string,
   ): Promise<TYEMenuItem[]> => {
-    this.enforceRateLimit();
+    await this.enforceRateLimit();
 
     try {
       const headers = {
@@ -164,17 +165,28 @@ export class YEService implements TYEService {
     return this.rateLimitState.requests.length < this.config.rateLimits.requestsPerMinute;
   };
 
-  private enforceRateLimit = (): void => {
-    const canMakeRequest = this.checkRateLimit();
+  private enforceRateLimit = async (): Promise<void> => {
+    while (!this.checkRateLimit()) {
+      if (this.rateLimitState.requests.length === 0) {
+        break; // Если нет запросов, можно делать новый
+      }
 
-    if (!canMakeRequest) {
-      const waitTime = this.config.rateLimits.windowSizeMs;
-      logger.warn('Rate limit достигнут для Яндекс.Еда API', { waitTime });
-      throw AppError.rateLimitError('YANDEX_EDA_RATE_LIMIT', 'Превышен лимит запросов к Яндекс.Еда API');
+      const oldestRequest = Math.min(...this.rateLimitState.requests);
+      const waitTime = this.config.rateLimits.windowSizeMs - (Date.now() - oldestRequest);
+
+      if (waitTime > 0) {
+        logger.warn('Rate limit достигнут для Яндекс.Еда API, ожидаю', { waitTime });
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
     }
 
     // Записываем текущий запрос
     this.rateLimitState.requests.push(Date.now());
+
+    // Добавляем задержку между запросами
+    if (this.config.delayBetweenRequests > 0) {
+      await new Promise(resolve => setTimeout(resolve, this.config.delayBetweenRequests));
+    }
   };
 
   private makeRequest = async <T>(endpoint: string, options: RequestInit): Promise<T> => {

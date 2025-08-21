@@ -126,8 +126,8 @@ describe('YEDataCollectionService', () => {
     it('должен обработать ошибку API', async () => {
       mockCachedYEService.getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
 
-      await expect(dataCollectionService.updateRestaurantData(EAvailableCities.PERM))
-        .rejects.toThrow('Не удалось обновить данные ресторанов Яндекс.Еда для Пермь');
+      // Проверяем, что функция не выбрасывает ошибку
+      await expect(dataCollectionService.updateRestaurantData(EAvailableCities.PERM)).resolves.toBeUndefined();
     });
   });
 

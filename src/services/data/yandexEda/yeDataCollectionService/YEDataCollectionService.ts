@@ -89,7 +89,7 @@ export class YEDataCollectionService implements TYEDataCollectionService {
       // Обновление данных ресторанов каждые 40 минут
       const restaurantUpdateJob = cron.schedule(`*/${this.frequencyMin.restaurant} * * * *`, async () => {
         logger.info('Начало запланированного обновления данных ресторанов Яндекс.Еда');
-        await this.updateAllRestaurantData();
+        await this.updateRestaurantData();
       });
 
       // Очистка просроченного кэша каждые 30 минут
@@ -130,7 +130,6 @@ export class YEDataCollectionService implements TYEDataCollectionService {
     } catch (error) {
       this.errorCount++;
       logger.error('Не удалось обновить данные ресторанов Яндекс.Еда', error as Error, { city });
-      throw AppError.dataCollectionError(`Не удалось обновить данные ресторанов Яндекс.Еда для ${city}`, error);
     }
   };
 
@@ -221,15 +220,6 @@ export class YEDataCollectionService implements TYEDataCollectionService {
     } catch (error) {
       logger.error('Не удалось обновить данные ресторанов Яндекс.Еда для города', error as Error, { city });
       throw error;
-    }
-  };
-
-  private updateAllRestaurantData = async (): Promise<void> => {
-    try {
-      await this.updateRestaurantData();
-    } catch (error) {
-      // Логируем ошибку но не прерываем работу планировщика
-      logger.error('Не удалось запланировать обновление данных ресторанов Яндекс.Еда', error as Error);
     }
   };
 

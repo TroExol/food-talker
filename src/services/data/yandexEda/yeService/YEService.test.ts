@@ -31,7 +31,7 @@ describe('YandexEdaService', () => {
   };
 
   beforeEach(() => {
-    service = new YEService();
+    service = new YEService({ delayBetweenRequests: 0 });
   });
 
   describe('getPlaces', () => {
@@ -60,6 +60,8 @@ describe('YandexEdaService', () => {
     };
 
     it('должен успешно получить список мест', async () => {
+      const service = new YEService({ delayBetweenRequests: 0 }); // Отключаем задержку для теста
+
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
@@ -99,6 +101,7 @@ describe('YandexEdaService', () => {
         statusText: 'Internal Server Error',
       });
       const service = new YEService({
+        delayBetweenRequests: 0,
         retries: 0,
       });
 
@@ -197,6 +200,7 @@ describe('YandexEdaService', () => {
 
     it('должен выбросить ошибку при неудачном запросе меню', async () => {
       const service = new YEService({
+        delayBetweenRequests: 0,
         retries: 0,
       });
 
@@ -300,13 +304,14 @@ describe('YandexEdaService', () => {
   });
 
   describe('rate limiting enforcement', () => {
-    it('должен выбросить ошибку при превышении rate limit', async () => {
+    it('должен ждать при превышении rate limit', async () => {
       const service = new YEService({
         rateLimits: {
           requestsPerMinute: 1,
           requestsPerHour: 100,
           windowSizeMs: 60000,
         },
+        delayBetweenRequests: 0, // Отключаем задержку для теста
       });
 
       // Первый запрос должен пройти
@@ -315,14 +320,71 @@ describe('YandexEdaService', () => {
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
       });
 
-      await service.getRestaurants(mockCoordinates);
+      const firstRequest = service.getRestaurants(mockCoordinates);
+      await vi.runAllTimersAsync();
+      await firstRequest;
 
-      // Второй запрос должен быть заблокирован
-      await expect(service.getRestaurants(mockCoordinates)).rejects.toThrow(
-        expect.objectContaining({
-          code: 'RATE_LIMIT_EXCEEDED',
-        }) as AppError,
-      );
+      // Второй запрос должен ждать
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+      });
+
+      const secondRequest = service.getRestaurants(mockCoordinates);
+
+      // Продвигаем время на 60 секунд (windowSizeMs)
+      vi.advanceTimersByTime(60000);
+      await vi.runAllTimersAsync();
+
+      await secondRequest; // Должен завершиться без ошибки
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('должен применять задержку между запросами', async () => {
+      const service = new YEService({
+        delayBetweenRequests: 200, // 200ms задержка
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+      });
+
+      const firstRequest = service.getRestaurants(mockCoordinates);
+      await vi.runAllTimersAsync();
+      await firstRequest;
+
+      const secondRequest = service.getRestaurants(mockCoordinates);
+      // Продвигаем время на 200ms для задержки
+      vi.advanceTimersByTime(200);
+      await secondRequest;
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('должен обрабатывать пустой массив запросов', async () => {
+      const service = new YEService({
+        rateLimits: {
+          requestsPerMinute: 1,
+          requestsPerHour: 100,
+          windowSizeMs: 60000,
+        },
+        delayBetweenRequests: 0,
+      });
+
+      // Симулируем пустой массив запросов
+      (service as any).rateLimitState.requests = [];
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+      });
+
+      const result = await service.getRestaurants(mockCoordinates);
+
+      expect(result).toEqual([]);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
 });
