@@ -35,7 +35,6 @@ describe('CachedYeService', () => {
       name: 'Тест Ресторан',
       coordinates: mockCoordinates,
       workingHours: { open: '09:00', close: '23:00', isOpen: true },
-      isActive: true,
       lastUpdated: new Date(),
     },
   ];
@@ -192,7 +191,7 @@ describe('CachedYeService', () => {
     it('должен вернуть результаты поиска из кэша', async () => {
       mockCacheService.get = vi.fn().mockReturnValue(mockMenuItems);
 
-      const result = await cachedYeService.searchItems(mockQuery, mockCity);
+      const result = await cachedYeService.getMenuItems(mockQuery, mockCity);
 
       expect(result).toEqual(mockMenuItems);
       expect(mockYeService.getRestaurants).not.toHaveBeenCalled();
@@ -210,7 +209,7 @@ describe('CachedYeService', () => {
         .mockReturnValueOnce(mockRestaurants) // Рестораны в кэше
         .mockReturnValueOnce(mockMenuItems); // Меню в кэше
 
-      const result = await cachedYeService.searchItems(mockQuery, mockCity);
+      const result = await cachedYeService.getMenuItems(mockQuery, mockCity);
 
       expect(result).toEqual(mockMenuItems);
       expect(mockCacheService.set).toHaveBeenCalled(); // Кэшируем результат поиска
@@ -242,7 +241,7 @@ describe('CachedYeService', () => {
         .mockReturnValueOnce(mockRestaurants) // Рестораны в кэше
         .mockReturnValueOnce(unfilteredItems); // Меню в кэше
 
-      const result = await cachedYeService.searchItems(mockQuery, mockCity);
+      const result = await cachedYeService.getMenuItems(mockQuery, mockCity);
 
       // Должен остаться только первый элемент (подходит по ингредиентам и цене)
       expect(result).toHaveLength(1);
@@ -288,8 +287,8 @@ describe('CachedYeService', () => {
 
       mockCacheService.get = vi.fn().mockReturnValue(null);
 
-      await cachedYeService.searchItems(query1, mockCity);
-      await cachedYeService.searchItems(query2, mockCity);
+      await cachedYeService.getMenuItems(query1, mockCity);
+      await cachedYeService.getMenuItems(query2, mockCity);
 
       // Ключи должны быть одинаковыми (порядок нормализован)
       expect(setCalls[0]).toBe(setCalls[1]);

@@ -40,7 +40,6 @@ describe('YEDataCollectionService', () => {
       name: 'Тест Ресторан 1',
       coordinates: { latitude: 58.01, longitude: 56.23 },
       workingHours: { open: '09:00', close: '23:00', isOpen: true },
-      isActive: true,
       lastUpdated: new Date(),
       additionalInfo: {
         brandSlug: 'brand-restaurant-1',

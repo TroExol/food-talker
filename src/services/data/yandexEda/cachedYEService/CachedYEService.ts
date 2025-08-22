@@ -20,7 +20,7 @@ interface TCachedYEService {
     city: EAvailableCities,
     brandSlug?: string,
   ) => Promise<TMenuItem[]>;
-  searchItems: (query: TStructuredQuery, city: EAvailableCities) => Promise<TMenuItem[]>;
+  getMenuItems: (query: TStructuredQuery, city: EAvailableCities) => Promise<TMenuItem[]>;
   invalidateCache: (pattern?: string) => Promise<void>;
   getCacheStats: () => Promise<{ restaurants: number; menus: number; searches: number }>;
 }
@@ -134,7 +134,7 @@ export class CachedYEService implements TCachedYEService {
     }
   };
 
-  public searchItems = async (
+  public getMenuItems = async (
     query: TStructuredQuery,
     city: EAvailableCities,
   ): Promise<TMenuItem[]> => {

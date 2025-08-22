@@ -20,7 +20,6 @@ describe('DataTransformer', () => {
     name: 'Тест Ресторан',
     coordinates: { latitude: 0, longitude: 0 },
     workingHours: { open: '00:00', close: '23:59', isOpen: true },
-    isActive: true,
     lastUpdated: new Date(),
     additionalInfo: {
       brandSlug: 'test-brand',
@@ -267,7 +266,6 @@ describe('DataTransformer', () => {
           isOpen: true,
         },
         minimumOrderAmount: 600,
-        isActive: true,
         lastUpdated: expect.any(Date) as Date,
         additionalInfo: expect.objectContaining({
           brandSlug: 'test-brand',

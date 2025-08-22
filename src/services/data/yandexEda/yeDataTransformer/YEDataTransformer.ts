@@ -31,7 +31,6 @@ export class YEDataTransformer implements TYEDataTransformer {
           isOpen: true, // По умолчанию считаем открытым
         },
         minimumOrderAmount: this.extractMinimumOrder(yePlace),
-        isActive: true,
         lastUpdated: new Date(),
         additionalInfo: {
           brandSlug: yePlace.brand.slug,
@@ -64,6 +63,7 @@ export class YEDataTransformer implements TYEDataTransformer {
         image: imageUrl,
         available: yeMenuItem.available && (yeMenuItem.inStock !== false),
         restaurant,
+        orderUrl: `https://eda.yandex.ru/r/${restaurant.additionalInfo.brandSlug}?placeSlug=${restaurant.id}`,
       };
 
       return menuItem;

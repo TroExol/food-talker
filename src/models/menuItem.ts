@@ -9,4 +9,5 @@ export interface TMenuItem {
   image?: string;
   available: boolean;
   restaurant: TRestaurant;
+  orderUrl: string;
 }

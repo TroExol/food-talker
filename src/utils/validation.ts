@@ -42,10 +42,6 @@ export class Validator implements TValidator {
       errors.push('Запрос не может быть пустым');
     }
 
-    if (trimmedQuery.length > this.maxQueryLength) {
-      errors.push(`Запрос должен быть менее ${this.maxQueryLength} символов`);
-    }
-
     const sanitizedQuery = this.sanitizer.sanitizeSearchQuery(trimmedQuery);
 
     return {

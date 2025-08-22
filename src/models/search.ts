@@ -1,4 +1,4 @@
-interface TPriceRange {
+export interface TPriceRange {
   min: number;
   max: number;
 }

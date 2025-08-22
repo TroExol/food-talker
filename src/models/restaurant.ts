@@ -17,7 +17,6 @@ export interface TRestaurant {
   coordinates: TCoordinates;
   workingHours: TWorkingHours;
   minimumOrderAmount?: number; // RUB
-  isActive: boolean;
   lastUpdated: Date; // ISO string
   additionalInfo?: object;
 }

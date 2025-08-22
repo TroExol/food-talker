@@ -264,7 +264,6 @@ interface TYERestaurant {
   coordinates: TCoordinates
   workingHours: TWorkingHours
   minimumOrderAmount?: number
-  isActive: boolean
   lastUpdated: Date
   additionalInfo: {
     brandSlug: string
@@ -407,7 +406,6 @@ interface TRestaurant {
   coordinates: TCoordinates
   workingHours: TWorkingHours
   minimumOrderAmount?: number
-  isActive: boolean
   lastUpdated: Date
   additionalInfo?: object
 }

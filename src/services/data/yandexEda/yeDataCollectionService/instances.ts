@@ -1,4 +1,4 @@
 import { YEDataCollectionService } from './YEDataCollectionService';
-import { cachedYeService } from '../cachedYEService/instances';
+import { cachedYEService } from '../cachedYEService/instances';
 
-export const yeDataCollectionService = new YEDataCollectionService(cachedYeService);
+export const yeDataCollectionService = new YEDataCollectionService(cachedYEService);
