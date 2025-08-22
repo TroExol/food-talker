@@ -1,42 +1,154 @@
-# Design Document
+# Food Talker Design System Documentation
 
 ## Overview
 
-Система представляет собой Telegram-бот для поиска еды, использующий нейро-поиск по ресторанам и агрегаторам. Бот построен на Node.js с TypeScript, использует Telegraf.js для работы с Telegram Bot API и интегрируется с LLM (Llama 3.1 8B) для обработки естественного языка.
+The Food Talker system is a Node.js-based Telegram bot application designed for intelligent food search and restaurant recommendations. Built with TypeScript and leveraging modern architectural patterns, the system integrates multiple external services including Yandex.Eda API and LLM services to provide natural language food search capabilities.
 
-## Architecture
+**Current Implementation Status**: The project is in active development with core services, data models, and infrastructure components implemented. The bot interface layer is planned but not yet implemented.
+
+## Technology Stack & Dependencies
+
+### Core Technologies
+- **Runtime**: Node.js (>=22.15.0 <23.0.0)
+- **Language**: TypeScript (^5.8.3)
+- **Package Manager**: npm (>=10.0.0)
+- **Execution**: ts-node for development
+
+### Key Dependencies
+- **Bot Framework**: Telegraf (^4.16.3) - Telegram Bot API wrapper
+- **Databases**: SQLite3 (^5.1.7) for persistence, Redis (^5.8.2) for caching
+- **Task Scheduling**: node-cron (^4.2.1) for periodic data updates
+- **Testing**: Vitest (^3.2.4) with comprehensive test coverage
+- **Linting**: ESLint (^9.25.1) with stylistic and perfectionist plugins
+- **Utilities**: lodash, uuid, jsonrepair, dotenv
+
+## Architecture Overview
 
 ### High-Level Architecture
 
+```mermaid
+graph TB
+    subgraph "Presentation Layer"
+        TG[Telegram Bot Interface]
+    end
+    
+    subgraph "Application Logic Layer"
+        LLM[LLM Service]
+        USER[User Service]
+        SEARCH[Search Orchestration]
+    end
+    
+    subgraph "Domain Services Layer"
+        YE[YE Service]
+        TRANS[YE Data Transformer]
+        CACHED[Cached YE Service]
+        COLLECT[YE Data Collection Service]
+    end
+    
+    subgraph "Infrastructure Layer"
+        CACHE[Cache Service]
+        DB[(SQLite Database)]
+        REDIS[(Redis Cache)]
+        CONFIG[Configuration Management]
+    end
+    
+    TG --> LLM
+    TG --> USER
+    TG --> SEARCH
+    
+    SEARCH --> CACHED
+    USER --> DB
+    
+    CACHED --> YE
+    CACHED --> CACHE
+    YE --> TRANS
+    
+    CACHE --> REDIS
+    CACHE --> CONFIG
+    
+    style TG fill:#e1f5fe
+    style LLM fill:#f3e5f5
+    style USER fill:#f3e5f5
+    style YE fill:#e8f5e8
+    style CACHE fill:#fff3e0
 ```
-[Telegram User] 
-    ↓
-[Telegram Bot API] 
-    ↓
-[Telegraf Bot Framework]
-    ↓
-[Bot Application Layer]
-    ↓
-┌─────────────────┬─────────────────┬─────────────────┐
-│   User Service  │  Search Service │  Data Service   │
-└─────────────────┴─────────────────┴─────────────────┘
-    ↓                    ↓                    ↓
-[User Database]    [LLM Service]       [Food Aggregators]
-                   [Cache Layer]       [Yandex.Eda API]
+
+### Architectural Layers
+
+#### 1. Presentation Layer
+- **Telegram Bot Handlers**: Process user commands and messages
+- **Middleware**: Authentication, rate limiting, error handling
+- **Message Formatting**: Response presentation and inline keyboards
+
+#### 2. Application Logic Layer
+- **LLM Service**: Natural language query transformation and result enhancement
+- **User Service**: User lifecycle management and context handling
+- **Search Orchestration**: Coordinates between services for complex queries
+
+#### 3. Domain Services Layer
+- **YE Service**: Direct Yandex.Eda API integration with rate limiting
+- **YE Data Transformer**: Raw API data to domain model transformation
+- **Cached YE Service**: Performance optimization with intelligent caching
+- **YE Data Collection Service**: Automated data synchronization
+
+#### 4. Infrastructure Layer
+- **Cache Service**: Multi-provider caching abstraction (Redis/Memory)
+- **Database Management**: SQLite connection pooling and migrations
+- **Configuration Management**: Environment-aware configuration system
+- **Logging & Monitoring**: Structured logging and error tracking
+
+## Component Architecture
+
+### Service Layer Architecture
+
+```mermaid
+classDiagram
+    class LLMService {
+        +transformQuery(query: string) Promise~TStructuredQuery~
+        +enhanceSearchResults(results: TSearchResult[]) Promise~TSearchResult[]~
+        -callLLM(prompt: string) Promise~string~
+        -parseStructuredQuery(response: string) TStructuredQuery
+    }
+    
+    class UserService {
+        +createUser(telegramId: number) Promise~TUser~
+        +getUser(telegramId: number) Promise~TUser~
+        +updateUserCity(telegramId: number, city: string) Promise~TUser~
+        +getUserSearchHistory(telegramId: number) Promise~TSearchHistoryItem[]~
+    }
+    
+    class CachedYEService {
+        +getRestaurants(coordinates: TCoordinates) Promise~TYERestaurant[]~
+        +getRestaurantMenu(placeSlug: string) Promise~TMenuItem[]~
+        +searchItems(query: TStructuredQuery) Promise~TMenuItem[]~
+        -buildCacheKey(type: string, params: any[]) string
+    }
+    
+    class YEService {
+        +getRestaurants(coordinates: TCoordinates) Promise~TYERestaurant[]~
+        +getRestaurantMenu(placeSlug: string) Promise~TYEMenuItem[]~
+        +checkRateLimit() boolean
+        -makeRequest(endpoint: string) Promise~any~
+    }
+    
+    class CacheService {
+        +get(key: string) Promise~any~
+        +set(key: string, value: any, ttl?: number) Promise~void~
+        +delete(key: string) Promise~void~
+        +clear() Promise~void~
+    }
+    
+    LLMService --> CacheService
+    UserService --> CacheService
+    CachedYEService --> YEService
+    CachedYEService --> CacheService
 ```
 
-### Core Components
+### 1. Bot Layer (Planned - Not Yet Implemented)
 
-1. **Bot Layer** - Обработка Telegram команд и сообщений
-2. **Business Logic Layer** - Основная логика приложения
-3. **Data Access Layer** - Взаимодействие с внешними API и базой данных
-4. **AI Integration Layer** - Интеграция с LLM для обработки запросов
+**Note**: The bot interface layer is currently planned but not implemented. The directory structure exists (`src/bot/handlers/`, `src/bot/middleware/`) but contains no files.
 
-## Components and Interfaces
-
-### 1. Bot Handler (`src/bot/`)
-
-**BotHandler** - Главный класс для обработки Telegram updates
+**Planned Bot Handler Interface**:
 ```typescript
 interface TBotHandler {
   start(): Promise<void>
@@ -46,12 +158,12 @@ interface TBotHandler {
 }
 ```
 
-**CommandHandlers** - Обработчики команд
-- `/start` - Регистрация нового пользователя
-- `/help` - Справочная информация
-- `/address` - Изменение города доставки
-- `/history` - История поисков
-- `/cancel` - Отмена текущего действия
+**Planned Command Handlers**:
+- `/start` - User registration
+- `/help` - Help information
+- `/address` - Change delivery city
+- `/history` - Search history
+- `/cancel` - Cancel current action
 
 ### 2. User Management (`src/services/user/`)
 
@@ -98,11 +210,11 @@ interface TSearchService {
 
 interface TStructuredQuery {
   restaurants?: string[]
-  ingredients?: string[]
+  tags?: string[]
   priceRange?: TPriceRange
   exclusions?: {
     restaurants?: string[]
-    ingredients?: string[]
+    tags?: string[]
     priceRange?: TPriceRange
   }
 }
@@ -117,7 +229,7 @@ interface TSearchResult {
   name: string
   restaurant: TRestaurantInfo
   description: string
-  ingredients: string[]
+  tags: string[]
   price: number
   image?: string
   orderUrl: string
@@ -135,7 +247,9 @@ interface TLLMService {
 
 ### 4. Data Aggregation (`src/services/data/`)
 
-**YEService** - Базовый API клиент для Яндекс.Еда
+### 4. Data Aggregation (`src/services/data/yandexEda/`) - **Implemented**
+
+**YEService** - Base Yandex.Eda API client with rate limiting and retry logic
 ```typescript
 interface TYEService {
   getRestaurants(coordinates: TCoordinates): Promise<TYERestaurant[]>
@@ -157,7 +271,7 @@ interface TYERestaurant {
   }
 }
 
-interface TYEMenuItem {
+interface TMenuItem {
   id: string
   name: string
   description: string
@@ -332,7 +446,7 @@ interface TBotConfig {
 }
 
 interface TDatabaseConfig {
-  path: string // SQLite file path
+  url: string // SQLite file path
   maxConnections: number
   busyTimeout: number
 }
@@ -603,37 +717,68 @@ interface TDatabasePool {
 
 ## Testing Strategy
 
-### Unit Testing используя vitest, memfs
+### Test Architecture
 
-1. **Service Layer Tests**
-   - UserService методы
-   - SearchService логика
-   - LLMService трансформации
-   - YandexEdaService API calls
-  
-2. **Utility Function Tests**
-   - Query parsing
-   - Data validation
-   - Error handling
+```mermaid
+graph TB
+    subgraph "Unit Tests"
+        UT1[Service Logic Tests]
+        UT2[Utility Function Tests]
+        UT3[Data Transformation Tests]
+    end
+    
+    subgraph "Integration Tests"
+        IT1[API Integration Tests]
+        IT2[Database Integration Tests]
+        IT3[Cache Integration Tests]
+    end
+    
+    subgraph "End-to-End Tests"
+        E2E1[Bot Command Flow Tests]
+        E2E2[Search Journey Tests]
+        E2E3[Error Scenario Tests]
+    end
+    
+    UT1 --> IT1
+    UT2 --> IT2
+    UT3 --> IT3
+    IT1 --> E2E1
+    IT2 --> E2E2
+    IT3 --> E2E3
+```
 
-**Реализованные тесты:**
+### Test Implementation Coverage
 
-1. **User Service Tests** (`src/services/user/UserService.test.ts`)
-   - Полное покрытие UserService методов
-   - Мокирование UserRepository
-   - Тестирование валидации и error handling
-   - Dependency injection через factory pattern
+#### Implemented Test Suites
+1. **UserService Tests** - Complete service method coverage
+2. **YEService Tests** - API calls, rate limiting, retry logic
+3. **YEDataTransformer Tests** - Data transformation and ingredient extraction
+4. **CachedYEService Tests** - Caching behavior and cache key generation
+5. **YEDataCollectionService Tests** - Cron job scheduling and statistics
+6. **CacheService Tests** - Provider pattern and TTL behavior
 
-2. **Data Service Tests**
-   - **YEService** (`YEService.test.ts`) - API calls, rate limiting, retry logic
-   - **YEDataTransformer** (`YEDataTransformer.test.ts`) - трансформация данных, извлечение ингредиентов
-   - **CachedYEService** (`CachedYeService.test.ts`) - кэширование, cache keys, фильтрация
-   - **YEDataCollectionService** (`YEDataCollectionService.test.ts`) - cron задачи, статистика
+#### Test Utilities & Mocking
+- **Test Framework**: Vitest (^3.2.4) with TypeScript support
+- **Mock Strategy**: Comprehensive mocking of external dependencies
+- **Time Control**: `vi.useFakeTimers()` for TTL and scheduling tests
+- **Fetch Mocking**: Mock HTTP requests for API testing
+- **Database Mocking**: In-memory database for isolation
+- **Memory FileSystem**: memfs for file system mocking
 
-3. **Utility Function Tests**
-   - Мокирование fetch для API тестов
-   - Использование vi.useFakeTimers() для тестирования TTL
-   - Тестирование error scenarios и edge cases
+#### Test Configuration
+```typescript
+// vitest.config.mts
+export default defineConfig({
+  test: {
+    root: './',
+    setupFiles: path.resolve(__dirname, 'src/vitest/setup.ts'),
+    pool: 'threads',
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+});
+```
 
 ### Integration Testing
 
@@ -809,73 +954,93 @@ interface TEnvironment {
    - CPU usage optimization
    - Database connection pooling
 
-## File Structure
+## Current Project Structure
+
+### Implemented Components
 
 ```
 src/
-├── bot/
-│   ├── handlers/
-│   │   ├── commandHandlers.ts
-│   │   ├── messageHandlers.ts
-│   │   └── callbackHandlers.ts
-│   ├── middleware/
-│   │   ├── authMiddleware.ts
-│   │   ├── rateLimitMiddleware.ts
-│   │   └── errorMiddleware.ts
-│   └── botHandler.ts
-├── services/
-│   ├── user/
-│   │   ├── userService.ts
-│   │   ├── userRepository.ts
-│   │   ├── userServiceFactory.ts
-│   │   └── UserService.test.ts
-│   ├── search/
-│   │   ├── searchService.ts
-│   │   ├── llmService.ts
-│   │   └── queryProcessor.ts
+├── config/                    # ✅ Configuration Management
+│   ├── bot.ts                # Bot and service configuration
+│   ├── database.ts           # Database connection setup
+│   ├── environment.ts        # Environment variables
+│   └── migrations.ts         # Database migrations
+├── models/                    # ✅ Data Models
+│   ├── user.ts              # User domain model
+│   ├── restaurant.ts        # Restaurant domain model
+│   ├── menuItem.ts          # Menu item model
+│   ├── search.ts            # Search query models
+│   ├── telegram.ts          # Telegram-specific types
+│   └── yandexEda.ts         # Yandex.Eda API models
+├── services/                  # ✅ Core Services
 │   ├── data/
-│   │   ├── cache/
-│   │   │   └── cacheService.ts
-│   │   └── yandexEda/
-│   │       ├── yeService/YEService.ts
-│   │       ├── yeService/instances.ts
-│   │       ├── yeDataTransformer/YEDataTransformer.ts
-│   │       ├── yeDataTransformer/instances.ts
-│   │       ├── cachedYEService/CachedYEService.ts
-│   │       ├── cachedYEService/instances.ts
-│   │       ├── yeDataCollectionService/YEDataCollectionService.ts
-│   │       ├── yeDataCollectionService/instances.ts
-│   │       ├── YEService.test.ts
-│   │       ├── YEDataTransformer.test.ts
-│   │       ├── CachedYeService.test.ts
-│   │       └── YEDataCollectionService.test.ts
-│   ├── geo/
-│   │   └── geolocationService.ts
-│   └── message/
-│       └── messageFormatter.ts
-├── models/
-│   ├── user.ts
-│   ├── restaurant.ts
-│   ├── menuItem.ts
-│   ├── search.ts
-│   ├── telegram.ts
-│   └── yandexEda.ts
-├── utils/
-│   ├── validation.ts
-│   ├── sanitizer.ts
-│   ├── cityValidator.ts
-│   ├── errors.ts
-│   ├── logger.ts
-│   ├── metrics.ts
-│   ├── database.ts
-│   └── healthChecker.ts
-├── config/
-│   ├── database.ts
-│   ├── migrations.ts
-│   ├── bot.ts
-│   └── environment.ts
-└── index.ts
+│   │   ├── cache/cacheService/        # Cache abstraction layer
+│   │   │   ├── providers/             # Cache provider implementations
+│   │   │   │   ├── MemoryCacheProvider.ts
+│   │   │   │   ├── RedisCacheProvider.ts
+│   │   │   │   ├── RedisCacheProvider.test.ts
+│   │   │   │   └── baseCacheProvider.ts
+│   │   │   ├── CacheService.ts
+│   │   │   ├── CacheService.test.ts
+│   │   │   └── instances.ts
+│   │   ├── collection/        # ⏳ Planned data collection services
+│   │   └── yandexEda/         # Yandex.Eda integration
+│   │       ├── cachedYEService/
+│   │       │   ├── CachedYEService.ts
+│   │       │   ├── CachedYEService.test.ts
+│   │       │   └── instances.ts
+│   │       ├── yeDataCollectionService/
+│   │       │   ├── YEDataCollectionService.ts
+│   │       │   ├── YEDataCollectionService.test.ts
+│   │       │   └── instances.ts
+│   │       ├── yeDataTransformer/
+│   │       │   ├── YEDataTransformer.ts
+│   │       │   ├── YEDataTransformer.test.ts
+│   │       │   └── instances.ts
+│   │       └── yeService/
+│   │           ├── YEService.ts
+│   │           ├── YEService.test.ts
+│   │           └── instances.ts
+│   ├── search/LLMService/     # ✅ LLM Integration
+│   │   ├── LLMService.ts
+│   │   ├── LLMService.test.ts
+│   │   └── instances.ts
+│   ├── user/                  # ✅ User Management
+│   │   ├── UserRepository.ts
+│   │   ├── UserService.ts
+│   │   ├── UserServiceFactory.ts
+│   │   └── userService.test.ts
+│   ├── geo/                   # ⏳ Planned geolocation services
+│   └── message/               # ⏳ Planned message formatting
+├── utils/                     # ✅ Utility Functions
+│   ├── cityValidator.ts      # City validation and coordinates
+│   ├── database.ts           # Database utilities
+│   ├── errors.ts             # Error handling and types
+│   ├── logger.ts             # Logging framework
+│   ├── sanitizer.ts          # Input sanitization
+│   └── validation.ts         # Input validation
+├── vitest/                    # ✅ Test Configuration
+│   ├── constants.ts          # Test constants
+│   ├── general.test.ts       # General test utilities
+│   └── setup.ts              # Test setup configuration
+├── test/                      # ✅ Development Testing
+│   ├── index.ts              # Manual testing scripts
+│   ├── llm.ts                # LLM testing utilities
+│   ├── redis.ts              # Redis testing
+│   ├── places.json           # Test data
+│   └── burger_king_ynrku.json # Sample restaurant data
+├── research/                  # 📚 Research & Documentation
+│   └── yandex eda/requests/   # API research files
+├── bot/                       # ⏳ Planned Bot Interface
+│   ├── handlers/              # (empty - planned)
+│   └── middleware/           # (empty - planned)
+└── index.ts                   # Main entry point (empty)
 ```
+
+### Legend
+- ✅ **Fully Implemented**: Complete with tests and documentation
+- ⏳ **Planned**: Directory structure exists, implementation pending
+- 📚 **Research**: Documentation and research materials
 
 ## API Integration Details
 
@@ -918,15 +1083,29 @@ src/
 - Database queries: < 500ms
 - Cache hits: < 50ms
 
-### Throughput Requirements
+### Performance Targets
+- **Bot Response Time**: < 1 second for commands
+- **Search Processing**: < 5 seconds for complex queries
+- **LLM Transformation**: < 3 seconds per request
+- **Cache Hit Ratio**: > 80% for frequently accessed data
+- **Concurrent Users**: Support up to 100 simultaneous users
 
-- Concurrent users: до 100
-- Requests per second: до 50
-- Database connections: до 20
-- Memory usage: < 4GB per instance
+### Current Development Scripts
+```bash
+# Development
+npm start                    # Start with ts-node
 
-### Availability Targets
+# Quality Assurance
+npm run typecheck           # TypeScript type checking
+npm run eslint              # Lint code
+npm run eslint:fix          # Auto-fix linting issues
+npm run test                # Run tests with Vitest
+npm run test:watch          # Run tests in watch mode
+npm run lint                # Full lint suite (type + lint + test)
+```
 
-- Uptime: 99.5%
-- Error rate: < 1%
-- Data freshness: обновление каждый час
+### Deployment Considerations
+- **Build Process**: No explicit build script defined (requires `tsc` for production)
+- **Node.js Version**: Strict engine requirement (>=22.15.0 <23.0.0)
+- **Production Deployment**: Needs build step for TypeScript compilation
+- **Environment Configuration**: Uses dotenv for environment management

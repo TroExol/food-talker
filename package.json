@@ -11,7 +11,6 @@
   "scripts": {
     "postinstall": "husky",
     "start": "ts-node -r tsconfig-paths/register src/index.ts",
-    "edit-file": "ts-node -r tsconfig-paths/register src/scripts/editFile.ts",
     "typecheck": "tsc --noEmit",
     "eslint": "eslint .",
     "eslint:fix": "eslint . --fix",
