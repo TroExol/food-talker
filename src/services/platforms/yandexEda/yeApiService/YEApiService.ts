@@ -46,8 +46,8 @@ export class YEApiService implements TYEService {
         windowSizeMs: 60 * 1000, // 1 минута
       },
       timeout: 10000, // 10 секунд
-      retries: 3,
-      delayBetweenRequestsMs: botConfig.yandexEda.delayBetweenRequestsMs || 100, // Задержка между запросами
+      retries: botConfig.yandexEda.retries ?? 3,
+      delayBetweenRequestsMs: botConfig.yandexEda.delayBetweenRequestsMs ?? 100, // Задержка между запросами
     };
 
     this.rateLimitState = {

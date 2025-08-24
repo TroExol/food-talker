@@ -40,5 +40,6 @@ export const botConfig: TBotConfig = {
       requestsPerHour: 1000,
     },
     delayBetweenRequestsMs: 200,
+    retries: 3,
   },
 };

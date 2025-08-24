@@ -7,7 +7,7 @@ import {
   vi,
 } from 'vitest';
 
-import type { TCacheConfig } from '@/config/bot';
+import type { TCacheConfig } from '@/config/bot/types';
 
 import { RedisCacheProvider } from './RedisCacheProvider';
 

@@ -43,4 +43,5 @@ export interface TYandexEdaConfig {
     requestsPerHour: number;
   };
   delayBetweenRequestsMs: number;
+  retries: number;
 }
