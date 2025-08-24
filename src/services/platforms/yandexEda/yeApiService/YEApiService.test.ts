@@ -7,14 +7,19 @@ import {
 } from 'vitest';
 
 import type { TCoordinates } from '@/types/restaurant';
+import type { TMenuItem } from '@/types/menuItem';
 import type {
   TYEMenuFromServer,
+  TYEMenuItemFromServer,
+  TYERestaurant,
   TYERestaurantFromServer,
   TYERestaurantsFromServer,
 } from '@/services/platforms/yandexEda/yeApiService/types';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
+import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
+import { EAvailableCities } from '@/config/bot/types';
 
 import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
 
@@ -314,7 +319,241 @@ describe('YEApiService', () => {
     });
   });
 
-  describe('cache management', () => {
+  describe('cached methods', () => {
+    const mockCity: EAvailableCities = EAvailableCities.PERM;
+    const mockCoordinates: TCoordinates = {
+      latitude: 58.010454,
+      longitude: 56.229441,
+    };
+
+    const mockYeRestaurant: TYERestaurantFromServer = {
+      name: { value: 'Тест Ресторан', color: { light: '#000', dark: '#fff' } },
+      slug: 'test-restaurant',
+      brand: { slug: 'test-brand', name: 'Тест Бренд', business: 'restaurant' },
+    };
+
+    const mockYeRestaurants: TYERestaurantFromServer[] = [mockYeRestaurant];
+
+    const mockYeMenuItems: TYEMenuItemFromServer[] = [
+      {
+        id: 123,
+        name: 'Тестовое блюдо',
+        description: 'Описание',
+        available: true,
+        inStock: true,
+        price: 500,
+        decimalPrice: '500',
+        promoTypes: [],
+        optionsGroups: [],
+        adult: false,
+        shippingType: 'all',
+        publicId: 'test-id',
+      },
+    ];
+
+    const mockTransformedRestaurant: TYERestaurant = {
+      id: 'test-restaurant',
+      name: 'Тест Ресторан',
+      coordinates: mockCoordinates,
+      lastUpdated: new Date(),
+      additionalInfo: {
+        brandSlug: 'test-brand',
+      },
+    };
+
+    const mockTransformedMenuItems: TMenuItem[] = [
+      {
+        id: '123',
+        name: 'Тестовое блюдо',
+        description: 'Описание',
+        ingredients: [],
+        price: 500,
+        available: true,
+        restaurant: mockTransformedRestaurant,
+        orderUrl: 'https://eda.yandex.ru/r/test-brand?placeSlug=test-restaurant',
+      },
+    ];
+
+    let mockCacheService: CacheService;
+    let mockDataTransformer: YEDataTransformer;
+
+    beforeEach(() => {
+      vi.spyOn(CityValidator, 'getCityCoordinates').mockReturnValue(mockCoordinates);
+
+      // Мокаем внутренние методы сервиса
+      (service as any).requestRestaurants = vi.fn();
+      (service as any).getRestaurantById = vi.fn();
+      (service as any).requestRestaurantMenu = vi.fn();
+      (service as any).buildCacheKey = vi.fn();
+
+      // Создаем моки для сервиса
+      mockCacheService = {
+        get: vi.fn(),
+        set: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+        clear: vi.fn().mockResolvedValue(undefined),
+        has: vi.fn().mockReturnValue(false),
+        getStats: vi.fn().mockResolvedValue({
+          totalKeys: 10,
+          memoryUsage: 1024,
+          hitRate: 0.8,
+          missRate: 0.2,
+        }),
+      } as unknown as CacheService;
+
+      mockDataTransformer = {
+        transformRestaurant: vi.fn(),
+        transformMenuItem: vi.fn(),
+        transformRestaurants: vi.fn().mockReturnValue([mockTransformedRestaurant]),
+        transformMenuItems: vi.fn(),
+        transformMenu: vi.fn().mockReturnValue(mockTransformedMenuItems),
+      } as unknown as YEDataTransformer;
+
+      service = new YEApiService(mockCacheService, mockDataTransformer);
+      (service as any).config.delayBetweenRequestsMs = 0;
+    });
+
+    describe('getRestaurants', () => {
+      it('должен вернуть данные из кэша если они есть', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue([mockTransformedRestaurant]);
+
+        const result = await service.getRestaurants(mockCity);
+
+        expect(result).toEqual([mockTransformedRestaurant]);
+        expect(mockCacheService.get).toHaveBeenCalledWith('restaurants:58.0105,56.2294');
+        expect(mockDataTransformer.transformRestaurants).not.toHaveBeenCalled();
+        expect(mockCacheService.set).not.toHaveBeenCalled();
+      });
+
+      it('должен загрузить данные из API если их нет в кэше', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(null);
+
+        // Мокаем requestRestaurants
+        (service as any).requestRestaurants = vi.fn().mockResolvedValue(mockYeRestaurants);
+
+        const result = await service.getRestaurants(mockCity);
+
+        expect(result).toEqual([mockTransformedRestaurant]);
+        expect(mockCacheService.get).toHaveBeenCalledWith('restaurants:58.0105,56.2294');
+        expect((service as any).requestRestaurants).toHaveBeenCalledWith(mockCoordinates);
+        expect(mockDataTransformer.transformRestaurants).toHaveBeenCalledWith(mockYeRestaurants, mockCoordinates);
+        expect(mockCacheService.set).toHaveBeenCalledWith(
+          'restaurants:58.0105,56.2294',
+          [mockTransformedRestaurant],
+          3600,
+        );
+      });
+
+      it('должен обработать ошибку API', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(null);
+        (service as any).requestRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
+
+        await expect(service.getRestaurants(mockCity)).rejects.toThrow('Не удалось загрузить рестораны Яндекс.Еда для Пермь');
+        expect(mockCacheService.get).toHaveBeenCalledWith('restaurants:58.0105,56.2294');
+      });
+
+      it('должен обработать ошибку получения координат', async () => {
+        vi.spyOn(CityValidator, 'getCityCoordinates').mockReturnValue(null);
+
+        await expect(service.getRestaurants(mockCity)).rejects.toThrow('Не удалось получить координаты для города Пермь Яндекс.Еда');
+      });
+    });
+
+    describe('getRestaurantMenu', () => {
+      it('должен вернуть меню из кэша если оно есть', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(mockTransformedMenuItems);
+
+        const result = await service.getRestaurantMenu('test-restaurant', mockCity);
+
+        expect(result).toEqual(mockTransformedMenuItems);
+        expect(mockCacheService.get).toHaveBeenCalledWith('menu:58.0105,56.2294:test-restaurant');
+        expect(mockDataTransformer.transformMenu).not.toHaveBeenCalled();
+        expect(mockCacheService.set).not.toHaveBeenCalled();
+      });
+
+      it('должен загрузить меню из API если его нет в кэше', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(null);
+
+        // Мокаем внутренние методы
+        (service as any).getRestaurantById = vi.fn().mockResolvedValue(mockTransformedRestaurant);
+        (service as any).requestRestaurantMenu = vi.fn().mockResolvedValue(mockYeMenuItems);
+
+        const result = await service.getRestaurantMenu('test-restaurant', mockCity);
+
+        expect(result).toEqual(mockTransformedMenuItems);
+        expect(mockCacheService.get).toHaveBeenCalledWith('menu:58.0105,56.2294:test-restaurant');
+        expect((service as any).getRestaurantById).toHaveBeenCalledWith('test-restaurant', mockCity);
+        expect((service as any).requestRestaurantMenu).toHaveBeenCalledWith('test-restaurant', mockCoordinates, 'test-brand');
+        expect(mockDataTransformer.transformMenu).toHaveBeenCalledWith(mockYeMenuItems, mockTransformedRestaurant);
+        expect(mockCacheService.set).toHaveBeenCalledWith(
+          'menu:58.0105,56.2294:test-restaurant',
+          mockTransformedMenuItems,
+          1800,
+        );
+      });
+
+      it('должен обработать случай когда ресторан не найден', async () => {
+        mockCacheService.get = vi.fn().mockResolvedValue(null);
+        (service as any).getRestaurantById = vi.fn().mockResolvedValue(null);
+
+        await expect(service.getRestaurantMenu('non-existent', mockCity)).rejects.toThrow('Не удалось загрузить меню Яндекс.Еда для non-existent');
+      });
+
+      it('должен обработать ошибку получения координат', async () => {
+        vi.spyOn(CityValidator, 'getCityCoordinates').mockReturnValue(null);
+
+        await expect(service.getRestaurantMenu('test-restaurant', mockCity)).rejects.toThrow('Не удалось получить координаты для города Пермь Яндекс.Еда');
+      });
+    });
+
+    describe('getRestaurantById', () => {
+      it('должен найти ресторан по ID', async () => {
+        // Мокаем getRestaurants
+        (service as any).getRestaurants = vi.fn().mockResolvedValue([mockTransformedRestaurant]);
+
+        const result = await service.getRestaurantById('test-restaurant', mockCity);
+
+        expect(result).toEqual(mockTransformedRestaurant);
+        expect((service as any).getRestaurants).toHaveBeenCalledWith(mockCity);
+      });
+
+      it('должен вернуть null если ресторан не найден', async () => {
+        (service as any).getRestaurants = vi.fn().mockResolvedValue([mockTransformedRestaurant]);
+
+        const result = await service.getRestaurantById('non-existent', mockCity);
+
+        expect(result).toBeNull();
+      });
+
+      it('должен вернуть null при ошибке получения ресторанов', async () => {
+        (service as any).getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
+
+        const result = await service.getRestaurantById('test-restaurant', mockCity);
+
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('buildCacheKey', () => {
+      it('должен генерировать правильный ключ для ресторанов', () => {
+        type TestService = { buildCacheKey: (type: string, coordinates: TCoordinates, ...extra: string[]) => string };
+        const key = (service as unknown as TestService).buildCacheKey('restaurants', mockCoordinates);
+        expect(key).toBe('restaurants:58.0105,56.2294');
+      });
+
+      it('должен генерировать правильный ключ для меню', () => {
+        type TestService = { buildCacheKey: (type: string, coordinates: TCoordinates, ...extra: string[]) => string };
+        const key = (service as unknown as TestService).buildCacheKey('menu', mockCoordinates, 'restaurant-id');
+        expect(key).toBe('menu:58.0105,56.2294:restaurant-id');
+      });
+
+      it('должен генерировать правильный ключ с множеством дополнительных параметров', () => {
+        type TestService = { buildCacheKey: (type: string, coordinates: TCoordinates, ...extra: string[]) => string };
+        const key = (service as unknown as TestService).buildCacheKey('search', mockCoordinates, 'query', 'param1', 'param2');
+        expect(key).toBe('search:58.0105,56.2294:query:param1:param2');
+      });
+    });
+
     it('должен очистить кэш', async () => {
       const mockCacheService = {
         clear: vi.fn().mockResolvedValue(undefined),
