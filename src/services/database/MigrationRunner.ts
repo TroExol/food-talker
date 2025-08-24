@@ -1,5 +1,5 @@
-import { logger } from '@/utils/logger';
-import { AppError } from '@/utils/errors';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppError } from '@/utils/AppError';
 
 import type { TDatabaseConnection, TMigration } from './types';
 
@@ -40,7 +40,7 @@ export class MigrationRunner {
 
   private runMigration = async (migration: TMigration): Promise<void> => {
     try {
-      logger.info(`Применение миграции ${migration.version}: ${migration.description}`);
+      ConsoleLogger.info(`Применение миграции ${migration.version}: ${migration.description}`);
 
       await migration.up(this.db);
 
@@ -48,9 +48,9 @@ export class MigrationRunner {
         INSERT INTO migrations (version, description) VALUES (?, ?)
       `, [migration.version, migration.description]);
 
-      logger.info(`Миграция ${migration.version} успешно применена`);
+      ConsoleLogger.info(`Миграция ${migration.version} успешно применена`);
     } catch (error) {
-      logger.error(`Ошибка применения миграции ${migration.version}`, error as Error);
+      ConsoleLogger.error(`Ошибка применения миграции ${migration.version}`, error as Error);
       throw AppError.databaseError('MIGRATION_FAILED', `Не удалось применить миграцию ${migration.version}`);
     }
   };

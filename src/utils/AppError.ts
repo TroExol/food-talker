@@ -14,14 +14,7 @@ export enum TErrorType {
   VALIDATION_ERROR = 'VALIDATION_ERROR',
 }
 
-interface TAppError extends Error {
-  type: TErrorType;
-  code: string;
-  details?: unknown;
-  isUserFacing: boolean;
-}
-
-export class AppError extends Error implements TAppError {
+export class AppError extends Error {
   public readonly type: TErrorType;
   public readonly code: string;
   public readonly details?: unknown;

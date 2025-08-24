@@ -2,8 +2,8 @@ import { createClient, type RedisClientType } from 'redis';
 
 import type { TCacheConfig } from '@/config/bot/types';
 
-import { logger } from '@/utils/logger';
-import { AppError } from '@/utils/errors';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppError } from '@/utils/AppError';
 
 import type { TCacheProvider, TCacheProviderStats } from './types';
 
@@ -26,7 +26,7 @@ export class RedisCacheProvider implements TCacheProvider {
       url: config.redisUrl,
       socket: {
         reconnectStrategy: retries => {
-          logger.warn('Redis переподключение', { attempt: retries });
+          ConsoleLogger.warn('Redis переподключение', { attempt: retries });
           return Math.min(retries * 50, 1000);
         },
       },
@@ -52,10 +52,10 @@ export class RedisCacheProvider implements TCacheProvider {
       this.isConnecting = true;
       await this.client.connect();
       this.isConnected = true;
-      logger.info('Redis клиент подключен');
+      ConsoleLogger.info('Redis клиент подключен');
     } catch (error) {
       this.isConnecting = false;
-      logger.error('Ошибка подключения к Redis', error as Error);
+      ConsoleLogger.error('Ошибка подключения к Redis', error as Error);
       throw AppError.cacheError('Не удалось подключиться к Redis', error);
     } finally {
       this.isConnecting = false;
@@ -70,16 +70,16 @@ export class RedisCacheProvider implements TCacheProvider {
 
       if (value === null) {
         this.misses++;
-        logger.debug('Redis cache не найден', { key });
+        ConsoleLogger.debug('Redis cache не найден', { key });
         return null;
       }
 
       this.hits++;
-      logger.debug('Redis кэш найден', { key });
+      ConsoleLogger.debug('Redis кэш найден', { key });
 
       return JSON.parse(value) as T;
     } catch (error) {
-      logger.error('Ошибка получения Redis кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка получения Redis кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось получить Redis кэш по ключу: ${key}`, error);
     }
   };
@@ -93,9 +93,9 @@ export class RedisCacheProvider implements TCacheProvider {
 
       await this.client.setEx(key, ttl, serializedValue);
 
-      logger.debug('Redis кэш установлен', { key, ttl });
+      ConsoleLogger.debug('Redis кэш установлен', { key, ttl });
     } catch (error) {
-      logger.error('Ошибка установки Redis кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка установки Redis кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось установить Redis кэш по ключу: ${key}`, error);
     }
   };
@@ -105,9 +105,9 @@ export class RedisCacheProvider implements TCacheProvider {
       await this.ensureConnected();
 
       const deleted = await this.client.del(key);
-      logger.debug('Redis кэш удален', { key, deleted: deleted > 0 });
+      ConsoleLogger.debug('Redis кэш удален', { key, deleted: deleted > 0 });
     } catch (error) {
-      logger.error('Ошибка удаления Redis кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка удаления Redis кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось удалить Redis кэш по ключу: ${key}`, error);
     }
   };
@@ -123,9 +123,9 @@ export class RedisCacheProvider implements TCacheProvider {
       this.hits = 0;
       this.misses = 0;
 
-      logger.info('Redis кэш очищен', { previousSize: keysCount });
+      ConsoleLogger.info('Redis кэш очищен', { previousSize: keysCount });
     } catch (error) {
-      logger.error('Ошибка очистки Redis кэша', error as Error);
+      ConsoleLogger.error('Ошибка очистки Redis кэша', error as Error);
       throw AppError.cacheError('Не удалось очистить Redis кэш', error);
     }
   };
@@ -137,7 +137,7 @@ export class RedisCacheProvider implements TCacheProvider {
       const exists = await this.client.exists(key);
       return exists === 1;
     } catch (error) {
-      logger.error('Ошибка проверки Redis кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка проверки Redis кэша', error as Error, { key });
       return false;
     }
   };
@@ -161,7 +161,7 @@ export class RedisCacheProvider implements TCacheProvider {
         missRate: totalRequests > 0 ? this.misses / totalRequests : 0,
       };
     } catch (error) {
-      logger.error('Ошибка получения статистики Redis кэша', error as Error);
+      ConsoleLogger.error('Ошибка получения статистики Redis кэша', error as Error);
       throw AppError.cacheError('Не удалось получить статистику Redis кэша', error);
     }
   };
@@ -171,38 +171,38 @@ export class RedisCacheProvider implements TCacheProvider {
       if (this.isConnected) {
         await this.client.quit();
         this.isConnected = false;
-        logger.info('Redis cache provider закрыт');
+        ConsoleLogger.info('Redis cache provider закрыт');
       }
     } catch (error) {
-      logger.error('Ошибка закрытия Redis cache provider', error as Error);
+      ConsoleLogger.error('Ошибка закрытия Redis cache provider', error as Error);
     }
   };
 
   private setupEventHandlers = (): void => {
     this.client.on('error', error => {
-      logger.error('Redis клиент ошибка', error as Error);
+      ConsoleLogger.error('Redis клиент ошибка', error as Error);
       this.isConnected = false;
       this.isConnecting = false;
     });
 
     this.client.on('connect', () => {
-      logger.info('Redis клиент подключается');
+      ConsoleLogger.info('Redis клиент подключается');
     });
 
     this.client.on('ready', () => {
-      logger.info('Redis клиент готов');
+      ConsoleLogger.info('Redis клиент готов');
       this.isConnected = true;
       this.isConnecting = false;
     });
 
     this.client.on('end', () => {
-      logger.info('Redis соединение закрыто');
+      ConsoleLogger.info('Redis соединение закрыто');
       this.isConnected = false;
       this.isConnecting = false;
     });
 
     this.client.on('reconnecting', () => {
-      logger.info('Redis переподключается');
+      ConsoleLogger.info('Redis переподключается');
       this.isConnecting = true;
     });
   };

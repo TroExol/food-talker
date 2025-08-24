@@ -1,35 +1,29 @@
-import type { TCoordinates } from '../types/restaurant';
-import type { EAvailableCities } from '../config/bot';
+import type { TCoordinates } from '@/types/restaurant';
+import type { EAvailableCities } from '@/config/bot/types';
 
-import { botConfig } from '../config/bot';
+import { botConfig } from '@/config/bot';
 
 /**
  * Специализированная валидация городов и координат
  */
 
-interface TCityValidator {
-  isSupported(city: EAvailableCities): boolean;
-  getCityCoordinates(city: EAvailableCities): TCoordinates | null;
-  normalizeCityName(city: EAvailableCities): EAvailableCities;
-}
-
-export class CityValidator implements TCityValidator {
-  private readonly cityCoordinates: Record<EAvailableCities, TCoordinates> = {
+export class CityValidator {
+  private static readonly cityCoordinates: Record<EAvailableCities, TCoordinates> = {
     Пермь: { latitude: 58.010454, longitude: 56.229441 },
     Воронеж: { latitude: 51.661535, longitude: 39.200287 },
   };
 
-  isSupported(city: EAvailableCities): boolean {
+  public static isSupported(city: EAvailableCities): boolean {
     const normalized = this.normalizeCityName(city);
     return botConfig.availableCities.includes(normalized);
   }
 
-  getCityCoordinates(city: EAvailableCities): TCoordinates | null {
+  public static getCityCoordinates(city: EAvailableCities): TCoordinates | null {
     const normalized = this.normalizeCityName(city);
     return this.cityCoordinates[normalized] || null;
   }
 
-  normalizeCityName(city: EAvailableCities): EAvailableCities {
+  public static normalizeCityName(city: EAvailableCities): EAvailableCities {
     const normalized = city
       .trim()
       .replace(/\s+/g, ' ');
@@ -41,7 +35,7 @@ export class CityValidator implements TCityValidator {
   /**
    * Проверяет, находятся ли координаты в зоне доставки города
    */
-  isInDeliveryZone(coordinates: TCoordinates, city: EAvailableCities, radiusKm = 50): boolean {
+  public static isInDeliveryZone(coordinates: TCoordinates, city: EAvailableCities, radiusKm = 50): boolean {
     const cityCoords = this.getCityCoordinates(city);
     if (!cityCoords) return false;
 
@@ -49,7 +43,7 @@ export class CityValidator implements TCityValidator {
     return distance <= radiusKm;
   }
 
-  private calculateDistance(coord1: TCoordinates, coord2: TCoordinates): number {
+  private static calculateDistance(coord1: TCoordinates, coord2: TCoordinates): number {
     const R = 6371; // Earth's radius in kilometers
     const dLat = this.toRadians(coord2.latitude - coord1.latitude);
     const dLon = this.toRadians(coord2.longitude - coord1.longitude);
@@ -64,9 +58,7 @@ export class CityValidator implements TCityValidator {
     return R * c;
   }
 
-  private toRadians(degrees: number): number {
+  private static toRadians(degrees: number): number {
     return degrees * (Math.PI / 180);
   }
 }
-
-export const cityValidator = new CityValidator();

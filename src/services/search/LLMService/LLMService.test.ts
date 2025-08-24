@@ -65,7 +65,7 @@ describe('LLMService', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await llmService.transformQuery('хочу пиццу с сыром до 800 рублей', []);
+      const result = await llmService.stuctureQuery('хочу пиццу с сыром до 800 рублей', []);
 
       expect(result).toEqual({
         tags: ['пицца', 'сыр'],
@@ -107,7 +107,7 @@ describe('LLMService', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await llmService.transformQuery('пепперони из Додо или Папа Джонс, но без ананаса и не дороже 300', ['Додо Пицца', 'Папа Джонс']);
+      const result = await llmService.stuctureQuery('пепперони из Додо или Папа Джонс, но без ананаса и не дороже 300', ['Додо Пицца', 'Папа Джонс']);
 
       expect(result).toEqual({
         restaurants: ['додо пицца', 'папа джонс'],
@@ -134,7 +134,7 @@ describe('LLMService', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await llmService.transformQuery('тест', []);
+      const result = await llmService.stuctureQuery('тест', []);
 
       expect(result).toEqual({});
     });
@@ -151,7 +151,7 @@ describe('LLMService', () => {
           }),
         });
 
-      const fetching = llmService.transformQuery('тест', []);
+      const fetching = llmService.stuctureQuery('тест', []);
       await vi.advanceTimersToNextTimerAsync();
       await vi.advanceTimersToNextTimerAsync();
       const result = await fetching;
@@ -163,7 +163,7 @@ describe('LLMService', () => {
     it('должен выбрасывать ошибку при превышении лимита попыток', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      const expection = expect(llmService.transformQuery('тест', [])).rejects.toThrow('Не удалось трансформировать запрос');
+      const expection = expect(llmService.stuctureQuery('тест', [])).rejects.toThrow('Не удалось трансформировать запрос');
       await vi.advanceTimersToNextTimerAsync();
       await vi.advanceTimersToNextTimerAsync();
       await expection;
@@ -185,7 +185,7 @@ describe('LLMService', () => {
         };
       }));
 
-      const expection = expect(llmService.transformQuery('тест', [])).rejects.toThrow('Не удалось трансформировать запрос');
+      const expection = expect(llmService.stuctureQuery('тест', [])).rejects.toThrow('Не удалось трансформировать запрос');
       await vi.advanceTimersByTimeAsync(10000);
       await expection;
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -576,7 +576,7 @@ describe('LLMService', () => {
 
         mockCacheService.get = vi.fn().mockResolvedValue(cachedQuery);
 
-        const result = await llmService.transformQuery('хочу пиццу с сыром до 800 рублей', ['Додо']);
+        const result = await llmService.stuctureQuery('хочу пиццу с сыром до 800 рублей', ['Додо']);
 
         expect(result).toEqual(cachedQuery);
         expect(mockCacheService.get).toHaveBeenCalledWith(expect.stringMatching(/^llm:/));
@@ -601,7 +601,7 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        await llmService.transformQuery('хочу пиццу с сыром до 800 рублей', ['Додо']);
+        await llmService.stuctureQuery('хочу пиццу с сыром до 800 рублей', ['Додо']);
 
         expect(mockCacheService.set).toHaveBeenCalledWith(
           expect.stringMatching(/^llm:/),
@@ -632,7 +632,7 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        const result = await llmServiceWithoutCache.transformQuery('хочу пиццу', ['Додо']);
+        const result = await llmServiceWithoutCache.stuctureQuery('хочу пиццу', ['Додо']);
 
         expect(result).toEqual({ tags: ['пицца'] });
       });
@@ -729,7 +729,7 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        const result = await llmService.transformQuery('хочу пиццу', ['Додо']);
+        const result = await llmService.stuctureQuery('хочу пиццу', ['Додо']);
 
         expect(result).toEqual({ tags: ['пицца'] });
         expect(mockCacheService.get).toHaveBeenCalled();
@@ -753,7 +753,7 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        const result = await llmService.transformQuery('хочу пиццу', ['Додо']);
+        const result = await llmService.stuctureQuery('хочу пиццу', ['Додо']);
 
         expect(result).toEqual({ tags: ['пицца'] });
         expect(mockCacheService.set).toHaveBeenCalled();
@@ -778,8 +778,8 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        await llmService.transformQuery('хочу пиццу', ['Додо']);
-        await llmService.transformQuery('хочу суши', ['Додо']);
+        await llmService.stuctureQuery('хочу пиццу', ['Додо']);
+        await llmService.stuctureQuery('хочу суши', ['Додо']);
 
         const calls = (mockCacheService.get as Mock).mock.calls;
         expect(calls[0][0]).not.toBe(calls[1][0]);
@@ -802,8 +802,8 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        await llmService.transformQuery('хочу пиццу', ['Додо']);
-        await llmService.transformQuery('хочу пиццу', ['Додо']);
+        await llmService.stuctureQuery('хочу пиццу', ['Додо']);
+        await llmService.stuctureQuery('хочу пиццу', ['Додо']);
 
         const calls = (mockCacheService.get as Mock).mock.calls;
         expect(calls[0][0]).toBe(calls[1][0]);

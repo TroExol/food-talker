@@ -1,7 +1,7 @@
 import type { TCacheConfig } from '@/config/bot/types';
 
-import { logger } from '@/utils/logger';
-import { AppError } from '@/utils/errors';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppError } from '@/utils/AppError';
 
 import type { TMemoryCacheItem } from './types';
 import type { TCacheProvider, TCacheProviderStats } from '../types';
@@ -26,7 +26,7 @@ export class MemoryCacheProvider implements TCacheProvider {
 
       if (!item) {
         this.misses++;
-        logger.debug('Memory cache не найден', { key });
+        ConsoleLogger.debug('Memory cache не найден', { key });
         return Promise.resolve(null);
       }
 
@@ -34,7 +34,7 @@ export class MemoryCacheProvider implements TCacheProvider {
       if (Date.now() > item.expiresAt) {
         this.cache.delete(key);
         this.misses++;
-        logger.debug('Memory кэш просрочен', { key });
+        ConsoleLogger.debug('Memory кэш просрочен', { key });
         return Promise.resolve(null);
       }
 
@@ -43,10 +43,10 @@ export class MemoryCacheProvider implements TCacheProvider {
       item.lastAccessed = Date.now();
       this.hits++;
 
-      logger.debug('Memory кэш найден', { key });
+      ConsoleLogger.debug('Memory кэш найден', { key });
       return Promise.resolve(item.value as T);
     } catch (error) {
-      logger.error('Ошибка получения memory кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка получения memory кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось получить memory кэш по ключу: ${key}`, error);
     }
   };
@@ -68,9 +68,9 @@ export class MemoryCacheProvider implements TCacheProvider {
         lastAccessed: Date.now(),
       });
 
-      logger.debug('Memory кэш установлен', { key, ttl });
+      ConsoleLogger.debug('Memory кэш установлен', { key, ttl });
     } catch (error) {
-      logger.error('Ошибка установки memory кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка установки memory кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось установить memory кэш по ключу: ${key}`, error);
     }
   };
@@ -78,10 +78,10 @@ export class MemoryCacheProvider implements TCacheProvider {
   public delete = (key: string): Promise<void> => {
     try {
       const deleted = this.cache.delete(key);
-      logger.debug('Memory кэш удален', { key, deleted });
+      ConsoleLogger.debug('Memory кэш удален', { key, deleted });
       return Promise.resolve();
     } catch (error) {
-      logger.error('Ошибка удаления memory кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка удаления memory кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось удалить memory кэш по ключу: ${key}`, error);
     }
   };
@@ -92,10 +92,10 @@ export class MemoryCacheProvider implements TCacheProvider {
       this.cache.clear();
       this.hits = 0;
       this.misses = 0;
-      logger.info('Memory кэш очищен', { previousSize: size });
+      ConsoleLogger.info('Memory кэш очищен', { previousSize: size });
       return Promise.resolve();
     } catch (error) {
-      logger.error('Ошибка очистки memory кэша', error as Error);
+      ConsoleLogger.error('Ошибка очистки memory кэша', error as Error);
       throw AppError.cacheError('Не удалось очистить memory кэш', error);
     }
   };
@@ -113,7 +113,7 @@ export class MemoryCacheProvider implements TCacheProvider {
 
       return Promise.resolve(true);
     } catch (error) {
-      logger.error('Ошибка проверки memory кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка проверки memory кэша', error as Error, { key });
       return Promise.resolve(false);
     }
   };
@@ -130,7 +130,7 @@ export class MemoryCacheProvider implements TCacheProvider {
         missRate: totalRequests > 0 ? this.misses / totalRequests : 0,
       });
     } catch (error) {
-      logger.error('Ошибка получения статистики memory кэша', error as Error);
+      ConsoleLogger.error('Ошибка получения статистики memory кэша', error as Error);
       throw AppError.cacheError('Не удалось получить статистику memory кэша', error);
     }
   };
@@ -139,9 +139,9 @@ export class MemoryCacheProvider implements TCacheProvider {
     try {
       clearInterval(this.cleanupInterval);
       this.cache.clear();
-      logger.info('Memory cache provider закрыт');
+      ConsoleLogger.info('Memory cache provider закрыт');
     } catch (error) {
-      logger.error('Ошибка закрытия memory cache provider', error as Error);
+      ConsoleLogger.error('Ошибка закрытия memory cache provider', error as Error);
     }
     return Promise.resolve();
   };
@@ -159,10 +159,10 @@ export class MemoryCacheProvider implements TCacheProvider {
       }
 
       if (cleanedCount > 0) {
-        logger.debug('Memory кэш очистка завершена', { cleanedCount, remainingKeys: this.cache.size });
+        ConsoleLogger.debug('Memory кэш очистка завершена', { cleanedCount, remainingKeys: this.cache.size });
       }
     } catch (error) {
-      logger.error('Ошибка очистки memory кэша', error as Error);
+      ConsoleLogger.error('Ошибка очистки memory кэша', error as Error);
     }
   };
 
@@ -181,12 +181,12 @@ export class MemoryCacheProvider implements TCacheProvider {
 
       if (oldestKey) {
         this.cache.delete(oldestKey);
-        logger.debug('Memory LRU удаление', { evictedKey: oldestKey });
+        ConsoleLogger.debug('Memory LRU удаление', { evictedKey: oldestKey });
       }
 
       return Promise.resolve();
     } catch (error) {
-      logger.error('Ошибка удаления memory LRU', error as Error);
+      ConsoleLogger.error('Ошибка удаления memory LRU', error as Error);
       throw AppError.cacheError('Не удалось удалить memory LRU элемент', error);
     }
   };
@@ -204,7 +204,7 @@ export class MemoryCacheProvider implements TCacheProvider {
 
       return totalSize;
     } catch (error) {
-      logger.error('Ошибка оценки памяти memory кэша', error as Error);
+      ConsoleLogger.error('Ошибка оценки памяти memory кэша', error as Error);
       return 0;
     }
   };

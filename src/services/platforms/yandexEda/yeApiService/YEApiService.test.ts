@@ -15,7 +15,7 @@ import type {
   TYERestaurantsFromServer,
 } from '@/services/platforms/yandexEda/yeApiService/types';
 
-import { AppError } from '@/utils/errors';
+import { AppError } from '@/utils/AppError';
 
 import { YEApiService } from './YEApiService';
 

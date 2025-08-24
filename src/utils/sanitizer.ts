@@ -4,24 +4,14 @@
 
 import { botConfig } from '@/config/bot';
 
-interface TSanitizer {
-  sanitizeSearchQuery(query: string): string;
-  sanitizeCity(city: string): string;
-  sanitizeRestaurantName(name: string): string;
-  removeHarmfulContent(input: string): string;
-  normalizeWhitespace(input: string): string;
-}
-
-export class Sanitizer implements TSanitizer {
-  private readonly maxLength = botConfig.sanitizer.maxLength;
-
-  sanitizeSearchQuery(query: string): string {
+export class Sanitizer {
+  public static sanitizeSearchQuery(query: string): string {
     return this.removeHarmfulContent(
       this.normalizeWhitespace(query.trim()),
-    ).slice(0, this.maxLength);
+    ).slice(0, botConfig.sanitizer.userSearchPrompt.maxLength);
   }
 
-  sanitizeCity(city: string): string {
+  public static sanitizeCity(city: string): string {
     const normalized = this.normalizeWhitespace(city.trim());
 
     // Capitalize first letter of each word for Russian cities
@@ -31,13 +21,13 @@ export class Sanitizer implements TSanitizer {
       .join(' ');
   }
 
-  sanitizeRestaurantName(name: string): string {
+  public static sanitizeRestaurantName(name: string): string {
     return this.removeHarmfulContent(
       this.normalizeWhitespace(name.trim()),
     );
   }
 
-  removeHarmfulContent(input: string): string {
+  public static removeHarmfulContent(input: string): string {
     return input
       // Remove HTML tags
       .replace(/<[^>]*>/g, '')
@@ -51,7 +41,7 @@ export class Sanitizer implements TSanitizer {
       .replace(/[<>]/g, '');
   }
 
-  normalizeWhitespace(input: string): string {
+  public static normalizeWhitespace(input: string): string {
     return input
       // Replace multiple spaces with single space
       .replace(/\s+/g, ' ')
@@ -61,5 +51,3 @@ export class Sanitizer implements TSanitizer {
       .trim();
   }
 }
-
-export const sanitizer = new Sanitizer();

@@ -6,7 +6,7 @@ import type {
   TYERestaurantFromServer,
 } from '@/services/platforms/yandexEda/yeApiService/types';
 
-import { logger } from '@/utils/logger';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
 
 import type { TYEDataTransformer } from './types';
 
@@ -28,17 +28,15 @@ export class YEDataTransformer implements TYEDataTransformer {
 
       return restaurant;
     } catch (error) {
-      logger.error('Ошибка трансформации ресторана Яндекс.Еда', error as Error, { restaurantId: yeRestaurant.slug });
+      ConsoleLogger.error('Ошибка трансформации ресторана Яндекс.Еда', error as Error, { restaurantId: yeRestaurant.slug });
       throw new Error(`Не удалось трансформировать ресторан Яндекс.Еда: ${yeRestaurant.slug}`);
     }
   };
 
   public transformMenuItem = (yeMenuItem: TYEMenuItemFromServer, restaurant: TYERestaurant): TMenuItem => {
     try {
-      // Извлекаем ингредиенты из descriptions
       const ingredients = this.extractIngredients(yeMenuItem);
 
-      // Формируем URL изображения
       const imageUrl = yeMenuItem.picture?.uri
         ? `https://eda.yandex${yeMenuItem.picture.uri.replace('{w}x{h}', '400x400')}`
         : undefined;
@@ -57,7 +55,7 @@ export class YEDataTransformer implements TYEDataTransformer {
 
       return menuItem;
     } catch (error) {
-      logger.error('Ошибка трансформации элемента меню Яндекс.Еда', error as Error, {
+      ConsoleLogger.error('Ошибка трансформации элемента меню Яндекс.Еда', error as Error, {
         menuItemId: yeMenuItem.id,
         restaurantId: restaurant.id,
       });
@@ -81,12 +79,11 @@ export class YEDataTransformer implements TYEDataTransformer {
       desc.title?.toLowerCase() === 'состав',
     );
 
-    // Если нет точного title "Состав", ищем текст с "Состав:"
     compositionDescs.push(...yeMenuItem.descriptions.filter(desc =>
       desc.text?.toLowerCase().includes('состав:'),
     ));
 
-    // Если нет явного указания состава, проверяем описания на схожесть со списком ингредиентов
+    // Проверяем описания на схожесть со списком ингредиентов
     compositionDescs.push(...yeMenuItem.descriptions.filter(desc => {
       if (!desc.text) return false;
 

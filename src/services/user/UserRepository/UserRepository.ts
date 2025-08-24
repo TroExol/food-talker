@@ -6,11 +6,11 @@ import type {
   TSearchHistoryItem,
   TUser,
   TUserEntity,
-} from '@/services/user/types';
-import type { TDatabaseConnection } from '@/services/database/SQLite/SQLite';
+} from '@/services/user/UserRepository/types';
+import type { TDatabaseConnection } from '@/services/database/types';
 
-import { logger } from '@/utils/logger';
-import { AppError } from '@/utils/errors';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppError } from '@/utils/AppError';
 
 interface TUserRepository {
   create: (userData: Omit<TUser, 'createdAt' | 'updatedAt'>) => Promise<TUser>;
@@ -49,10 +49,10 @@ export class UserRepository implements TUserRepository {
         updatedAt: new Date(now),
       };
 
-      logger.info('Пользователь создан', { telegramId: userData.telegramId });
+      ConsoleLogger.info('Пользователь создан', { telegramId: userData.telegramId });
       return user;
     } catch (error) {
-      logger.error('Ошибка создания пользователя', error as Error, { telegramId: userData.telegramId });
+      ConsoleLogger.error('Ошибка создания пользователя', error as Error, { telegramId: userData.telegramId });
       throw AppError.databaseError('USER_CREATE_FAILED', 'Не удалось создать пользователя');
     }
   };
@@ -69,7 +69,7 @@ export class UserRepository implements TUserRepository {
 
       return this.entityToUser(userEntity);
     } catch (error) {
-      logger.error('Ошибка поиска пользователя', error as Error, { telegramId });
+      ConsoleLogger.error('Ошибка поиска пользователя', error as Error, { telegramId });
       throw AppError.databaseError('USER_FIND_FAILED', 'Не удалось найти пользователя');
     }
   };
@@ -113,13 +113,13 @@ export class UserRepository implements TUserRepository {
         throw AppError.systemError('USER_UPDATE_INCONSISTENT', 'Пользователь обновлен но не найден');
       }
 
-      logger.info('Пользователь обновлен', { telegramId, updates });
+      ConsoleLogger.info('Пользователь обновлен', { telegramId, updates });
       return updatedUser;
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
       }
-      logger.error('Ошибка обновления пользователя', error as Error, { telegramId });
+      ConsoleLogger.error('Ошибка обновления пользователя', error as Error, { telegramId });
       throw AppError.databaseError('USER_UPDATE_FAILED', 'Не удалось обновить пользователя');
     }
   };
@@ -134,12 +134,12 @@ export class UserRepository implements TUserRepository {
 
       const deleted = result.changes > 0;
       if (deleted) {
-        logger.info('Пользователь удален', { telegramId });
+        ConsoleLogger.info('Пользователь удален', { telegramId });
       }
 
       return deleted;
     } catch (error) {
-      logger.error('Ошибка удаления пользователя', error as Error, { telegramId });
+      ConsoleLogger.error('Ошибка удаления пользователя', error as Error, { telegramId });
       throw AppError.databaseError('USER_DELETE_FAILED', 'Не удалось удалить пользователя');
     }
   };
@@ -153,7 +153,7 @@ export class UserRepository implements TUserRepository {
 
       return entities.map(entity => this.entityToUser(entity));
     } catch (error) {
-      logger.error('Ошибка поиска просроченных подписок', error as Error);
+      ConsoleLogger.error('Ошибка поиска просроченных подписок', error as Error);
       throw AppError.databaseError('EXPIRED_SUBSCRIPTIONS_FAILED', 'Не удалось найти просроченные подписки');
     }
   };
@@ -181,10 +181,10 @@ export class UserRepository implements TUserRepository {
         timestamp,
       };
 
-      logger.info('Добавлена запись в историю поиска', { telegramId, query: historyItem.query });
+      ConsoleLogger.info('Добавлена запись в историю поиска', { telegramId, query: historyItem.query });
       return searchHistoryItem;
     } catch (error) {
-      logger.error('Ошибка добавления в историю поиска', error as Error, { telegramId });
+      ConsoleLogger.error('Ошибка добавления в историю поиска', error as Error, { telegramId });
       throw AppError.databaseError('SEARCH_HISTORY_ADD_FAILED', 'Не удалось добавить запись в историю');
     }
   };
@@ -208,7 +208,7 @@ export class UserRepository implements TUserRepository {
         timestamp: new Date(entity.created_at),
       }));
     } catch (error) {
-      logger.error('Ошибка получения истории поиска', error as Error, { telegramId });
+      ConsoleLogger.error('Ошибка получения истории поиска', error as Error, { telegramId });
       throw AppError.databaseError('SEARCH_HISTORY_GET_FAILED', 'Не удалось получить историю поиска');
     }
   };
@@ -216,9 +216,9 @@ export class UserRepository implements TUserRepository {
   public clearSearchHistory = async (telegramId: number): Promise<void> => {
     try {
       await this.db.run(`DELETE FROM search_history WHERE user_telegram_id = ?`, [telegramId]);
-      logger.info('История поиска очищена', { telegramId });
+      ConsoleLogger.info('История поиска очищена', { telegramId });
     } catch (error) {
-      logger.error('Ошибка очистки истории поиска', error as Error, { telegramId });
+      ConsoleLogger.error('Ошибка очистки истории поиска', error as Error, { telegramId });
       throw AppError.databaseError('SEARCH_HISTORY_CLEAR_FAILED', 'Не удалось очистить историю поиска');
     }
   };

@@ -4,12 +4,14 @@ import { createHash } from 'crypto';
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
-import { logger } from '@/utils/logger';
-import { AppError } from '@/utils/errors';
+import { sleep } from '@/utils/sleep';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { botConfig } from '@/config/bot';
 
+import type { TLLMConfig } from './types';
+
 interface TLLMService {
-  transformQuery: (naturalQuery: string, restaurants: string[]) => Promise<TStructuredQuery>;
+  stuctureQuery: (naturalQuery: string, restaurants: string[]) => Promise<TStructuredQuery>;
   enhanceSearchResults: (results: TSearchResultItem[], query: string) => Promise<TSearchResultItem[]>;
 }
 
@@ -43,56 +45,47 @@ export class LLMService implements TLLMService {
   private readonly maxRetries: number;
   private readonly timeoutMs: number;
   private readonly systemPrompt: string;
-  private readonly cacheService: CacheService;
-  private readonly cacheTTL: number;
+  private readonly cacheTTL = 3600; // 1 час
 
   constructor(
-    cacheService: CacheService,
-    config?: {
-      maxRetries?: number;
-      timeoutMs?: number;
-      model?: string;
-      systemPrompt?: string;
-      cacheTTL?: number;
-    }) {
+    private readonly cacheService: CacheService,
+    config: TLLMConfig,
+  ) {
     this.apiUrl = botConfig.llmApiUrl;
     this.apiKey = botConfig.llmApiKey;
-    this.model = config?.model ?? 'meta-llama/llama-3.1-8b-instruct';
+    this.model = config.model;
     this.maxRetries = config?.maxRetries ?? 2;
     this.timeoutMs = config?.timeoutMs ?? 15000;
     this.systemPrompt = config?.systemPrompt ?? 'Ты - помощник для поиска еды. Reasoning: low';
-    this.cacheService = cacheService;
-    this.cacheTTL = config?.cacheTTL ?? 3600; // 1 час по умолчанию
   }
 
-  public transformQuery = async (naturalQuery: string, restaurants: string[]): Promise<TStructuredQuery> => {
+  public stuctureQuery = async (naturalQuery: string, restaurants: string[]): Promise<TStructuredQuery> => {
     try {
-      logger.info('Начинаю трансформацию запроса через LLM', { query: naturalQuery });
+      ConsoleLogger.info('Начинаю структуризацию запроса через LLM', { query: naturalQuery });
 
-      // Проверяем кэш
       const cacheKey = this.generateCacheKey('transform', naturalQuery, restaurants);
-      const cachedResult = await this.getFromCache<TStructuredQuery>(cacheKey);
+      const cached = await this.cacheService.get<TStructuredQuery>(cacheKey);
 
-      if (cachedResult) {
-        logger.info('Найден кэшированный результат трансформации', { query: naturalQuery });
-        return cachedResult;
+      if (cached) {
+        ConsoleLogger.info('Найден кэшированный результат структуризации', { query: naturalQuery });
+        return cached;
       }
-      const prompt = this.buildQueryTransformPrompt(naturalQuery, restaurants);
+
+      const prompt = this.buildStructureQueryPrompt(naturalQuery, restaurants);
       const response = await this.callLLM(prompt);
       const structuredQuery = this.parseStructuredQuery(response);
 
-      // Сохраняем в кэш
-      await this.setCache(cacheKey, structuredQuery);
+      await this.cacheService.set(cacheKey, structuredQuery, this.cacheTTL);
 
-      logger.info('Запрос успешно трансформирован', {
+      ConsoleLogger.info('Запрос успешно структурирован', {
         original: naturalQuery,
         structured: structuredQuery,
       });
 
       return structuredQuery;
     } catch (error) {
-      logger.error('Ошибка трансформации запроса через LLM', error as Error, { query: naturalQuery });
-      throw AppError.llmError('Не удалось трансформировать запрос', { originalError: error });
+      ConsoleLogger.error('Ошибка структуризации запроса через LLM', error as Error, { query: naturalQuery });
+      return this.createFallbackStructuredQuery(naturalQuery);
     }
   };
 
@@ -100,40 +93,38 @@ export class LLMService implements TLLMService {
     try {
       if (results.length === 0) return results;
 
-      logger.info('Начинаю улучшение результатов через LLM', {
+      ConsoleLogger.info('Начинаю улучшение результатов через LLM', {
         resultsCount: results.length,
         query,
       });
 
-      // Проверяем кэш
       const cacheKey = this.generateCacheKey('enhance', query, results.length);
-      const cachedResult = await this.getFromCache<TSearchResultItem[]>(cacheKey);
+      const cached = await this.cacheService.get<TSearchResultItem[]>(cacheKey);
 
-      if (cachedResult) {
-        logger.info('Найден кэшированный результат улучшения', { query });
-        return cachedResult;
+      if (cached) {
+        ConsoleLogger.info('Найден кэшированный результат улучшения', { query });
+        return cached;
       }
 
       const prompt = this.buildEnhancementPrompt(results, query);
       const response = await this.callLLM(prompt);
       const enhancedResults = this.parseEnhancedResults(response, results);
 
-      // Сохраняем в кэш
-      await this.setCache(cacheKey, enhancedResults);
+      await this.cacheService.set(cacheKey, enhancedResults, this.cacheTTL);
 
-      logger.info('Результаты успешно улучшены', {
+      ConsoleLogger.info('Результаты успешно улучшены', {
         originalCount: results.length,
         enhancedCount: enhancedResults.length,
       });
 
       return enhancedResults;
     } catch (error) {
-      logger.warn('Не удалось улучшить результаты через LLM, возвращаю оригинальные', error as Error);
+      ConsoleLogger.warn('Не удалось улучшить результаты через LLM, возвращаю оригинальные', error as Error);
       return results; // Fallback к оригинальным результатам
     }
   };
 
-  private buildQueryTransformPrompt = (query: string, restaurants: string[]): string => {
+  private buildStructureQueryPrompt = (naturalQuery: string, availableRestaurants: string[]): string => {
     return `Ты получаешь:
 - naturalQuery — текстовое пожелание пользователя.
 - availableRestaurants — список ресторанов (массив строк).
@@ -194,22 +185,22 @@ availableRestaurants: ["SushiShop"]
 
 Требуется только JSON по этой схеме для любого нового входа.
 Вход:
-naturalQuery: "${query}"
-availableRestaurants: ${JSON.stringify(restaurants)}
+naturalQuery: "${naturalQuery}"
+availableRestaurants: ${JSON.stringify(availableRestaurants)}
 `;
   };
-  // Если какая-то информация не найдена или не упоминается, НЕ ВКЛЮЧАЙ её в JSON.
-  private buildEnhancementPrompt = (menuItems: TSearchResultItem[], query: string): string => {
-    const resultsText = menuItems.map((menuItem, index) =>
+
+  private buildEnhancementPrompt = (menuItems: TSearchResultItem[], naturalQuery: string): string => {
+    const menuList = menuItems.map((menuItem, index) =>
       `${index + 1}. ${menuItem.name} (${menuItem.restaurant.name}) - ${menuItem.price}₽`,
     ).join('\n');
 
     return `Ты - помощник для ранжирования результатов поиска еды.
 
-Оригинальный запрос: "${query}"
+Оригинальный запрос: "${naturalQuery}"
 
 Найденные блюда:
-${resultsText}
+${menuList}
 
 Проранжируй блюда по релевантности запросу. Верни номера блюд в порядке убывания релевантности, разделенные запятыми. Ограничься 30 блюдами.
 
@@ -262,7 +253,7 @@ ${resultsText}
           throw new Error('Пустой ответ от LLM');
         }
 
-        logger.debug('LLM ответ получен', {
+        ConsoleLogger.debug('LLM ответ получен', {
           tokens: data.usage.total_tokens,
           attempt,
         });
@@ -273,8 +264,8 @@ ${resultsText}
           throw error;
         }
 
-        logger.warn(`Попытка ${attempt} не удалась, повторяю...`, error as Error);
-        await this.delay(1000 * attempt); // Exponential backoff
+        ConsoleLogger.warn(`Попытка ${attempt} не удалась, повторяю...`, error as Error);
+        await sleep(1000 * attempt); // Exponential backoff
       }
     }
 
@@ -283,7 +274,6 @@ ${resultsText}
 
   private parseStructuredQuery = (response: string): TStructuredQuery => {
     try {
-      // Извлекаем JSON из ответа (может содержать дополнительный текст)
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('JSON не найден в ответе');
@@ -388,6 +378,30 @@ ${resultsText}
     return repairedQuery;
   };
 
+  private createFallbackStructuredQuery = (query: string): TStructuredQuery => {
+    const tags: string[] = [];
+
+    // Ищем ключевые слова в тексте запроса
+    const queryLower = query.toLowerCase();
+
+    if (queryLower.includes('пицц') || queryLower.includes('pizza')) tags.push('пицца');
+    if (queryLower.includes('суши') || queryLower.includes('sushi')) tags.push('суши');
+    if (queryLower.includes('роллы') || queryLower.includes('rolls')) tags.push('роллы');
+    if (queryLower.includes('бургер') || queryLower.includes('burger')) tags.push('бургер');
+    if (queryLower.includes('шаурм') || queryLower.includes('shawarma')) tags.push('шаурма');
+    if (queryLower.includes('салат') || queryLower.includes('salad')) tags.push('салат');
+    if (queryLower.includes('суп') || queryLower.includes('soup')) tags.push('суп');
+    if (queryLower.includes('паст') || queryLower.includes('pasta')) tags.push('паста');
+    if (queryLower.includes('рыб') || queryLower.includes('fish')) tags.push('рыба');
+    if (queryLower.includes('мяс') || queryLower.includes('meat')) tags.push('мясо');
+    if (queryLower.includes('веган') || queryLower.includes('vegan')) tags.push('веган');
+    if (queryLower.includes('остр') || queryLower.includes('spicy') || queryLower.includes('hot')) tags.push('острый');
+    if (queryLower.includes('сладк') || queryLower.includes('sweet')) tags.push('сладкий');
+
+    // Всегда возвращаем объект с tags, даже если массив пустой
+    return { tags };
+  };
+
   private parseEnhancedResults = (response: string, originalResults: TSearchResultItem[]): TSearchResultItem[] => {
     try {
       // Извлекаем номера из ответа
@@ -416,39 +430,13 @@ ${resultsText}
 
       return enhancedResults;
     } catch (error) {
-      logger.warn('Ошибка парсинга улучшенных результатов', error as Error);
+      ConsoleLogger.warn('Ошибка парсинга улучшенных результатов', error as Error);
       return originalResults;
     }
   };
 
-  private delay = (ms: number): Promise<void> =>
-    new Promise(resolve => setTimeout(resolve, ms));
-
-  // Кэширование методов
   private generateCacheKey = (type: string, ...params: unknown[]): string => {
     const data = JSON.stringify({ type, params });
     return `llm:${createHash('sha256').update(data).digest('hex')}`;
-  };
-
-  private getFromCache = async <T>(key: string): Promise<T | null> => {
-    if (!this.cacheService) return null;
-
-    try {
-      return await this.cacheService.get<T>(key);
-    } catch (error) {
-      logger.warn('Ошибка получения из кэша LLM', { key, error: error as Error });
-      return null;
-    }
-  };
-
-  private setCache = async <T>(key: string, value: T): Promise<void> => {
-    if (!this.cacheService) return;
-
-    try {
-      await this.cacheService.set(key, value, this.cacheTTL);
-      logger.debug('Результат LLM сохранен в кэш', { key });
-    } catch (error) {
-      logger.warn('Ошибка сохранения в кэш LLM', { key, error: error as Error });
-    }
   };
 }

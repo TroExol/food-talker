@@ -1,7 +1,7 @@
 import Database from 'sqlite3';
 
-import { logger } from '@/utils/logger';
-import { AppError } from '@/utils/errors';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppError } from '@/utils/AppError';
 
 import type { TDatabaseConnection, TDatabasePool } from '../types';
 
@@ -14,11 +14,11 @@ class SQLite implements TDatabaseConnection {
   constructor(dbPath: string) {
     this.db = new Database.Database(dbPath, err => {
       if (err) {
-        logger.error('Ошибка подключения к базе данных', err);
+        ConsoleLogger.error('Ошибка подключения к базе данных', err);
         throw AppError.databaseError('CONNECTION_FAILED', 'Не удалось подключиться к базе данных');
       }
       this.isConnected = true;
-      logger.info('Подключение к базе данных установлено');
+      ConsoleLogger.info('Подключение к базе данных установлено');
     });
   }
 
@@ -26,7 +26,7 @@ class SQLite implements TDatabaseConnection {
     return new Promise((resolve, reject) => {
       this.db.all(sql, params, (err, rows) => {
         if (err) {
-          logger.error('Ошибка выполнения запроса', err, { sql, params });
+          ConsoleLogger.error('Ошибка выполнения запроса', err, { sql, params });
           reject(AppError.databaseError('QUERY_FAILED', err.message));
         } else {
           resolve(rows as T[]);
@@ -39,7 +39,7 @@ class SQLite implements TDatabaseConnection {
     return new Promise((resolve, reject) => {
       this.db.get(sql, params, (err, row) => {
         if (err) {
-          logger.error('Ошибка выполнения запроса', err, { sql, params });
+          ConsoleLogger.error('Ошибка выполнения запроса', err, { sql, params });
           reject(AppError.databaseError('QUERY_FAILED', err.message));
         } else {
           resolve(row as T | undefined);
@@ -52,7 +52,7 @@ class SQLite implements TDatabaseConnection {
     return new Promise((resolve, reject) => {
       this.db.run(sql, params, function (err) {
         if (err) {
-          logger.error('Ошибка выполнения запроса', err, { sql, params });
+          ConsoleLogger.error('Ошибка выполнения запроса', err, { sql, params });
           reject(AppError.databaseError('QUERY_FAILED', err.message));
         } else {
           resolve({ lastID: this.lastID, changes: this.changes });
@@ -67,11 +67,11 @@ class SQLite implements TDatabaseConnection {
     return new Promise((resolve, reject) => {
       this.db.close(err => {
         if (err) {
-          logger.error('Ошибка закрытия соединения с БД', err);
+          ConsoleLogger.error('Ошибка закрытия соединения с БД', err);
           reject(err);
         } else {
           this.isConnected = false;
-          logger.info('Соединение с базой данных закрыто');
+          ConsoleLogger.info('Соединение с базой данных закрыто');
           resolve();
         }
       });
@@ -104,7 +104,7 @@ export class SQLitePool implements TDatabasePool {
     await Promise.all(this.connections.map(conn => conn.close()));
     this.connections = [];
     this.currentConnections = 0;
-    logger.info('Все соединения с базой данных закрыты');
+    ConsoleLogger.info('Все соединения с базой данных закрыты');
   };
 
   public getActiveConnections = (): number => {

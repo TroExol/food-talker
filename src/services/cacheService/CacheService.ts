@@ -1,5 +1,5 @@
-import { logger } from '@/utils/logger';
-import { AppError } from '@/utils/errors';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppError } from '@/utils/AppError';
 
 import type {
   TCacheService,
@@ -22,7 +22,7 @@ export class CacheService implements TCacheService {
     try {
       return await this.provider.get<T>(key);
     } catch (error) {
-      logger.error('Ошибка получения кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка получения кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось получить кэш по ключу: ${key}`, error);
     }
   };
@@ -31,7 +31,7 @@ export class CacheService implements TCacheService {
     try {
       await this.provider.set(key, value, ttlSeconds);
     } catch (error) {
-      logger.error('Ошибка установки кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка установки кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось установить кэш по ключу: ${key}`, error);
     }
   };
@@ -40,7 +40,7 @@ export class CacheService implements TCacheService {
     try {
       await this.provider.delete(key);
     } catch (error) {
-      logger.error('Ошибка удаления кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка удаления кэша', error as Error, { key });
       throw AppError.cacheError(`Не удалось удалить кэш по ключу: ${key}`, error);
     }
   };
@@ -49,7 +49,7 @@ export class CacheService implements TCacheService {
     try {
       await this.provider.clear();
     } catch (error) {
-      logger.error('Ошибка очистки кэша', error as Error);
+      ConsoleLogger.error('Ошибка очистки кэша', error as Error);
       throw AppError.cacheError('Не удалось очистить кэш', error);
     }
   };
@@ -58,7 +58,7 @@ export class CacheService implements TCacheService {
     try {
       return await this.provider.has(key);
     } catch (error) {
-      logger.error('Ошибка проверки кэша', error as Error, { key });
+      ConsoleLogger.error('Ошибка проверки кэша', error as Error, { key });
       return false;
     }
   };
@@ -67,7 +67,7 @@ export class CacheService implements TCacheService {
     try {
       return await this.provider.getStats();
     } catch (error) {
-      logger.error('Ошибка получения статистики кэша', error as Error);
+      ConsoleLogger.error('Ошибка получения статистики кэша', error as Error);
       throw AppError.cacheError('Не удалось получить статистику кэша', error);
     }
   };
@@ -75,9 +75,9 @@ export class CacheService implements TCacheService {
   public close = async (): Promise<void> => {
     try {
       await this.provider.close();
-      logger.info('CacheService закрыт');
+      ConsoleLogger.info('CacheService закрыт');
     } catch (error) {
-      logger.error('Ошибка закрытия CacheService', error as Error);
+      ConsoleLogger.error('Ошибка закрытия CacheService', error as Error);
       throw AppError.cacheError('Не удалось закрыть CacheService', error);
     }
   };
@@ -85,16 +85,16 @@ export class CacheService implements TCacheService {
   private createProvider = (config: TCacheServiceConfig): TCacheProvider => {
     switch (config.type) {
       case 'memory':
-        logger.info('Создан Memory cache provider');
+        ConsoleLogger.info('Создан Memory cache provider');
         return new MemoryCacheProvider(config);
 
       case 'redis': {
-        logger.info('Создан Redis cache provider', { redisUrl: config.redisUrl });
+        ConsoleLogger.info('Создан Redis cache provider', { redisUrl: config.redisUrl });
         const redisProvider = new RedisCacheProvider(config);
 
         // Инициализируем подключение к Redis
         redisProvider.connect().catch(error => {
-          logger.error('Ошибка подключения к Redis при создании provider', error as Error);
+          ConsoleLogger.error('Ошибка подключения к Redis при создании provider', error as Error);
         });
 
         return redisProvider;

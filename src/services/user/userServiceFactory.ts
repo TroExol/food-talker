@@ -1,15 +1,12 @@
-import { createDatabaseConnection } from '@/services/database/SQLite/SQLite';
-
-import { UserService } from './UserService';
-import { UserRepository } from './UserRepository';
+import { UserService } from './UserService/UserService';
+import { UserRepositoryFactory } from './UserRepository/UserRepositoryFactory';
 
 export class UserServiceFactory {
   private static instance: UserService | null = null;
 
   static getInstance = async (): Promise<UserService> => {
     if (!UserServiceFactory.instance) {
-      const db = await createDatabaseConnection();
-      const repository = new UserRepository(db);
+      const repository = await UserRepositoryFactory.getInstance();
       UserServiceFactory.instance = new UserService(repository);
     }
     return UserServiceFactory.instance;

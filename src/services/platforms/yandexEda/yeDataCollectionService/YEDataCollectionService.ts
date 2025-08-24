@@ -1,10 +1,11 @@
 import * as cron from 'node-cron';
 
-import type { CityValidator } from '@/utils/cityValidator';
 import type { EAvailableCities } from '@/config/bot/types';
 
-import { logger } from '@/utils/logger';
-import { AppError } from '@/utils/errors';
+import { sleep } from '@/utils/sleep';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { CityValidator } from '@/utils/CityValidator';
+import { AppError } from '@/utils/AppError';
 import { botConfig } from '@/config/bot';
 
 import type { TCollectionStats, TYEDataCollectionService } from './types';
@@ -17,18 +18,16 @@ export class YEDataCollectionService implements TYEDataCollectionService {
   private errorCount = 0;
   private readonly frequencyMinutes = {
     updateRestaurants: 40,
-    clearCache: 30,
   };
 
   constructor(
     private readonly yeApiService: YEApiService,
-    private readonly cityValidator: CityValidator,
   ) { }
 
   public startCollection = async (): Promise<void> => {
     try {
       if (this.isRunning) {
-        logger.warn('Сбор данных Яндекс.Еда уже запущен');
+        ConsoleLogger.warn('Сбор данных Яндекс.Еда уже запущен');
         return;
       }
 
@@ -38,10 +37,10 @@ export class YEDataCollectionService implements TYEDataCollectionService {
       // Выполняем первоначальную загрузку данных
       await this.initialDataLoad();
 
-      logger.info('Сбор данных Яндекс.Еда запущен');
+      ConsoleLogger.info('Сбор данных Яндекс.Еда запущен');
     } catch (error) {
       this.isRunning = false;
-      logger.error('Не удалось запустить сбор данных Яндекс.Еда', error as Error);
+      ConsoleLogger.error('Не удалось запустить сбор данных Яндекс.Еда', error as Error);
       throw AppError.dataCollectionError('Не удалось запустить сбор данных Яндекс.Еда', error);
     }
   };
@@ -56,15 +55,15 @@ export class YEDataCollectionService implements TYEDataCollectionService {
           try {
             await job.stop();
           } catch (error) {
-            logger.error('Не удалось остановить cron задачу Яндекс.Еда', error as Error);
+            ConsoleLogger.error('Не удалось остановить cron задачу Яндекс.Еда', error as Error);
           }
         })();
       });
       this.cronJobs = [];
 
-      logger.info('Сбор данных Яндекс.Еда остановлен');
+      ConsoleLogger.info('Сбор данных Яндекс.Еда остановлен');
     } catch (error) {
-      logger.error('Не удалось остановить сбор данных Яндекс.Еда', error as Error);
+      ConsoleLogger.error('Не удалось остановить сбор данных Яндекс.Еда', error as Error);
       throw AppError.dataCollectionError('Не удалось остановить сбор данных Яндекс.Еда', error);
     }
   };
@@ -73,28 +72,20 @@ export class YEDataCollectionService implements TYEDataCollectionService {
     try {
       // Обновление данных ресторанов каждые 40 минут
       const restaurantsUpdateJob = cron.schedule(`*/${this.frequencyMinutes.updateRestaurants} * * * *`, async () => {
-        logger.info('Начало запланированного обновления данных ресторанов Яндекс.Еда');
+        ConsoleLogger.info('Начало запланированного обновления данных ресторанов Яндекс.Еда');
         await this.updateRestaurants();
       });
 
-      // Очистка просроченного кэша каждые 30 минут
-      const cacheClearJob = cron.schedule(`*/${this.frequencyMinutes.clearCache} * * * *`, async () => {
-        logger.debug('Начало очистки просроченного кэша Яндекс.Еда');
-        await this.cleanupExpiredCache();
-      });
-
-      this.cronJobs.push(restaurantsUpdateJob, cacheClearJob);
+      this.cronJobs.push(restaurantsUpdateJob);
 
       // Запускаем задачи
       void restaurantsUpdateJob.start();
-      void cacheClearJob.start();
 
-      logger.info('Настроены задачи сбора данных Яндекс.Еда', {
+      ConsoleLogger.info('Настроены задачи сбора данных Яндекс.Еда', {
         updateRestaurants: `каждые ${this.frequencyMinutes.updateRestaurants} минут`,
-        clearCache: `каждые ${this.frequencyMinutes.clearCache} минут`,
       });
     } catch (error) {
-      logger.error('Не удалось настроить задачи сбора данных Яндекс.Еда', error as Error);
+      ConsoleLogger.error('Не удалось настроить задачи сбора данных Яндекс.Еда', error as Error);
       throw AppError.dataCollectionError('Не удалось настроить задачи сбора данных Яндекс.Еда', error);
     }
   };
@@ -106,13 +97,13 @@ export class YEDataCollectionService implements TYEDataCollectionService {
       }
 
       this.lastUpdateTime = new Date();
-      logger.info('Обновление данных ресторанов Яндекс.Еда завершено', {
+      ConsoleLogger.info('Обновление данных ресторанов Яндекс.Еда завершено', {
         cities: botConfig.availableCities,
         timestamp: this.lastUpdateTime,
       });
     } catch (error) {
       this.errorCount++;
-      logger.error('Не удалось обновить данные ресторанов Яндекс.Еда', error as Error);
+      ConsoleLogger.error('Не удалось обновить данные ресторанов Яндекс.Еда', error as Error);
     }
   };
 
@@ -124,22 +115,21 @@ export class YEDataCollectionService implements TYEDataCollectionService {
         throw AppError.dataCollectionError(`Не удалось найти ресторан Яндекс.Еда по id ${restaurantId} в городе ${city}`);
       }
 
-      await this.yeApiService.getRestaurantMenu(restaurantId, city, restaurant.additionalInfo.brandSlug);
+      await this.yeApiService.getRestaurantMenu(restaurantId, city);
 
-      logger.debug('Меню Яндекс.Еда обновлено', {
+      ConsoleLogger.debug('Меню Яндекс.Еда обновлено', {
         restaurantId,
         city,
       });
     } catch (error) {
       this.errorCount++;
-      logger.error('Не удалось обновить меню Яндекс.Еда', error as Error, { restaurantId, city });
+      ConsoleLogger.error('Не удалось обновить меню Яндекс.Еда', error as Error, { restaurantId, city });
       throw AppError.dataCollectionError(`Не удалось обновить меню для ${restaurantId} Яндекс.Еда`, error);
     }
   };
 
   public getCollectionStats = async (): Promise<TCollectionStats> => {
     try {
-      // Используем статистику из CachedYEService
       const cacheStats = await this.yeApiService.getCacheStats();
 
       return {
@@ -151,45 +141,44 @@ export class YEDataCollectionService implements TYEDataCollectionService {
         errors: this.errorCount,
       };
     } catch (error) {
-      logger.error('Не удалось получить статистику сбора данных Яндекс.Еда', error as Error);
+      ConsoleLogger.error('Не удалось получить статистику сбора данных Яндекс.Еда', error as Error);
       throw AppError.dataCollectionError('Не удалось получить статистику сбора данных Яндекс.Еда', error);
     }
   };
 
   private initialDataLoad = async (): Promise<void> => {
     try {
-      logger.info('Начало первоначальной загрузки данных Яндекс.Еда');
+      ConsoleLogger.info('Начало первоначальной загрузки данных Яндекс.Еда');
 
-      // Загружаем данные для всех поддерживаемых городов
       for (const city of botConfig.availableCities) {
         await this.updateCityRestaurants(city);
 
         // Небольшая пауза между городами чтобы не перегружать API
         if (botConfig.availableCities.indexOf(city) !== botConfig.availableCities.length - 1) {
-          await this.delay(2000);
+          await sleep(2000);
         }
       }
 
-      logger.info('Первоначальная загрузка данных Яндекс.Еда завершена');
+      ConsoleLogger.info('Первоначальная загрузка данных Яндекс.Еда завершена');
     } catch (error) {
-      logger.error('Не удалось загрузить первоначальные данные Яндекс.Еда', error as Error);
+      ConsoleLogger.error('Не удалось загрузить первоначальные данные Яндекс.Еда', error as Error);
       throw AppError.dataCollectionError('Не удалось загрузить первоначальные данные Яндекс.Еда', error);
     }
   };
 
   public updateCityRestaurants = async (city: EAvailableCities): Promise<void> => {
     try {
-      const coordinates = this.cityValidator.getCityCoordinates(city);
+      const coordinates = CityValidator.getCityCoordinates(city);
 
       if (!coordinates) {
         throw AppError.dataCollectionError(`Не удалось получить координаты для города ${city} Яндекс.Еда`);
       }
 
-      logger.debug('Обновление данных ресторанов Яндекс.Еда для города', { coordinates });
+      ConsoleLogger.debug('Обновление данных ресторанов Яндекс.Еда для города', { coordinates });
 
       const restaurants = await this.yeApiService.getRestaurants(city);
 
-      logger.info('Данные ресторанов Яндекс.Еда для города обновлены', {
+      ConsoleLogger.info('Данные ресторанов Яндекс.Еда для города обновлены', {
         coordinates,
         restaurantsCount: restaurants.length,
       });
@@ -198,31 +187,13 @@ export class YEDataCollectionService implements TYEDataCollectionService {
         await this.updateRestaurantMenu(restaurant.id, city);
       }
 
-      logger.info('Меню для всех ресторанов Яндекс.Еда для города обновлено', {
+      ConsoleLogger.info('Меню для всех ресторанов Яндекс.Еда для города обновлено', {
         coordinates,
         restaurantsCount: restaurants.length,
       });
     } catch (error) {
-      logger.error('Не удалось обновить данные ресторанов Яндекс.Еда для города', error as Error, { city });
+      ConsoleLogger.error('Не удалось обновить данные ресторанов Яндекс.Еда для города', error as Error, { city });
       throw error;
     }
   };
-
-  private cleanupExpiredCache = async (): Promise<void> => {
-    try {
-      // CacheService автоматически очищает просроченные записи при доступе
-      // Здесь можем добавить дополнительную логику если нужно
-      const stats = await this.cachedYEService.getCacheStats();
-      logger.debug('Проверка очистки кэша Яндекс.Еда', {
-        restaurants: stats.restaurants,
-        menus: stats.menus,
-        searches: stats.searches,
-      });
-    } catch (error) {
-      logger.error('Не удалось очистить кэш Яндекс.Еда', error as Error);
-    }
-  };
-
-  private delay = (ms: number): Promise<void> =>
-    new Promise(resolve => setTimeout(resolve, ms));
 }

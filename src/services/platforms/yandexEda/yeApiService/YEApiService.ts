@@ -1,4 +1,3 @@
-import type { CityValidator } from '@/utils/cityValidator';
 import type { TCoordinates } from '@/types/restaurant';
 import type { TMenuItem } from '@/types/menuItem';
 import type {
@@ -15,8 +14,9 @@ import type {
 import type { CacheService } from '@/services/cacheService/CacheService';
 import type { EAvailableCities } from '@/config/bot/types';
 
-import { logger } from '@/utils/logger';
-import { AppError } from '@/utils/errors';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { CityValidator } from '@/utils/CityValidator';
+import { AppError } from '@/utils/AppError';
 import { botConfig } from '@/config/bot';
 
 import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
@@ -33,7 +33,6 @@ export class YEApiService implements TYEService {
   constructor(
     private readonly cacheService: CacheService,
     private readonly yeDataTransformer: YEDataTransformer,
-    private readonly cityValidator: CityValidator,
   ) {
     this.config = {
       baseUrl: 'https://eda.yandex.ru',
@@ -84,20 +83,20 @@ export class YEApiService implements TYEService {
 
       const restaurants = response.data?.places_v2_lists?.[0]?.payload?.places || [];
 
-      logger.info('Получены рестораны из Яндекс.Еда', {
+      ConsoleLogger.info('Получены рестораны из Яндекс.Еда', {
         count: restaurants.length,
         coordinates,
       });
 
       return restaurants;
     } catch (error) {
-      logger.error('Ошибка получения ресторанов из Яндекс.Еда', error as Error, { coordinates });
+      ConsoleLogger.error('Ошибка получения ресторанов из Яндекс.Еда', error as Error, { coordinates });
       throw AppError.apiError('YANDEX_EDA_PLACES_FAILED', 'Не удалось получить список ресторанов Яндекс.Еда');
     }
   };
 
   public getRestaurants = async (city: EAvailableCities): Promise<TYERestaurant[]> => {
-    const coordinates = this.cityValidator.getCityCoordinates(city);
+    const coordinates = CityValidator.getCityCoordinates(city);
 
     if (!coordinates) {
       throw AppError.dataCollectionError(`Не удалось получить координаты для города ${city} Яндекс.Еда`);
@@ -110,12 +109,12 @@ export class YEApiService implements TYEService {
       const cached = await this.cacheService.get<TYERestaurant[]>(cacheKey);
 
       if (cached) {
-        logger.debug('Кэш ресторанов Яндекс.Еда найден', { coordinates, cacheKey });
+        ConsoleLogger.debug('Кэш ресторанов Яндекс.Еда найден', { coordinates, cacheKey });
         return cached;
       }
 
       // Загружаем из API
-      logger.debug('Кэш ресторанов Яндекс.Еда не найден, загружаем из API', { coordinates });
+      ConsoleLogger.debug('Кэш ресторанов Яндекс.Еда не найден, загружаем из API', { coordinates });
       const restaurantsFromServer = await this.requestRestaurants(coordinates);
 
       // Трансформируем данные
@@ -124,7 +123,7 @@ export class YEApiService implements TYEService {
       // Кэшируем результат
       await this.cacheService.set(cacheKey, restaurants, this.cacheTTL.restaurants);
 
-      logger.info('Рестораны Яндекс.Еда загружены и кэшированы', {
+      ConsoleLogger.info('Рестораны Яндекс.Еда загружены и кэшированы', {
         coordinates,
         count: restaurants.length,
         cacheKey,
@@ -132,7 +131,7 @@ export class YEApiService implements TYEService {
 
       return restaurants;
     } catch (error) {
-      logger.error('Не удалось загрузить рестораны Яндекс.Еда', error as Error, { coordinates });
+      ConsoleLogger.error('Не удалось загрузить рестораны Яндекс.Еда', error as Error, { coordinates });
       throw AppError.apiError(`Не удалось загрузить рестораны Яндекс.Еда для ${city}`, error);
     }
   };
@@ -161,14 +160,14 @@ export class YEApiService implements TYEService {
         headers,
       });
 
-      logger.info('Получено меню ресторана из Яндекс.Еда', {
+      ConsoleLogger.info('Получено меню ресторана из Яндекс.Еда', {
         restaurantId,
         categoriesCount: response.payload?.categories?.length || 0,
       });
 
       return response.payload.categories.flatMap(category => category.items);
     } catch (error) {
-      logger.error('Ошибка получения меню ресторана из Яндекс.Еда', error as Error, { restaurantId });
+      ConsoleLogger.error('Ошибка получения меню ресторана из Яндекс.Еда', error as Error, { restaurantId });
       throw AppError.apiError('YANDEX_EDA_MENU_FAILED', 'Не удалось получить меню ресторана Яндекс.Еда');
     }
   };
@@ -176,9 +175,8 @@ export class YEApiService implements TYEService {
   public getRestaurantMenu = async (
     restaurantId: string,
     city: EAvailableCities,
-    brandSlug: string,
   ): Promise<TMenuItem[]> => {
-    const coordinates = this.cityValidator.getCityCoordinates(city);
+    const coordinates = CityValidator.getCityCoordinates(city);
     if (!coordinates) {
       throw AppError.dataCollectionError(`Не удалось получить координаты для города ${city} Яндекс.Еда`);
     }
@@ -189,13 +187,9 @@ export class YEApiService implements TYEService {
       // Проверяем кэш
       const cached = await this.cacheService.get<TMenuItem[]>(cacheKey);
       if (cached) {
-        logger.debug('Кэш меню Яндекс.Еда найден', { restaurantId, coordinates, cacheKey });
+        ConsoleLogger.debug('Кэш меню Яндекс.Еда найден', { restaurantId, coordinates, cacheKey });
         return cached;
       }
-
-      // Загружаем из API
-      logger.debug('Кэш меню Яндекс.Еда не найден, загружаем из API', { restaurantId, coordinates });
-      const yeMenu = await this.requestRestaurantMenu(restaurantId, coordinates, brandSlug);
 
       // Нужно получить данные ресторана для трансформации
       const restaurant = await this.getRestaurantById(restaurantId, city);
@@ -203,13 +197,17 @@ export class YEApiService implements TYEService {
         throw AppError.apiError(`Ресторан Яндекс.Еда не найден для id: ${restaurantId}`);
       }
 
+      // Загружаем из API
+      ConsoleLogger.debug('Кэш меню Яндекс.Еда не найден, загружаем из API', { restaurantId, coordinates });
+      const yeMenu = await this.requestRestaurantMenu(restaurantId, coordinates, restaurant.additionalInfo.brandSlug);
+
       // Трансформируем данные
       const menuItems = this.yeDataTransformer.transformMenu(yeMenu, restaurant);
 
       // Кэшируем результат
       await this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);
 
-      logger.info('Меню Яндекс.Еда загружено и кэшировано', {
+      ConsoleLogger.info('Меню Яндекс.Еда загружено и кэшировано', {
         restaurantId,
         coordinates,
         count: menuItems.length,
@@ -218,7 +216,7 @@ export class YEApiService implements TYEService {
 
       return menuItems;
     } catch (error) {
-      logger.error('Не удалось загрузить меню Яндекс.Еда', error as Error, { restaurantId, coordinates });
+      ConsoleLogger.error('Не удалось загрузить меню Яндекс.Еда', error as Error, { restaurantId, coordinates });
       throw AppError.apiError(`Не удалось загрузить меню Яндекс.Еда для ${restaurantId}`, error);
     }
   };
@@ -245,7 +243,7 @@ export class YEApiService implements TYEService {
       const waitTime = this.config.rateLimits.windowSizeMs - (Date.now() - oldestRequest);
 
       if (waitTime > 0) {
-        logger.warn('Rate limit достигнут для Яндекс.Еда API, ожидаю', { waitTime });
+        ConsoleLogger.warn('Rate limit достигнут для Яндекс.Еда API, ожидаю', { waitTime });
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
     }
@@ -281,7 +279,7 @@ export class YEApiService implements TYEService {
 
         const data = await response.json() as T;
 
-        logger.debug('Яндекс.Еда API запрос выполнен', {
+        ConsoleLogger.debug('Яндекс.Еда API запрос выполнен', {
           endpoint,
           attempt,
           status: response.status,
@@ -297,7 +295,7 @@ export class YEApiService implements TYEService {
 
         // Экспоненциальная задержка между попытками
         const delay = Math.pow(2, attempt) * 1000;
-        logger.warn(`Яндекс.Еда API запрос неудачен, повтор через ${delay}ms`, {
+        ConsoleLogger.warn(`Яндекс.Еда API запрос неудачен, повтор через ${delay}ms`, {
           endpoint,
           attempt,
           error: lastError.message,
@@ -307,16 +305,16 @@ export class YEApiService implements TYEService {
       }
     }
 
-    logger.error('Яндекс.Еда API запрос окончательно неудачен', lastError!, { endpoint });
+    ConsoleLogger.error('Яндекс.Еда API запрос окончательно неудачен', lastError!, { endpoint });
     throw AppError.networkError('YANDEX_EDA_REQUEST_FAILED', `Не удалось выполнить запрос: ${lastError?.message}`);
   };
 
   public clearCache = async (): Promise<void> => {
     try {
       await this.cacheService.clear();
-      logger.info('Весь кэш Яндекс.Еда очищен');
+      ConsoleLogger.info('Весь кэш Яндекс.Еда очищен');
     } catch (error) {
-      logger.error('Не удалось очистить кэш Яндекс.Еда', error as Error);
+      ConsoleLogger.error('Не удалось очистить кэш Яндекс.Еда', error as Error);
       throw AppError.cacheError('Не удалось очистить кэш Яндекс.Еда', error);
     }
   };
@@ -332,7 +330,7 @@ export class YEApiService implements TYEService {
         menus: Math.floor(stats.totalKeys * 0.9), // ~90% ключей - меню
       };
     } catch (error) {
-      logger.error('Не удалось получить статистику кэша Яндекс.Еда', error as Error);
+      ConsoleLogger.error('Не удалось получить статистику кэша Яндекс.Еда', error as Error);
       throw AppError.cacheError('Не удалось получить статистику кэша Яндекс.Еда', error);
     }
   };
@@ -355,7 +353,7 @@ export class YEApiService implements TYEService {
       const restaurants = await this.getRestaurants(city);
       return restaurants.find(r => r.id === restaurantId) || null;
     } catch (error) {
-      logger.error('Не удалось получить ресторан Яндекс.Еда по slug', error as Error, { restaurantId, city });
+      ConsoleLogger.error('Не удалось получить ресторан Яндекс.Еда по slug', error as Error, { restaurantId, city });
       return null;
     }
   };

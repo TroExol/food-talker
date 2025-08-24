@@ -1,6 +1,5 @@
-import type { EAvailableCities } from '@/config/bot';
-
-import type { TSearchResultItem, TStructuredQuery } from '../../types/search';
+import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { EAvailableCities } from '@/config/bot/types';
 
 export enum ESubscriptionType {
   BASIC = 'basic',

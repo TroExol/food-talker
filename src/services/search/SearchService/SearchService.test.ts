@@ -10,13 +10,13 @@ import {
 
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
 import type { TMenuItem } from '@/types/menuItem';
-import type { UserService } from '@/services/user/UserService';
+import type { UserService } from '@/services/user/UserService/UserService';
 import type { LLMService } from '@/services/search/LLMService/LLMService';
 import type { TYERestaurant } from '@/services/platforms/yandexEda/yeApiService/types';
 import type { CachedYEService } from '@/services/platforms/yandexEda/cachedYEService/CachedYEService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
-import { ESubscriptionType, type TUser } from '@/services/user/types';
+import { ESubscriptionType, type TUser } from '@/services/user/UserRepository/types';
 import { EAvailableCities } from '@/config/bot';
 
 import { SearchService } from './SearchService';
@@ -114,7 +114,7 @@ describe('SearchService', () => {
       // Настройка моков
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
       (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
-      (mockLLMService.transformQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
+      (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
       (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
@@ -126,7 +126,7 @@ describe('SearchService', () => {
       expect(result[0]).toEqual(mockSearchResult);
       expect(mockUserService.getUser).toHaveBeenCalledWith(123456789);
       expect(mockCachedYEService.getRestaurants).toHaveBeenCalledWith(EAvailableCities.PERM);
-      expect(mockLLMService.transformQuery).toHaveBeenCalledWith('хочу пиццу', ['Test Restaurant']);
+      expect(mockLLMService.stuctureQuery).toHaveBeenCalledWith('хочу пиццу', ['Test Restaurant']);
       expect(mockCachedYEService.searchMenuItems).toHaveBeenCalledWith(
         { tags: ['пицца'] },
         EAvailableCities.PERM,
@@ -137,7 +137,7 @@ describe('SearchService', () => {
     it('должен кэшировать результаты поиска', async () => {
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
       (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
-      (mockLLMService.transformQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
+      (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
       (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
@@ -161,7 +161,7 @@ describe('SearchService', () => {
 
       await searchService.searchFood('хочу пиццу', 123456789);
 
-      expect(mockLLMService.transformQuery).not.toHaveBeenCalled();
+      expect(mockLLMService.stuctureQuery).not.toHaveBeenCalled();
       expect(mockCacheService.get).toHaveBeenCalled();
     });
 
@@ -173,7 +173,7 @@ describe('SearchService', () => {
 
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
       (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
-      (mockLLMService.transformQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
+      (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
       (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue(
         Array.from({ length: 5 }, (_, i) => ({ ...mockMenuItem, id: `item${i}` })),
       );
@@ -202,7 +202,7 @@ describe('SearchService', () => {
     it('должен продолжать работу при ошибке сохранения истории поиска', async () => {
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
       (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
-      (mockLLMService.transformQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
+      (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
       (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockRejectedValue(new Error('Database error'));
@@ -223,12 +223,12 @@ describe('SearchService', () => {
         restaurants: ['Domino\'s'],
       };
 
-      (mockLLMService.transformQuery as Mock).mockResolvedValue(expectedResult);
+      (mockLLMService.stuctureQuery as Mock).mockResolvedValue(expectedResult);
 
       const result = await searchService.processNaturalLanguageQuery(query, availableRestaurants);
 
       expect(result).toEqual(expectedResult);
-      expect(mockLLMService.transformQuery).toHaveBeenCalledWith(query, availableRestaurants);
+      expect(mockLLMService.stuctureQuery).toHaveBeenCalledWith(query, availableRestaurants);
     });
 
     it('должен использовать fallback логику при ошибке LLM', async () => {
@@ -236,7 +236,7 @@ describe('SearchService', () => {
       const availableRestaurants = ['Domino\'s'];
 
       (mockCacheService.get as Mock).mockResolvedValue(null);
-      (mockLLMService.transformQuery as Mock).mockRejectedValue(new Error('LLM error'));
+      (mockLLMService.stuctureQuery as Mock).mockRejectedValue(new Error('LLM error'));
 
       const result = await searchService.processNaturalLanguageQuery(query, availableRestaurants);
 

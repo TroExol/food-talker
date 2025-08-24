@@ -1,3 +1,5 @@
+import type { EAvailableCities } from '@/config/bot/types';
+
 export interface TYEDataCollectionService {
   startCollection(): Promise<void>;
   stopCollection(): void;

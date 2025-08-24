@@ -1,7 +1,9 @@
-import { ESubscriptionType } from '@/services/user/types';
-import { botConfig, type EAvailableCities } from '@/config/bot';
+import type { EAvailableCities } from '@/config/bot/types';
 
-import { type Sanitizer, sanitizer as sanitizerInstance } from './sanitizer';
+import { ESubscriptionType } from '@/services/user/UserRepository/types';
+import { botConfig } from '@/config/bot';
+
+import { Sanitizer } from './Sanitizer';
 
 interface TValidationResult {
   isValid: boolean;
@@ -9,26 +11,8 @@ interface TValidationResult {
   sanitizedInput?: unknown;
 }
 
-export interface TValidator {
-  // Input validation (from user)
-  validateSearchQuery(query: string): TValidationResult;
-  validateCity(city: string): TValidationResult;
-  validateTelegramId(telegramId: number): TValidationResult;
-  validateChatId(chatId: number): TValidationResult;
-  validateSubscriptionType(subscription: string): TValidationResult;
-
-  // Business logic validation (internal structures)
-  validatePriceRange(min?: number, max?: number): TValidationResult;
-  validateCoordinates(latitude: number, longitude: number): TValidationResult;
-}
-
-export class Validator implements TValidator {
-  private readonly maxQueryLength = botConfig.sanitizer.userSearchPrompt.maxLength;
-  private readonly minQueryLength = botConfig.sanitizer.userSearchPrompt.minLength;
-
-  constructor(private readonly sanitizer: Sanitizer) {}
-
-  validateSearchQuery(query: string): TValidationResult {
+export class Validator {
+  public static validateSearchQuery(query: string): TValidationResult {
     const errors: string[] = [];
 
     if (!query || typeof query !== 'string') {
@@ -38,11 +22,11 @@ export class Validator implements TValidator {
 
     const trimmedQuery = query.trim();
 
-    if (trimmedQuery.length < this.minQueryLength) {
+    if (trimmedQuery.length < botConfig.sanitizer.userSearchPrompt.minLength) {
       errors.push('Запрос не может быть пустым');
     }
 
-    const sanitizedQuery = this.sanitizer.sanitizeSearchQuery(trimmedQuery);
+    const sanitizedQuery = Sanitizer.sanitizeSearchQuery(trimmedQuery);
 
     return {
       isValid: errors.length === 0,
@@ -51,7 +35,7 @@ export class Validator implements TValidator {
     };
   }
 
-  validateCity(city: string): TValidationResult {
+  public static validateCity(city: string): TValidationResult {
     const errors: string[] = [];
 
     if (!city || typeof city !== 'string') {
@@ -59,7 +43,7 @@ export class Validator implements TValidator {
       return { isValid: false, errors };
     }
 
-    const normalizedCity = this.sanitizer.sanitizeCity(city);
+    const normalizedCity = Sanitizer.sanitizeCity(city);
     if (!botConfig.availableCities.includes(normalizedCity as EAvailableCities)) {
       errors.push(`Город должен быть одним из: ${botConfig.availableCities.join(', ')}`);
     }
@@ -71,7 +55,7 @@ export class Validator implements TValidator {
     };
   }
 
-  validateTelegramId(telegramId: number): TValidationResult {
+  public static validateTelegramId(telegramId: number): TValidationResult {
     const errors: string[] = [];
 
     if (typeof telegramId !== 'number' || !Number.isInteger(telegramId)) {
@@ -89,7 +73,7 @@ export class Validator implements TValidator {
     };
   }
 
-  validateChatId(chatId: number): TValidationResult {
+  public static validateChatId(chatId: number): TValidationResult {
     const errors: string[] = [];
 
     if (typeof chatId !== 'number' || !Number.isInteger(chatId) || chatId <= 0) {
@@ -103,7 +87,7 @@ export class Validator implements TValidator {
     };
   }
 
-  validateSubscriptionType(subscription: string): TValidationResult {
+  public static validateSubscriptionType(subscription: string): TValidationResult {
     const errors: string[] = [];
     const validSubscriptions: ESubscriptionType[] = Object.values(ESubscriptionType);
 
@@ -122,7 +106,7 @@ export class Validator implements TValidator {
     };
   }
 
-  validatePriceRange(min?: number, max?: number): TValidationResult {
+  public static validatePriceRange(min?: number, max?: number): TValidationResult {
     const errors: string[] = [];
 
     if (min !== undefined) {
@@ -148,7 +132,7 @@ export class Validator implements TValidator {
     };
   }
 
-  validateCoordinates(latitude: number, longitude: number): TValidationResult {
+  public static validateCoordinates(latitude: number, longitude: number): TValidationResult {
     const errors: string[] = [];
 
     if (typeof latitude !== 'number' || latitude < -90 || latitude > 90) {
@@ -166,5 +150,3 @@ export class Validator implements TValidator {
     };
   }
 }
-
-export const validator = new Validator(sanitizerInstance);

@@ -7,13 +7,13 @@ import {
 } from 'vitest';
 
 import type { TSearchResultItem } from '@/types/search';
-import type { TSearchHistoryItem, TUser } from '@/services/user/types';
+import type { TSearchHistoryItem, TUser } from '@/services/user/UserRepository/types';
 
-import { AppError } from '@/utils/errors';
-import { ESubscriptionType } from '@/services/user/types';
+import { AppError } from '@/utils/AppError';
+import { ESubscriptionType } from '@/services/user/UserRepository/types';
 import { EAvailableCities } from '@/config/bot';
 
-import type { UserRepository } from './UserRepository';
+import type { UserRepository } from '../UserRepository/UserRepository';
 
 import { UserService } from './UserService';
 
