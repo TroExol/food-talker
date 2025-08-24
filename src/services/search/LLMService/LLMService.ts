@@ -1,8 +1,8 @@
 import { jsonrepair } from 'jsonrepair';
 import { createHash } from 'crypto';
 
-import type { CacheService } from '@/services/data/cache/cacheService/CacheService';
-import type { TSearchResult, TStructuredQuery } from '@/models/search';
+import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { logger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
@@ -10,7 +10,7 @@ import { botConfig } from '@/config/bot';
 
 interface TLLMService {
   transformQuery: (naturalQuery: string, restaurants: string[]) => Promise<TStructuredQuery>;
-  enhanceSearchResults: (results: TSearchResult[], query: string) => Promise<TSearchResult[]>;
+  enhanceSearchResults: (results: TSearchResultItem[], query: string) => Promise<TSearchResultItem[]>;
 }
 
 interface TLLMRequest {
@@ -96,7 +96,7 @@ export class LLMService implements TLLMService {
     }
   };
 
-  public enhanceSearchResults = async (results: TSearchResult[], query: string): Promise<TSearchResult[]> => {
+  public enhanceSearchResults = async (results: TSearchResultItem[], query: string): Promise<TSearchResultItem[]> => {
     try {
       if (results.length === 0) return results;
 
@@ -107,7 +107,7 @@ export class LLMService implements TLLMService {
 
       // Проверяем кэш
       const cacheKey = this.generateCacheKey('enhance', query, results.length);
-      const cachedResult = await this.getFromCache<TSearchResult[]>(cacheKey);
+      const cachedResult = await this.getFromCache<TSearchResultItem[]>(cacheKey);
 
       if (cachedResult) {
         logger.info('Найден кэшированный результат улучшения', { query });
@@ -199,7 +199,7 @@ availableRestaurants: ${JSON.stringify(restaurants)}
 `;
   };
   // Если какая-то информация не найдена или не упоминается, НЕ ВКЛЮЧАЙ её в JSON.
-  private buildEnhancementPrompt = (menuItems: TSearchResult[], query: string): string => {
+  private buildEnhancementPrompt = (menuItems: TSearchResultItem[], query: string): string => {
     const resultsText = menuItems.map((menuItem, index) =>
       `${index + 1}. ${menuItem.name} (${menuItem.restaurant.name}) - ${menuItem.price}₽`,
     ).join('\n');
@@ -388,7 +388,7 @@ ${resultsText}
     return repairedQuery;
   };
 
-  private parseEnhancedResults = (response: string, originalResults: TSearchResult[]): TSearchResult[] => {
+  private parseEnhancedResults = (response: string, originalResults: TSearchResultItem[]): TSearchResultItem[] => {
     try {
       // Извлекаем номера из ответа
       const numbers = response.match(/\d+/g)?.map(Number) || [];
@@ -398,7 +398,7 @@ ${resultsText}
       }
 
       // Создаем новый массив с переупорядоченными результатами
-      const enhancedResults: TSearchResult[] = [];
+      const enhancedResults: TSearchResultItem[] = [];
 
       for (const number of numbers) {
         const index = number - 1; // Нумерация с 1

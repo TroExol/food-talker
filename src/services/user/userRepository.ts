@@ -6,8 +6,8 @@ import type {
   TSearchHistoryItem,
   TUser,
   TUserEntity,
-} from '@/models/user';
-import type { TDatabaseConnection } from '@/config/database';
+} from '@/services/user/types';
+import type { TDatabaseConnection } from '@/services/database/SQLite/SQLite';
 
 import { logger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
@@ -192,9 +192,9 @@ export class UserRepository implements TUserRepository {
   public getSearchHistory = async (telegramId: number, limit = 10): Promise<TSearchHistoryItem[]> => {
     try {
       const entities = await this.db.query<TSearchHistoryEntity>(`
-        SELECT * FROM search_history 
-        WHERE user_telegram_id = ? 
-        ORDER BY created_at DESC 
+        SELECT * FROM search_history
+        WHERE user_telegram_id = ?
+        ORDER BY created_at DESC
         LIMIT ?
       `, [telegramId, limit]);
 

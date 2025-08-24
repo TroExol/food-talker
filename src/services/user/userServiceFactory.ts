@@ -1,4 +1,4 @@
-import { createDatabaseConnection } from '@/config/database';
+import { createDatabaseConnection } from '@/services/database/SQLite/SQLite';
 
 import { UserService } from './UserService';
 import { UserRepository } from './UserRepository';

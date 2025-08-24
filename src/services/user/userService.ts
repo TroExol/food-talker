@@ -1,11 +1,11 @@
-import type { TSearchHistoryItem, TUser } from '@/models/user';
-import type { TSearchResult, TStructuredQuery } from '@/models/search';
+import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { TSearchHistoryItem, TUser } from '@/services/user/types';
 
 import { validator } from '@/utils/validation';
 import { logger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
-import { ESubscriptionType } from '@/models/user';
-import { createDatabaseConnection } from '@/config/database';
+import { ESubscriptionType } from '@/services/user/types';
+import { createDatabaseConnection } from '@/services/database/SQLite/SQLite';
 import { EAvailableCities } from '@/config/bot';
 
 import { UserRepository } from './UserRepository';
@@ -20,7 +20,7 @@ interface TUserService {
     telegramId: number,
     query: string,
     structuredQuery: TStructuredQuery,
-    results: TSearchResult[],
+    results: TSearchResultItem[],
   ): Promise<TSearchHistoryItem>;
   getSearchHistory(telegramId: number, limit?: number): Promise<TSearchHistoryItem[]>;
   clearSearchHistory(telegramId: number): Promise<void>;
@@ -195,7 +195,7 @@ export class UserService implements TUserService {
     telegramId: number,
     query: string,
     structuredQuery: TStructuredQuery,
-    results: TSearchResult[],
+    results: TSearchResultItem[],
   ): Promise<TSearchHistoryItem> => {
     // Валидация данных
     const telegramIdValidation = validator.validateTelegramId(telegramId);

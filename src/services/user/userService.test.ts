@@ -6,11 +6,11 @@ import {
   vi,
 } from 'vitest';
 
-import type { TSearchHistoryItem, TUser } from '@/models/user';
-import type { TSearchResult } from '@/models/search';
+import type { TSearchResultItem } from '@/types/search';
+import type { TSearchHistoryItem, TUser } from '@/services/user/types';
 
 import { AppError } from '@/utils/errors';
-import { ESubscriptionType } from '@/models/user';
+import { ESubscriptionType } from '@/services/user/types';
 import { EAvailableCities } from '@/config/bot';
 
 import type { UserRepository } from './UserRepository';
@@ -250,7 +250,7 @@ describe('UserService', () => {
       const telegramId = 123456789;
       const query = 'пицца';
       const structuredQuery = { restaurants: ['Додо'] };
-      const results: TSearchResult[] = [{
+      const results: TSearchResultItem[] = [{
         id: '1',
         name: 'Пицца Маргарита',
         restaurant: {

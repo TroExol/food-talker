@@ -1,11 +1,11 @@
 import { createHash } from 'crypto';
 
+import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { TMenuItem } from '@/types/menuItem';
 import type { UserService } from '@/services/user/UserService';
 import type { LLMService } from '@/services/search/LLMService/LLMService';
-import type { CachedYEService } from '@/services/data/yandexEda/cachedYEService/CachedYEService';
-import type { CacheService } from '@/services/data/cache/cacheService/CacheService';
-import type { TSearchResult, TStructuredQuery } from '@/models/search';
-import type { TMenuItem } from '@/models/menuItem';
+import type { CachedYEService } from '@/services/platforms/yandexEda/cachedYEService/CachedYEService';
+import type { CacheService } from '@/services/cacheService/CacheService';
 import type { EAvailableCities } from '@/config/bot';
 
 import { validator } from '@/utils/validation';
@@ -20,9 +20,9 @@ interface TSearchService {
       maxResults?: number;
       includeUnavailable?: boolean;
     }
-  ): Promise<TSearchResult[]>;
+  ): Promise<TSearchResultItem[]>;
   processNaturalLanguageQuery(query: string, availableRestaurants: string[]): Promise<TStructuredQuery>;
-  enhanceResultsWithLLM(results: TSearchResult[], originalQuery: string): Promise<TSearchResult[]>;
+  enhanceResultsWithLLM(results: TSearchResultItem[], originalQuery: string): Promise<TSearchResultItem[]>;
   getSearchStats(telegramId: number): Promise<{
     totalSearches: number;
     averageResults: number;
@@ -58,7 +58,7 @@ export class SearchService implements TSearchService {
     query: string,
     telegramId: number,
     options: TSearchOptions = {},
-  ): Promise<TSearchResult[]> => {
+  ): Promise<TSearchResultItem[]> => {
     const startTime = Date.now();
 
     try {
@@ -144,11 +144,11 @@ export class SearchService implements TSearchService {
     structuredQuery: TStructuredQuery,
     city: EAvailableCities,
     options: TSearchOptions,
-  ): Promise<TSearchResult[]> => {
+  ): Promise<TSearchResultItem[]> => {
     try {
       // Проверяем кэш результатов поиска
       const cacheKey = this.generateSearchCacheKey(structuredQuery, city);
-      const cached = await this.cacheService.get<TSearchResult[]>(cacheKey);
+      const cached = await this.cacheService.get<TSearchResultItem[]>(cacheKey);
 
       if (cached) {
         logger.debug('Найдены кэшированные результаты поиска', { city, cacheKey });
@@ -156,7 +156,7 @@ export class SearchService implements TSearchService {
       }
 
       // Выполняем поиск через CachedYEService
-      const menuItems = await this.cachedYEService.getMenuItems(structuredQuery, city);
+      const menuItems = await this.cachedYEService.searchMenuItems(structuredQuery, city);
 
       // Преобразуем в формат TSearchResult
       const searchResults = this.transformMenuItemsToSearchResults(menuItems);
@@ -172,9 +172,9 @@ export class SearchService implements TSearchService {
   };
 
   public enhanceResultsWithLLM = async (
-    results: TSearchResult[],
+    results: TSearchResultItem[],
     originalQuery: string,
-  ): Promise<TSearchResult[]> => {
+  ): Promise<TSearchResultItem[]> => {
     if (results.length === 0) return results;
 
     try {
@@ -185,7 +185,7 @@ export class SearchService implements TSearchService {
     }
   };
 
-  private limitResults = (results: TSearchResult[], maxResults: number): TSearchResult[] => {
+  private limitResults = (results: TSearchResultItem[], maxResults: number): TSearchResultItem[] => {
     if (results.length <= maxResults) return results;
 
     const limited = results.slice(0, maxResults);
@@ -249,8 +249,8 @@ export class SearchService implements TSearchService {
     return user;
   };
 
-  private transformMenuItemsToSearchResults = (menuItems: TMenuItem[]): TSearchResult[] => {
-    return menuItems.map((item, index): TSearchResult => ({
+  private transformMenuItemsToSearchResults = (menuItems: TMenuItem[]): TSearchResultItem[] => {
+    return menuItems.map((item, index): TSearchResultItem => ({
       id: item.id || `search_${index}_${Date.now()}`,
       name: item.name,
       restaurant: {
@@ -265,7 +265,7 @@ export class SearchService implements TSearchService {
     }));
   };
 
-  private applyOptionsToResults = (results: TSearchResult[], options: TSearchOptions): TSearchResult[] => {
+  private applyOptionsToResults = (results: TSearchResultItem[], options: TSearchOptions): TSearchResultItem[] => {
     let filteredResults = results;
 
     // Ранжирование результатов
@@ -279,7 +279,7 @@ export class SearchService implements TSearchService {
     return filteredResults;
   };
 
-  private rankSearchResults = (results: TSearchResult[]): TSearchResult[] => {
+  private rankSearchResults = (results: TSearchResultItem[]): TSearchResultItem[] => {
     // Простая логика ранжирования:
     // 1. По популярности ресторана (можно добавить позже)
     // 2. По рейтингу ресторана
@@ -305,7 +305,7 @@ export class SearchService implements TSearchService {
     telegramId: number,
     query: string,
     structuredQuery: TStructuredQuery,
-    results: TSearchResult[],
+    results: TSearchResultItem[],
   ): Promise<void> => {
     try {
       await this.userService.addToSearchHistory(telegramId, query, structuredQuery, results);
@@ -319,7 +319,7 @@ export class SearchService implements TSearchService {
   private cacheSearchResults = async (
     query: string,
     city: EAvailableCities,
-    results: TSearchResult[],
+    results: TSearchResultItem[],
   ): Promise<void> => {
     try {
       const cacheKey = this.generateFinalResultsCacheKey(query, city);

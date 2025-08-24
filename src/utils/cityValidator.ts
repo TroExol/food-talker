@@ -1,4 +1,4 @@
-import type { TCoordinates } from '../models/restaurant';
+import type { TCoordinates } from '../types/restaurant';
 import type { EAvailableCities } from '../config/bot';
 
 import { botConfig } from '../config/bot';

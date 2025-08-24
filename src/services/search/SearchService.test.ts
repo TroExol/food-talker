@@ -8,15 +8,15 @@ import {
   vi,
 } from 'vitest';
 
+import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { TMenuItem } from '@/types/menuItem';
 import type { UserService } from '@/services/user/UserService';
 import type { LLMService } from '@/services/search/LLMService/LLMService';
-import type { CachedYEService } from '@/services/data/yandexEda/cachedYEService/CachedYEService';
-import type { CacheService } from '@/services/data/cache/cacheService/CacheService';
-import type { TYERestaurant } from '@/models/yandexEda';
-import type { TSearchResult, TStructuredQuery } from '@/models/search';
-import type { TMenuItem } from '@/models/menuItem';
+import type { TYERestaurant } from '@/services/platforms/yandexEda/yeApiService/types';
+import type { CachedYEService } from '@/services/platforms/yandexEda/cachedYEService/CachedYEService';
+import type { CacheService } from '@/services/cacheService/CacheService';
 
-import { ESubscriptionType, type TUser } from '@/models/user';
+import { ESubscriptionType, type TUser } from '@/services/user/types';
 import { EAvailableCities } from '@/config/bot';
 
 import { SearchService } from './SearchService';
@@ -57,7 +57,7 @@ describe('SearchService', () => {
     restaurant: mockRestaurant,
   };
 
-  const mockSearchResult: TSearchResult = {
+  const mockSearchResult: TSearchResultItem = {
     id: 'item1',
     name: 'Test Pizza',
     restaurant: { id: 'restaurant1', name: 'Test Restaurant' },
@@ -115,7 +115,7 @@ describe('SearchService', () => {
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
       (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.transformQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
-      (mockCachedYEService.getMenuItems as Mock).mockResolvedValue([mockMenuItem]);
+      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
       (mockCacheService.set as Mock).mockResolvedValue(undefined);
@@ -127,7 +127,7 @@ describe('SearchService', () => {
       expect(mockUserService.getUser).toHaveBeenCalledWith(123456789);
       expect(mockCachedYEService.getRestaurants).toHaveBeenCalledWith(EAvailableCities.PERM);
       expect(mockLLMService.transformQuery).toHaveBeenCalledWith('хочу пиццу', ['Test Restaurant']);
-      expect(mockCachedYEService.getMenuItems).toHaveBeenCalledWith(
+      expect(mockCachedYEService.searchMenuItems).toHaveBeenCalledWith(
         { tags: ['пицца'] },
         EAvailableCities.PERM,
       );
@@ -138,7 +138,7 @@ describe('SearchService', () => {
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
       (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.transformQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
-      (mockCachedYEService.getMenuItems as Mock).mockResolvedValue([mockMenuItem]);
+      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
@@ -155,7 +155,7 @@ describe('SearchService', () => {
       (mockCacheService.get as Mock)
         .mockResolvedValueOnce(cachedQuery) // для структурированного запроса
         .mockResolvedValueOnce([mockSearchResult]); // для результатов поиска
-      (mockCachedYEService.getMenuItems as Mock).mockResolvedValue([mockMenuItem]);
+      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
@@ -174,7 +174,7 @@ describe('SearchService', () => {
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
       (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.transformQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
-      (mockCachedYEService.getMenuItems as Mock).mockResolvedValue(
+      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue(
         Array.from({ length: 5 }, (_, i) => ({ ...mockMenuItem, id: `item${i}` })),
       );
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue(mockResults);
@@ -203,7 +203,7 @@ describe('SearchService', () => {
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
       (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.transformQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
-      (mockCachedYEService.getMenuItems as Mock).mockResolvedValue([mockMenuItem]);
+      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockRejectedValue(new Error('Database error'));
 
@@ -246,8 +246,8 @@ describe('SearchService', () => {
 
   describe('enhanceResultsWithLLM', () => {
     it('должен успешно улучшить результаты через LLM', async () => {
-      const originalResults: TSearchResult[] = [mockSearchResult];
-      const enhancedResults: TSearchResult[] = [{
+      const originalResults: TSearchResultItem[] = [mockSearchResult];
+      const enhancedResults: TSearchResultItem[] = [{
         ...mockSearchResult,
         name: 'Enhanced Test Pizza',
       }];
@@ -261,7 +261,7 @@ describe('SearchService', () => {
     });
 
     it('должен вернуть оригинальные результаты при ошибке LLM', async () => {
-      const originalResults: TSearchResult[] = [mockSearchResult];
+      const originalResults: TSearchResultItem[] = [mockSearchResult];
 
       (mockLLMService.enhanceSearchResults as Mock).mockRejectedValue(new Error('LLM error'));
 
@@ -326,7 +326,7 @@ describe('SearchService', () => {
       it('должен корректно преобразовать MenuItem в SearchResult', () => {
         const menuItems: TMenuItem[] = [mockMenuItem];
         const result = (searchService as unknown as {
-          transformMenuItemsToSearchResults: (menuItems: TMenuItem[]) => TSearchResult[];
+          transformMenuItemsToSearchResults: (menuItems: TMenuItem[]) => TSearchResultItem[];
         }).transformMenuItemsToSearchResults(menuItems);
 
         expect(result).toHaveLength(1);
@@ -345,14 +345,14 @@ describe('SearchService', () => {
 
     describe('rankSearchResults', () => {
       it('должен ранжировать результаты по приоритету', () => {
-        const results: TSearchResult[] = [
+        const results: TSearchResultItem[] = [
           { ...mockSearchResult, id: '1', price: 1000, image: undefined },
           { ...mockSearchResult, id: '2', price: 500, image: 'image.jpg' },
           { ...mockSearchResult, id: '3', price: 300, image: 'image.jpg' },
         ];
 
         const ranked = (searchService as unknown as {
-          rankSearchResults: (results: TSearchResult[]) => TSearchResult[];
+          rankSearchResults: (results: TSearchResultItem[]) => TSearchResultItem[];
         }).rankSearchResults(results);
 
         expect(ranked[0].id).toBe('3'); // Самый дешевый с изображением

@@ -1,0 +1,362 @@
+import type { CityValidator } from '@/utils/cityValidator';
+import type { TCoordinates } from '@/types/restaurant';
+import type { TMenuItem } from '@/types/menuItem';
+import type {
+  TYEApiConfig,
+  TYECoordinates,
+  TYEMenuFromServer,
+  TYEMenuItemFromServer,
+  TYERateLimitState,
+  TYERestaurant,
+  TYERestaurantFromServer,
+  TYERestaurantsFromServer,
+  TYEService,
+} from '@/services/platforms/yandexEda/yeApiService/types';
+import type { CacheService } from '@/services/cacheService/CacheService';
+import type { EAvailableCities } from '@/config/bot/types';
+
+import { logger } from '@/utils/logger';
+import { AppError } from '@/utils/errors';
+import { botConfig } from '@/config/bot';
+
+import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
+
+export class YEApiService implements TYEService {
+  private readonly config: TYEApiConfig;
+  private readonly rateLimitState: TYERateLimitState;
+  // TTL для разных типов данных (в секундах)
+  private readonly cacheTTL = {
+    restaurants: 3600, // 1 час
+    menu: 1800, // 30 минут
+  };
+
+  constructor(
+    private readonly cacheService: CacheService,
+    private readonly yeDataTransformer: YEDataTransformer,
+    private readonly cityValidator: CityValidator,
+  ) {
+    this.config = {
+      baseUrl: 'https://eda.yandex.ru',
+      headers: {
+        'Content-Type': 'application/json',
+        ...botConfig.yandexEda.headers,
+      },
+      rateLimits: {
+        requestsPerMinute: botConfig.yandexEda.rateLimits.requestsPerMinute,
+        requestsPerHour: botConfig.yandexEda.rateLimits.requestsPerHour,
+        windowSizeMs: 60 * 1000, // 1 минута
+      },
+      timeout: 10000, // 10 секунд
+      retries: 3,
+      delayBetweenRequestsMs: botConfig.yandexEda.delayBetweenRequestsMs || 100, // Задержка между запросами
+    };
+
+    this.rateLimitState = {
+      requests: [],
+      lastReset: Date.now(),
+    };
+  }
+
+  public requestRestaurants = async (coordinates: TCoordinates): Promise<TYERestaurantFromServer[]> => {
+    await this.enforceRateLimit();
+
+    try {
+      const yeCoordinates: TYECoordinates = {
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      };
+
+      const headers = {
+        ...this.config.headers,
+        'x-retpath-y': 'https://eda.yandex.ru/perm?shippingType=delivery',
+        'x-ya-client-time': new Date().toISOString(),
+        'x-ya-coordinates': `latitude=${yeCoordinates.latitude},longitude=${yeCoordinates.longitude}`,
+      };
+
+      const response = await this.makeRequest<TYERestaurantsFromServer>(
+        '/eats/v1/layout-constructor/v1/layout',
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ location: yeCoordinates }),
+        },
+      );
+
+      const restaurants = response.data?.places_v2_lists?.[0]?.payload?.places || [];
+
+      logger.info('Получены рестораны из Яндекс.Еда', {
+        count: restaurants.length,
+        coordinates,
+      });
+
+      return restaurants;
+    } catch (error) {
+      logger.error('Ошибка получения ресторанов из Яндекс.Еда', error as Error, { coordinates });
+      throw AppError.apiError('YANDEX_EDA_PLACES_FAILED', 'Не удалось получить список ресторанов Яндекс.Еда');
+    }
+  };
+
+  public getRestaurants = async (city: EAvailableCities): Promise<TYERestaurant[]> => {
+    const coordinates = this.cityValidator.getCityCoordinates(city);
+
+    if (!coordinates) {
+      throw AppError.dataCollectionError(`Не удалось получить координаты для города ${city} Яндекс.Еда`);
+    }
+
+    const cacheKey = this.buildCacheKey('restaurants', coordinates);
+
+    try {
+      // Проверяем кэш
+      const cached = await this.cacheService.get<TYERestaurant[]>(cacheKey);
+
+      if (cached) {
+        logger.debug('Кэш ресторанов Яндекс.Еда найден', { coordinates, cacheKey });
+        return cached;
+      }
+
+      // Загружаем из API
+      logger.debug('Кэш ресторанов Яндекс.Еда не найден, загружаем из API', { coordinates });
+      const restaurantsFromServer = await this.requestRestaurants(coordinates);
+
+      // Трансформируем данные
+      const restaurants = this.yeDataTransformer.transformRestaurants(restaurantsFromServer, coordinates);
+
+      // Кэшируем результат
+      await this.cacheService.set(cacheKey, restaurants, this.cacheTTL.restaurants);
+
+      logger.info('Рестораны Яндекс.Еда загружены и кэшированы', {
+        coordinates,
+        count: restaurants.length,
+        cacheKey,
+      });
+
+      return restaurants;
+    } catch (error) {
+      logger.error('Не удалось загрузить рестораны Яндекс.Еда', error as Error, { coordinates });
+      throw AppError.apiError(`Не удалось загрузить рестораны Яндекс.Еда для ${city}`, error);
+    }
+  };
+
+  public requestRestaurantMenu = async (
+    restaurantId: string,
+    coordinates: TCoordinates,
+    brandSlug: string,
+  ): Promise<TYEMenuItemFromServer[]> => {
+    await this.enforceRateLimit();
+
+    try {
+      const headers = {
+        ...this.config.headers,
+        'x-retpath-y': brandSlug
+          ? `https://eda.yandex.ru/r/${brandSlug}?placeSlug=${restaurantId}`
+          : `https://eda.yandex.ru/r/${restaurantId}`,
+        'x-ya-client-time': new Date().toISOString(),
+        'x-ya-coordinates': `latitude=${coordinates.latitude},longitude=${coordinates.longitude}`,
+      };
+
+      const url = `/api/v2/menu/retrieve/${restaurantId}?longitude=${coordinates.longitude}&latitude=${coordinates.latitude}&autoTranslate=false`;
+
+      const response = await this.makeRequest<TYEMenuFromServer>(url, {
+        method: 'GET',
+        headers,
+      });
+
+      logger.info('Получено меню ресторана из Яндекс.Еда', {
+        restaurantId,
+        categoriesCount: response.payload?.categories?.length || 0,
+      });
+
+      return response.payload.categories.flatMap(category => category.items);
+    } catch (error) {
+      logger.error('Ошибка получения меню ресторана из Яндекс.Еда', error as Error, { restaurantId });
+      throw AppError.apiError('YANDEX_EDA_MENU_FAILED', 'Не удалось получить меню ресторана Яндекс.Еда');
+    }
+  };
+
+  public getRestaurantMenu = async (
+    restaurantId: string,
+    city: EAvailableCities,
+    brandSlug: string,
+  ): Promise<TMenuItem[]> => {
+    const coordinates = this.cityValidator.getCityCoordinates(city);
+    if (!coordinates) {
+      throw AppError.dataCollectionError(`Не удалось получить координаты для города ${city} Яндекс.Еда`);
+    }
+
+    const cacheKey = this.buildCacheKey('menu', coordinates, restaurantId);
+
+    try {
+      // Проверяем кэш
+      const cached = await this.cacheService.get<TMenuItem[]>(cacheKey);
+      if (cached) {
+        logger.debug('Кэш меню Яндекс.Еда найден', { restaurantId, coordinates, cacheKey });
+        return cached;
+      }
+
+      // Загружаем из API
+      logger.debug('Кэш меню Яндекс.Еда не найден, загружаем из API', { restaurantId, coordinates });
+      const yeMenu = await this.requestRestaurantMenu(restaurantId, coordinates, brandSlug);
+
+      // Нужно получить данные ресторана для трансформации
+      const restaurant = await this.getRestaurantById(restaurantId, city);
+      if (!restaurant) {
+        throw AppError.apiError(`Ресторан Яндекс.Еда не найден для id: ${restaurantId}`);
+      }
+
+      // Трансформируем данные
+      const menuItems = this.yeDataTransformer.transformMenu(yeMenu, restaurant);
+
+      // Кэшируем результат
+      await this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);
+
+      logger.info('Меню Яндекс.Еда загружено и кэшировано', {
+        restaurantId,
+        coordinates,
+        count: menuItems.length,
+        cacheKey,
+      });
+
+      return menuItems;
+    } catch (error) {
+      logger.error('Не удалось загрузить меню Яндекс.Еда', error as Error, { restaurantId, coordinates });
+      throw AppError.apiError(`Не удалось загрузить меню Яндекс.Еда для ${restaurantId}`, error);
+    }
+  };
+
+  public checkRateLimit = (): boolean => {
+    const now = Date.now();
+    const windowStart = now - this.config.rateLimits.windowSizeMs;
+
+    // Очищаем старые запросы
+    this.rateLimitState.requests = this.rateLimitState.requests.filter(
+      timestamp => timestamp > windowStart,
+    );
+
+    return this.rateLimitState.requests.length < this.config.rateLimits.requestsPerMinute;
+  };
+
+  private enforceRateLimit = async (): Promise<void> => {
+    while (!this.checkRateLimit()) {
+      if (this.rateLimitState.requests.length === 0) {
+        break; // Если нет запросов, можно делать новый
+      }
+
+      const oldestRequest = Math.min(...this.rateLimitState.requests);
+      const waitTime = this.config.rateLimits.windowSizeMs - (Date.now() - oldestRequest);
+
+      if (waitTime > 0) {
+        logger.warn('Rate limit достигнут для Яндекс.Еда API, ожидаю', { waitTime });
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
+
+    // Записываем текущий запрос
+    this.rateLimitState.requests.push(Date.now());
+
+    // Добавляем задержку между запросами
+    if (this.config.delayBetweenRequestsMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, this.config.delayBetweenRequestsMs));
+    }
+  };
+
+  private makeRequest = async <T>(endpoint: string, options: RequestInit): Promise<T> => {
+    const url = `${this.config.baseUrl}${endpoint}`;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= this.config.retries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json() as T;
+
+        logger.debug('Яндекс.Еда API запрос выполнен', {
+          endpoint,
+          attempt,
+          status: response.status,
+        });
+
+        return data;
+      } catch (error) {
+        lastError = error as Error;
+
+        if (attempt === this.config.retries) {
+          break;
+        }
+
+        // Экспоненциальная задержка между попытками
+        const delay = Math.pow(2, attempt) * 1000;
+        logger.warn(`Яндекс.Еда API запрос неудачен, повтор через ${delay}ms`, {
+          endpoint,
+          attempt,
+          error: lastError.message,
+        });
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    logger.error('Яндекс.Еда API запрос окончательно неудачен', lastError!, { endpoint });
+    throw AppError.networkError('YANDEX_EDA_REQUEST_FAILED', `Не удалось выполнить запрос: ${lastError?.message}`);
+  };
+
+  public clearCache = async (): Promise<void> => {
+    try {
+      await this.cacheService.clear();
+      logger.info('Весь кэш Яндекс.Еда очищен');
+    } catch (error) {
+      logger.error('Не удалось очистить кэш Яндекс.Еда', error as Error);
+      throw AppError.cacheError('Не удалось очистить кэш Яндекс.Еда', error);
+    }
+  };
+
+  public getCacheStats = async (): Promise<{ restaurants: number; menus: number }> => {
+    try {
+      // Приблизительная статистика по типам кэша
+      // В реальности нужно было бы отслеживать это более точно
+      const stats = await this.cacheService.getStats();
+
+      return {
+        restaurants: Math.floor(stats.totalKeys * 0.1), // ~10% ключей - рестораны
+        menus: Math.floor(stats.totalKeys * 0.9), // ~90% ключей - меню
+      };
+    } catch (error) {
+      logger.error('Не удалось получить статистику кэша Яндекс.Еда', error as Error);
+      throw AppError.cacheError('Не удалось получить статистику кэша Яндекс.Еда', error);
+    }
+  };
+
+  private buildCacheKey = (
+    type: string,
+    coordinates: TCoordinates,
+    ...extra: string[]
+  ): string => {
+    const coordsStr = `${coordinates.latitude.toFixed(4)},${coordinates.longitude.toFixed(4)}`;
+    const parts = [type, coordsStr, ...extra];
+    return parts.join(':');
+  };
+
+  public getRestaurantById = async (
+    restaurantId: string,
+    city: EAvailableCities,
+  ): Promise<TYERestaurant | null> => {
+    try {
+      const restaurants = await this.getRestaurants(city);
+      return restaurants.find(r => r.id === restaurantId) || null;
+    } catch (error) {
+      logger.error('Не удалось получить ресторан Яндекс.Еда по slug', error as Error, { restaurantId, city });
+      return null;
+    }
+  };
+}

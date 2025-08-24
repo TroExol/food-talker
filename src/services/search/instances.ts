@@ -1,6 +1,6 @@
 import { UserServiceFactory } from '@/services/user/UserServiceFactory';
-import { cachedYEService } from '@/services/data/yandexEda/cachedYEService/instances';
-import { redisCacheService } from '@/services/data/cache/cacheService/instances';
+import { cachedYEService } from '@/services/platforms/yandexEda/cachedYEService/instances';
+import { redisCacheService } from '@/services/cacheService/instances';
 
 import { SearchService } from './SearchService';
 import { llmService } from './LLMService/instances';

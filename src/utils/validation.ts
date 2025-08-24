@@ -1,4 +1,4 @@
-import { ESubscriptionType } from '@/models/user';
+import { ESubscriptionType } from '@/services/user/types';
 import { botConfig, type EAvailableCities } from '@/config/bot';
 
 import { type Sanitizer, sanitizer as sanitizerInstance } from './sanitizer';
@@ -23,8 +23,8 @@ export interface TValidator {
 }
 
 export class Validator implements TValidator {
-  private readonly maxQueryLength = botConfig.sanitizer.maxLength;
-  private readonly minQueryLength = botConfig.sanitizer.minLength;
+  private readonly maxQueryLength = botConfig.sanitizer.userSearchPrompt.maxLength;
+  private readonly minQueryLength = botConfig.sanitizer.userSearchPrompt.minLength;
 
   constructor(private readonly sanitizer: Sanitizer) {}
 

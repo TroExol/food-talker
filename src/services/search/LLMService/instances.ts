@@ -1,4 +1,4 @@
-import { redisCacheService } from '@/services/data/cache/cacheService/instances';
+import { redisCacheService } from '@/services/cacheService/instances';
 
 import { LLMService } from './LLMService';
 

@@ -8,8 +8,8 @@ import {
   vi,
 } from 'vitest';
 
-import type { CacheService } from '@/services/data/cache/cacheService/CacheService';
-import type { TSearchResult, TStructuredQuery } from '@/models/search';
+import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { LLMService } from './LLMService';
 
@@ -194,7 +194,7 @@ describe('LLMService', () => {
   });
 
   describe('enhanceSearchResults', () => {
-    const mockResults: TSearchResult[] = [
+    const mockResults: TSearchResultItem[] = [
       {
         id: '1',
         name: 'Пицца Маргарита',
@@ -287,7 +287,7 @@ describe('LLMService', () => {
     });
 
     it('должен извлекать JSON из ответа с дополнительным текстом и новой строкой', () => {
-      const response = `Вот структурированный запрос: 
+      const response = `Вот структурированный запрос:
       {
         "tags": ["пицца"]
       }
@@ -317,9 +317,9 @@ describe('LLMService', () => {
   });
 
   describe('parseEnhancedResults', () => {
-    type MockLLMService = { parseEnhancedResults: (response: string, results: TSearchResult[]) => TSearchResult[] };
+    type MockLLMService = { parseEnhancedResults: (response: string, results: TSearchResultItem[]) => TSearchResultItem[] };
 
-    const mockResults: TSearchResult[] = [
+    const mockResults: TSearchResultItem[] = [
       { id: '1', name: 'Блюдо 1', restaurant: { id: '1', name: 'Ресторан 1' }, description: '', tags: [], price: 100, orderUrl: '' },
       { id: '2', name: 'Блюдо 2', restaurant: { id: '1', name: 'Ресторан 1' }, description: '', tags: [], price: 200, orderUrl: '' },
       { id: '3', name: 'Блюдо 3', restaurant: { id: '1', name: 'Ресторан 1' }, description: '', tags: [], price: 300, orderUrl: '' },
@@ -639,7 +639,7 @@ describe('LLMService', () => {
     });
 
     describe('enhanceSearchResults with cache', () => {
-      const mockResults: TSearchResult[] = [
+      const mockResults: TSearchResultItem[] = [
         {
           id: '1',
           name: 'Пицца Маргарита',

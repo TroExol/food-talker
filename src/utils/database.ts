@@ -1,4 +1,4 @@
-import { createDatabaseConnection, databasePool } from '@/config/database';
+import { createDatabaseConnection, databasePool } from '@/services/database/SQLite/SQLite';
 
 import { logger } from './logger';
 
