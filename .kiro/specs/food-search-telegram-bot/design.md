@@ -4,7 +4,7 @@
 
 The Food Talker system is a Node.js-based Telegram bot application designed for intelligent food search and restaurant recommendations. Built with TypeScript and leveraging modern architectural patterns, the system integrates multiple external services including Yandex.Eda API and LLM services to provide natural language food search capabilities.
 
-**Current Implementation Status**: The project is in active development with core services, data models, and infrastructure components implemented. The bot interface layer is planned but not yet implemented.
+**Current Implementation Status**: The project is in active development with core services, data models, and infrastructure components implemented. The bot interface layer is planned but not yet implemented. Recent refactoring has improved code organization, type safety, and service architecture.
 
 ## Technology Stack & Dependencies
 
@@ -117,18 +117,18 @@ classDiagram
         +getUserSearchHistory(telegramId: number) Promise~TSearchHistoryItem[]~
     }
     
-    class CachedYEService {
-        +getRestaurants(coordinates: TCoordinates) Promise~TYERestaurant[]~
-        +getRestaurantMenu(placeSlug: string) Promise~TMenuItem[]~
-        +searchItems(query: TStructuredQuery) Promise~TMenuItem[]~
-        -buildCacheKey(type: string, params: any[]) string
-    }
-    
-    class YEService {
-        +getRestaurants(coordinates: TCoordinates) Promise~TYERestaurant[]~
-        +getRestaurantMenu(placeSlug: string) Promise~TYEMenuItem[]~
+    class YEApiService {
+        +requestRestaurants(coordinates: TCoordinates) Promise~TYERestaurantFromServer[]~
+        +requestRestaurantMenu(id: string, coordinates: TCoordinates, brandSlug: string) Promise~TYEMenuItemFromServer[]~
+        +getRestaurants(city: EAvailableCities) Promise~TYERestaurant[]~
+        +getRestaurantMenu(id: string, city: EAvailableCities) Promise~TMenuItem[]~
         +checkRateLimit() boolean
         -makeRequest(endpoint: string) Promise~any~
+    }
+    
+    class YESearchService {
+        +searchItems(query: TStructuredQuery, city: EAvailableCities) Promise~TMenuItem[]~
+        +searchRestaurants(query: TStructuredQuery, city: EAvailableCities) Promise~TYERestaurant[]~
     }
     
     class CacheService {
@@ -136,12 +136,13 @@ classDiagram
         +set(key: string, value: any, ttl?: number) Promise~void~
         +delete(key: string) Promise~void~
         +clear() Promise~void~
+        +close() Promise~void~
     }
     
     LLMService --> CacheService
     UserService --> CacheService
-    CachedYEService --> YEService
-    CachedYEService --> CacheService
+    YEApiService --> CacheService
+    YESearchService --> YEApiService
 ```
 
 ### 1. Bot Layer (Planned - Not Yet Implemented)
@@ -177,6 +178,22 @@ interface TUserService {
   checkSubscriptionExpiry(): Promise<TUser[]>
 }
 
+interface TUserServiceFactory {
+  createUserService(): TUserService
+}
+
+interface TUserRepository {
+  createUser(user: TUser): Promise<TUser>
+  getUser(telegramId: number): Promise<TUser | null>
+  updateUser(telegramId: number, updates: Partial<TUser>): Promise<TUser>
+  deleteUser(telegramId: number): Promise<void>
+}
+
+interface TUserRepositoryFactory {
+  createUserRepository(): TUserRepository
+}
+```
+
 interface TUser {
   telegramId: number
   chatId: number
@@ -207,6 +224,11 @@ interface TSearchService {
   filterByGeolocation(results: TSearchResult[], city: string): Promise<TSearchResult[]>
   enhanceResultsWithLLM(results: TSearchResult[], originalQuery: string): Promise<TSearchResult[]>
 }
+
+interface TSearchServiceFactory {
+  createSearchService(): TSearchService
+}
+```
 
 interface TStructuredQuery {
   restaurants?: string[]
@@ -247,16 +269,22 @@ interface TLLMService {
 
 ### 4. Data Aggregation (`src/services/data/`)
 
-### 4. Data Aggregation (`src/services/data/yandexEda/`) - **Implemented**
+### 4. Data Aggregation (`src/services/platforms/yandexEda/`) - **Implemented**
 
-**YEService** - Base Yandex.Eda API client with rate limiting and retry logic
+**YEApiService** - Основной API клиент для Yandex.Eda с кэшированием
 ```typescript
 interface TYEService {
-  getRestaurants(coordinates: TCoordinates): Promise<TYERestaurant[]>
-  getRestaurantMenu(placeSlug: string, coordinates: TCoordinates, brandSlug?: string): Promise<TYEMenuItem[]>
-  searchRestaurants(query: TStructuredQuery, coordinates: TCoordinates): Promise<TYERestaurant[]>
+  requestRestaurants(coordinates: TCoordinates): Promise<TYERestaurantFromServer[]>
+  requestRestaurantMenu(id: string, coordinates: TCoordinates, brandSlug: string): Promise<TYEMenuItemFromServer[]>
   checkRateLimit(): boolean
+  
+  // Cached methods
+  getRestaurants(city: EAvailableCities): Promise<TYERestaurant[]>
+  getRestaurantMenu(id: string, city: EAvailableCities): Promise<TMenuItem[]>
+  clearCache(pattern?: string): Promise<void>
+  getCacheStats(): Promise<{ restaurants: number; menus: number }>
 }
+```
 
 interface TYERestaurant {
   id: string
@@ -280,27 +308,85 @@ interface TMenuItem {
   available: boolean
   restaurant: TYERestaurant
 }
+
+// Yandex.Eda API Response Types
+interface TYERestaurantFromServer {
+  name: TYEText
+  slug: string
+  brand: TYEBrand
+  analytics?: string
+  picture?: TYEPicture
+  left_meta?: TYELeftMeta[]
+  features?: TYEFeatures
+  chips?: TYEChip[]
+}
+
+// API Configuration Types
+interface TYEApiConfig {
+  baseUrl: string
+  headers: Record<string, string>
+  rateLimits: TYERateLimitConfig
+  timeout: number
+  retries: number
+  delayBetweenRequestsMs: number
+}
+
+interface TYERateLimitConfig {
+  requestsPerMinute: number
+  requestsPerHour: number
+  windowSizeMs: number
+}
+
+interface TYERateLimitState {
+  requests: number[]
+  lastReset: number
+}
+```
+
+interface TYEMenuItemFromServer {
+  id: number
+  name: string
+  description: string
+  descriptions?: TYEDescription[]
+  available: boolean
+  inStock: boolean | null
+  price: number
+  decimalPrice: string
+  promoTypes: string[]
+  optionsGroups: unknown[]
+  picture?: TYEPicture
+  weight?: string
+  adult: boolean
+  shippingType: string
+  measure?: TYEMeasure
+  nutrients_detailed?: TYENutrientsDetailed
+  publicId: string
+}
 ```
 
 
-**CachedYEService** - Обёртка с кэшированием для YEService
+**YEApiService** - Основной API клиент для Yandex.Eda с кэшированием
 ```typescript
-interface TCachedYEService {
-  getRestaurants(coordinates: TCoordinates, city: EAvailableCities): Promise<TYERestaurant[]>
-  getRestaurantMenu(placeSlug: string, coordinates: TCoordinates, city: EAvailableCities, brandSlug?: string): Promise<TMenuItem[]>
-  searchItems(query: TStructuredQuery, coordinates: TCoordinates, city: EAvailableCities): Promise<TMenuItem[]>
-  invalidateCache(pattern?: string): void
-  getCacheStats(): { restaurants: number; menus: number; searches: number }
+interface TYEService {
+  requestRestaurants(coordinates: TCoordinates): Promise<TYERestaurantFromServer[]>
+  requestRestaurantMenu(id: string, coordinates: TCoordinates, brandSlug: string): Promise<TYEMenuItemFromServer[]>
+  checkRateLimit(): boolean
+  
+  // Cached methods
+  getRestaurants(city: EAvailableCities): Promise<TYERestaurant[]>
+  getRestaurantMenu(id: string, city: EAvailableCities): Promise<TMenuItem[]>
+  clearCache(pattern?: string): Promise<void>
+  getCacheStats(): Promise<{ restaurants: number; menus: number }>
 }
 ```
 
 **YEDataTransformer** - Трансформация данных API в внутренние модели
 ```typescript
 interface TYEDataTransformer {
-  transformRestaurant(yePlace: TYEPlace, coordinates: TCoordinates): TYERestaurant
-  transformMenuItem(yeMenuItem: TYEMenuItem, restaurant: TYERestaurant): TMenuItem
-  transformRestaurants(yePlaces: TYEPlace[], coordinates: TCoordinates): TYERestaurant[]
-  transformMenuItems(yeMenuItems: TYEMenuItem[], restaurant: TYERestaurant): TMenuItem[]
+  transformRestaurant(yePlace: TYERestaurantFromServer, coordinates: TCoordinates): TYERestaurant
+  transformMenuItem(yeMenuItem: TYEMenuItemFromServer, restaurant: TYERestaurant): TMenuItem
+  transformRestaurants(yePlaces: TYERestaurantFromServer[], coordinates: TCoordinates): TYERestaurant[]
+  transformMenuItems(yeMenuItems: TYEMenuItemFromServer[], restaurant: TYERestaurant): TMenuItem[]
 }
 ```
 
@@ -328,19 +414,35 @@ interface TCollectionStats {
 **CacheService** - Универсальный кэш с TTL и LRU
 ```typescript
 interface TCacheService {
-  get<T>(key: string): T | null
-  set<T>(key: string, value: T, ttlSeconds?: number): void
-  delete(key: string): void
-  clear(): void
-  has(key: string): boolean
-  getStats(): TCacheStats
+  get<T>(key: string): Promise<T | null>
+  set<T>(key: string, value: T, ttlSeconds?: number): Promise<void>
+  delete(key: string): Promise<void>
+  clear(): Promise<void>
+  has(key: string): Promise<boolean>
+  getStats(): Promise<TCacheStats>
+  close(): Promise<void>
 }
+```
 
 interface TCacheStats {
   totalKeys: number
   memoryUsage: number // bytes
   hitRate: number // 0-1
   missRate: number // 0-1
+}
+
+interface TCacheServiceConfig {
+  type: 'memory' | 'redis'
+  ttl: number
+  maxSize: number
+  redisUrl?: string
+}
+
+interface TMemoryCacheItem<T> {
+  value: T
+  expiresAt: number
+  accessCount: number
+  lastAccessed: number
 }
 ```
 
@@ -422,6 +524,96 @@ interface TMenuItem {
   restaurant: TRestaurant
 }
 
+// Yandex.Eda API Response Types
+interface TYEText {
+  value: string
+  color: TYEColor
+}
+
+interface TYEColor {
+  light: string
+  dark: string
+}
+
+interface TYEBrand {
+  slug: string
+  name: string
+  business: string
+}
+
+interface TYEPicture {
+  image: string
+  uri?: string
+  ratio?: number
+  scale?: string
+}
+
+interface TYELeftMeta {
+  id: string
+  type: string
+  payload: {
+    icon?: {
+      type: string
+      icon: TYEIcon
+    }
+    text: TYEText
+    type: string
+  }
+}
+
+interface TYEIcon {
+  color?: TYEColor
+  url: string
+}
+
+interface TYEFeatures {
+  rating?: {
+    text: TYEText
+    icon: TYEIcon
+  }
+  user_collections?: {
+    in_collections: boolean
+  }
+}
+
+interface TYEChip {
+  type: string
+  payload: {
+    background: TYEColor
+    text: TYEText
+  }
+}
+
+interface TYEDescription {
+  title: string
+  text: string
+  expanded_text: string
+  collapsed_text: string
+  collapsed_text_lines_count: number
+}
+
+interface TYEMeasure {
+  value: string
+  measure_unit: string
+}
+
+interface TYENutrient {
+  name: string
+  value: string
+  unit: string
+}
+
+interface TYENutrientsDetailed {
+  calories: TYENutrient
+  proteins: TYENutrient
+  fats: TYENutrient
+  carbohydrates: TYENutrient
+  description: {
+    value: string
+  }
+}
+```
+
 interface TWorkingHours {
   open: string // HH:MM
   close: string // HH:MM
@@ -439,14 +631,15 @@ interface TBotConfig {
   database: TDatabaseConfig
   cache: TCacheConfig
   yandexEda: TYandexEdaConfig
-  sanitizer: TSanitizerConfig
   availableCities: EAvailableCities[]
+  sanitizer: TSanitizerConfig
+  fallbackFoodImage: string
 }
 
 interface TDatabaseConfig {
   url: string // SQLite file path
   maxConnections: number
-  busyTimeout: number
+  timeout: number
 }
 
 interface TCacheConfig {
@@ -462,11 +655,27 @@ interface TYandexEdaConfig {
     requestsPerMinute: number
     requestsPerHour: number
   }
+  delayBetweenRequestsMs: number
+  retries: number
 }
 
 interface TSanitizerConfig {
-  maxLength: number
-  minLength: number
+  userSearchPrompt: {
+    maxLength: number
+    minLength: number
+  }
+}
+
+interface TEnvironment {
+  NODE_ENV: 'development' | 'production'
+  BOT_TOKEN: string
+  LLM_API_URL: string
+  LLM_API_KEY: string
+  DATABASE_URL: string
+  REDIS_URL?: string
+  LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error'
+  WEBHOOK_URL?: string
+  WEBHOOK_SECRET?: string
 }
 ```
 
@@ -528,9 +737,11 @@ interface TErrorHandler {
 Реализован многоуровневый кэш с автоматической очисткой:
 
 1. **CacheService** - Универсальный кэш с вариантами in-memory или Redis
+   - Provider pattern с поддержкой Memory и Redis
    - LRU eviction при превышении maxSize
    - TTL с автоматической очисткой каждые 5 минут
    - Статистика hit/miss rate и memory usage
+   - Асинхронные методы с Promise возвратами
 
 2. **Restaurant Data Cache** - TTL: 1 час (3600 сек)
    - Ключ: `restaurants:{city}:{coordinates}`
@@ -548,6 +759,7 @@ interface TErrorHandler {
    - Автоматическая очистка просроченных записей
    - Ручная инвалидация по паттернам
    - Graceful degradation при ошибках кэша
+   - Метод `close()` для корректного завершения работы
 
 **LLM Response Cache** - Кэширование ответов LLM для похожих запросов (TTL: 24 часа)
 
@@ -584,17 +796,22 @@ interface TYEApiConfig {
 
 ### Yandex.Eda Integration
 
-Реализованная архитектура состоит из трёх слоёв:
+Реализованная архитектура состоит из четырёх слоёв:
 
-#### 1. YEService - Базовый API клиент
+#### 1. YEApiService - Основной API клиент с кэшированием
 ```typescript
-class YEService {
+class YEApiService implements TYEService {
   private readonly config: TYEApiConfig
   private rateLimitState: TYERateLimitState
+  private readonly cacheTTL = {
+    restaurants: 3600, // 1 час
+    menu: 1800,        // 30 минут
+  }
 
-  async getRestaurants(coordinates: TCoordinates): Promise<TYERestaurant[]>
-  async getRestaurantMenu(placeSlug: string, coordinates: TCoordinates, brandSlug?: string): Promise<TYEMenuItem[]>
-  async searchRestaurants(query: TStructuredQuery, coordinates: TCoordinates): Promise<TYERestaurant[]>
+  async requestRestaurants(coordinates: TCoordinates): Promise<TYERestaurantFromServer[]>
+  async requestRestaurantMenu(id: string, coordinates: TCoordinates, brandSlug: string): Promise<TYEMenuItemFromServer[]>
+  async getRestaurants(city: EAvailableCities): Promise<TYERestaurant[]>
+  async getRestaurantMenu(id: string, city: EAvailableCities): Promise<TMenuItem[]>
   checkRateLimit(): boolean
 }
 ```
@@ -602,29 +819,22 @@ class YEService {
 #### 2. YEDataTransformer - Трансформация данных
 ```typescript
 class YEDataTransformer {
-  transformPlace(yePlace: TYEPlace, coordinates: TCoordinates): TYERestaurant
-  transformMenuItem(yeMenuItem: TYEMenuItem, restaurant: TRestaurant): TMenuItem
+  transformRestaurant(yePlace: TYERestaurantFromServer, coordinates: TCoordinates): TYERestaurant
+  transformMenuItem(yeMenuItem: TYEMenuItemFromServer, restaurant: TRestaurant): TMenuItem
   
   // Умное извлечение ингредиентов из разных форматов описаний:
   // - Точный title "Состав"
   // - Текст с "Состав:"
   // - Автоопределение списков ингредиентов по структуре
-  private extractIngredients(yeMenuItem: TYEMenuItem): string[]
+  private extractIngredients(yeMenuItem: TYEMenuItemFromServer): string[]
 }
 ```
 
-#### 3. CachedYEService - Кэширующая обёртка
+#### 3. YESearchService - Поисковый сервис
 ```typescript
-class CachedYEService {
-  private cacheTTL = {
-    restaurants: 3600, // 1 час
-    menu: 1800,        // 30 минут  
-    search: 900,       // 15 минут
-  }
-
-  async getRestaurants(coordinates: TCoordinates, city: EAvailableCities): Promise<TYERestaurant[]>
-  async getRestaurantMenu(placeSlug: string, coordinates: TCoordinates, city: EAvailableCities, brandSlug?: string): Promise<TMenuItem[]>
-  async searchItems(query: TStructuredQuery, coordinates: TCoordinates, city: EAvailableCities): Promise<TMenuItem[]>
+class YESearchService {
+  async searchItems(query: TStructuredQuery, city: EAvailableCities): Promise<TMenuItem[]>
+  async searchRestaurants(query: TStructuredQuery, city: EAvailableCities): Promise<TYERestaurant[]>
 }
 ```
 
@@ -703,13 +913,22 @@ interface TRestaurantCacheEntity {
 // Database Connection Management
 interface TDatabaseConnection {
   query<T>(sql: string, params?: unknown[]): Promise<T[]>
-  run(sql: string, params?: unknown[]): Promise<{ lastID?: number; changes: number }>
+  get<T>(sql: string, params?: unknown[]): Promise<T | undefined>
+  run(sql: string, params?: unknown[]): Promise<{ lastID: number; changes: number }>
   close(): Promise<void>
 }
 
 interface TDatabasePool {
   getConnection(): Promise<TDatabaseConnection>
   closeAll(): Promise<void>
+  getActiveConnections(): number
+}
+
+interface TMigration {
+  version: number
+  description: string
+  up: (db: TDatabaseConnection) => Promise<void>
+  down: (db: TDatabaseConnection) => Promise<void>
 }
 ```
 
@@ -749,11 +968,11 @@ graph TB
 
 #### Implemented Test Suites
 1. **UserService Tests** - Complete service method coverage
-2. **YEService Tests** - API calls, rate limiting, retry logic
+2. **YEApiService Tests** - API calls, rate limiting, retry logic, caching
 3. **YEDataTransformer Tests** - Data transformation and ingredient extraction
-4. **CachedYEService Tests** - Caching behavior and cache key generation
-5. **YEDataCollectionService Tests** - Cron job scheduling and statistics
-6. **CacheService Tests** - Provider pattern and TTL behavior
+4. **YEDataCollectionService Tests** - Cron job scheduling and statistics
+5. **CacheService Tests** - Provider pattern and TTL behavior
+6. **SearchService Tests** - Search orchestration and LLM integration
 
 #### Test Utilities & Mocking
 - **Test Framework**: Vitest (^3.2.4) with TypeScript support
@@ -820,7 +1039,7 @@ export default defineConfig({
 
 Реализована модульная система валидации и санитизации:
 
-#### Validation (`src/utils/validation.ts`)
+#### Validation (`src/utils/Validator.ts`)
 ```typescript
 interface TValidator {
   // Input validation (from user)
@@ -842,7 +1061,7 @@ interface TValidationResult {
 }
 ```
 
-#### Sanitizer (`src/utils/sanitizer.ts`)
+#### Sanitizer (`src/utils/Sanitizer.ts`)
 ```typescript
 interface TSanitizer {
   sanitizeSearchQuery(query: string): string
@@ -853,7 +1072,7 @@ interface TSanitizer {
 }
 ```
 
-#### City Validator (`src/utils/cityValidator.ts`)
+#### City Validator (`src/utils/CityValidator.ts`)
 ```typescript
 interface TCityValidator {
   isSupported(city: string): boolean
@@ -877,12 +1096,20 @@ interface TLogger {
   debug(message: string, meta?: any): void
 }
 
+// ConsoleLogger implementation:
+// - Структурированное логирование с метаданными
+// - Поддержка уровней логирования (debug, info, warn, error)
+// - Автоматическое форматирование ошибок
+// - Контекстная информация для отладки
+
 // Log Categories:
 // - user.action - Действия пользователей
 // - search.query - Поисковые запросы
 // - api.call - Вызовы внешних API
 // - llm.request - Запросы к LLM
 // - error.system - Системные ошибки
+// - cache.operation - Операции с кэшем
+// - database.query - Запросы к базе данных
 ```
 
 ### Metrics Collection
@@ -938,6 +1165,16 @@ interface TEnvironment {
   WEBHOOK_URL?: string
   WEBHOOK_SECRET?: string
 }
+
+// Environment validation function
+function validateEnvironment(): void {
+  const required = ['BOT_TOKEN', 'LLM_API_URL', 'LLM_API_KEY']
+  const missing = required.filter(key => !environment[key as keyof TEnvironment])
+  
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
+  }
+}
 ```
 
 ### Scaling Strategy
@@ -959,80 +1196,141 @@ interface TEnvironment {
 ```
 src/
 ├── config/                    # ✅ Configuration Management
-│   ├── bot.ts                # Bot and service configuration
-│   ├── database.ts           # Database connection setup
-│   ├── environment.ts        # Environment variables
-│   └── migrations.ts         # Database migrations
-├── models/                    # ✅ Data Models
-│   ├── user.ts              # User domain model
-│   ├── restaurant.ts        # Restaurant domain model
-│   ├── menuItem.ts          # Menu item model
-│   ├── search.ts            # Search query models
-│   ├── telegram.ts          # Telegram-specific types
-│   └── yandexEda.ts         # Yandex.Eda API models
+│   ├── bot/                  # Bot configuration
+│   │   ├── index.ts          # Bot configuration object
+│   │   └── types.ts          # Bot configuration types
+│   └── environment/          # Environment configuration
+│       ├── index.ts          # Environment variables and validation
+│       └── types.ts          # Environment types
+├── types/                     # ✅ Data Models
+│   ├── menuItem.ts           # Menu item model
+│   ├── restaurant.ts         # Restaurant domain model
+│   ├── search.ts             # Search query models
+│   └── telegram.ts           # Telegram-specific types
 ├── services/                  # ✅ Core Services
-│   ├── data/
-│   │   ├── cache/cacheService/        # Cache abstraction layer
-│   │   │   ├── providers/             # Cache provider implementations
+│   ├── cacheService/         # Cache abstraction layer
+│   │   ├── providers/        # Cache provider implementations
+│   │   │   ├── MemoryCacheProvider/
 │   │   │   │   ├── MemoryCacheProvider.ts
-│   │   │   │   ├── RedisCacheProvider.ts
-│   │   │   │   ├── RedisCacheProvider.test.ts
-│   │   │   │   └── baseCacheProvider.ts
-│   │   │   ├── CacheService.ts
-│   │   │   ├── CacheService.test.ts
+│   │   │   │   └── types.ts
+│   │   │   ├── RedisCacheProvider.ts
+│   │   │   ├── RedisCacheProvider.test.ts
+│   │   │   └── types.ts
+│   │   ├── CacheService.ts
+│   │   ├── CacheService.test.ts
+│   │   ├── instances.ts
+│   │   └── types.ts
+│   ├── database/             # Database management
+│   │   ├── SQLite/
+│   │   │   ├── SQLite.ts
+│   │   │   ├── SQLiteFactory.ts
 │   │   │   └── instances.ts
-│   │   ├── collection/        # ⏳ Planned data collection services
-│   │   └── yandexEda/         # Yandex.Eda integration
-│   │       ├── cachedYEService/
-│   │       │   ├── CachedYEService.ts
-│   │       │   ├── CachedYEService.test.ts
-│   │       │   └── instances.ts
-│   │       ├── yeDataCollectionService/
-│   │       │   ├── YEDataCollectionService.ts
-│   │       │   ├── YEDataCollectionService.test.ts
-│   │       │   └── instances.ts
-│   │       ├── yeDataTransformer/
-│   │       │   ├── YEDataTransformer.ts
-│   │       │   ├── YEDataTransformer.test.ts
-│   │       │   └── instances.ts
-│   │       └── yeService/
-│   │           ├── YEService.ts
-│   │           ├── YEService.test.ts
-│   │           └── instances.ts
-│   ├── search/LLMService/     # ✅ LLM Integration
-│   │   ├── LLMService.ts
-│   │   ├── LLMService.test.ts
-│   │   └── instances.ts
-│   ├── user/                  # ✅ User Management
-│   │   ├── UserRepository.ts
-│   │   ├── UserService.ts
-│   │   ├── UserServiceFactory.ts
-│   │   └── userService.test.ts
-│   ├── geo/                   # ⏳ Planned geolocation services
-│   └── message/               # ⏳ Planned message formatting
-├── utils/                     # ✅ Utility Functions
-│   ├── cityValidator.ts      # City validation and coordinates
-│   ├── database.ts           # Database utilities
-│   ├── errors.ts             # Error handling and types
-│   ├── logger.ts             # Logging framework
-│   ├── sanitizer.ts          # Input sanitization
-│   └── validation.ts         # Input validation
-├── vitest/                    # ✅ Test Configuration
+│   │   ├── MigrationRunner.ts
+│   │   └── types.ts
+│   ├── platforms/yandexEda/  # Yandex.Eda integration
+│   │   ├── yeApiService/
+│   │   │   ├── YEApiService.ts
+│   │   │   ├── YEApiService.test.ts
+│   │   │   ├── instances.ts
+│   │   │   └── types.ts
+│   │   ├── yeDataCollectionService/
+│   │   │   ├── YEDataCollectionService.ts
+│   │   │   ├── YEDataCollectionService.test.ts
+│   │   │   ├── instances.ts
+│   │   │   └── types.ts
+│   │   ├── yeDataTransformer/
+│   │   │   ├── YEDataTransformer.ts
+│   │   │   ├── YEDataTransformer.test.ts
+│   │   │   ├── instances.ts
+│   │   │   └── types.ts
+│   │   └── yeSearchService/
+│   │       ├── YESearchService.ts
+│   │       ├── YESearchService.test.ts
+│   │       ├── instances.ts
+│   │       └── types.ts
+│   ├── search/               # Search services
+│   │   ├── LLMService/
+│   │   │   ├── LLMService.ts
+│   │   │   ├── LLMService.test.ts
+│   │   │   ├── instances.ts
+│   │   │   └── types.ts
+│   │   └── SearchService/
+│   │       ├── SearchService.ts
+│   │       ├── SearchService.test.ts
+│   │       ├── SearchServiceFactory.ts
+│   │       ├── instances.ts
+│   │       └── types.ts
+│   ├── user/                 # User management
+│   │   ├── UserRepository/
+│   │   │   ├── UserRepository.ts
+│   │   │   ├── UserRepositoryFactory.ts
+│   │   │   └── types.ts
+│   │   ├── UserService/
+│   │   │   ├── UserService.ts
+│   │   │   ├── UserService.test.ts
+│   │   │   ├── UserServiceFactory.ts
+│   │   │   ├── instances.ts
+│   │   │   └── types.ts
+│   │   └── data/
+│   │       └── collection/
+│   ├── message/              # ⏳ Planned message formatting
+│   └── data/                 # ⏳ Planned data collection
+│       └── collection/
+├── utils/                    # ✅ Utility Functions
+│   ├── AppError.ts           # Error handling and types
+│   ├── CityValidator.ts      # City validation and coordinates
+│   ├── ConsoleLogger.ts      # Logging framework
+│   ├── Sanitizer.ts          # Input sanitization
+│   ├── Validator.ts          # Input validation
+│   └── sleep.ts              # Utility functions
+```
+
+### Utility Functions
+
+**AppError** - Централизованная обработка ошибок
+```typescript
+class AppError extends Error {
+  static validationError(message: string, details?: unknown): AppError
+  static apiError(code: string, message: string, details?: unknown): AppError
+  static networkError(message: string, details?: unknown): AppError
+  static llmError(message: string, details?: unknown): AppError
+  static databaseError(code: string, message: string, details?: unknown): AppError
+  static rateLimitError(message: string, details?: unknown): AppError
+  static systemError(message: string, details?: unknown): AppError
+  static userNotFound(message: string, details?: unknown): AppError
+  static cityNotSupported(message: string, details?: unknown): AppError
+  static cacheError(message: string, details?: unknown): AppError
+  static dataCollectionError(message: string, details?: unknown): AppError
+}
+```
+├── vitest/                   # ✅ Test Configuration
 │   ├── constants.ts          # Test constants
 │   ├── general.test.ts       # General test utilities
 │   └── setup.ts              # Test setup configuration
-├── test/                      # ✅ Development Testing
+├── test/                     # ✅ Development Testing
 │   ├── index.ts              # Manual testing scripts
 │   ├── llm.ts                # LLM testing utilities
 │   ├── redis.ts              # Redis testing
 │   ├── places.json           # Test data
 │   └── burger_king_ynrku.json # Sample restaurant data
-├── research/                  # 📚 Research & Documentation
-│   └── yandex eda/requests/   # API research files
-├── bot/                       # ⏳ Planned Bot Interface
-│   ├── handlers/              # (empty - planned)
+├── research/                 # 📚 Research & Documentation
+│   └── yandex eda/requests/  # API research files
+├── bot/                      # ⏳ Planned Bot Interface
+│   ├── handlers/             # (empty - planned)
 │   └── middleware/           # (empty - planned)
-└── index.ts                   # Main entry point (empty)
+└── index.ts                  # Main entry point with environment validation
+```
+
+### Main Entry Point
+
+```typescript
+// src/index.ts
+import { validateEnvironment } from './config/environment';
+
+validateEnvironment();
+```
+
+Приложение теперь включает валидацию окружения при запуске, что обеспечивает корректную работу всех сервисов.
 ```
 
 ### Legend
@@ -1087,11 +1385,14 @@ src/
 - **LLM Transformation**: < 3 seconds per request
 - **Cache Hit Ratio**: > 80% for frequently accessed data
 - **Concurrent Users**: Support up to 100 simultaneous users
+- **Database Queries**: < 500ms for standard operations
+- **API Response Time**: < 2 seconds for external API calls
+- **Memory Usage**: < 512MB for standard operation
 
 ### Current Development Scripts
 ```bash
 # Development
-npm start                    # Start with ts-node
+npm start                    # Start with ts-node and environment validation
 
 # Quality Assurance
 npm run typecheck           # TypeScript type checking
@@ -1106,4 +1407,5 @@ npm run lint                # Full lint suite (type + lint + test)
 - **Build Process**: No explicit build script defined (requires `tsc` for production)
 - **Node.js Version**: Strict engine requirement (>=22.15.0 <23.0.0)
 - **Production Deployment**: Needs build step for TypeScript compilation
-- **Environment Configuration**: Uses dotenv for environment management
+- **Environment Configuration**: Uses dotenv for environment management with validation
+- **Environment Validation**: Application validates required environment variables on startup
