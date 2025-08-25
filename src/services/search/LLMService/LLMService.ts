@@ -107,6 +107,7 @@ export class LLMService implements TLLMService {
       }
 
       const prompt = this.buildEnhancementPrompt(results, query);
+
       const response = await this.callLLM(prompt);
       const enhancedResults = this.parseEnhancedResults(response, results);
 
@@ -192,7 +193,7 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
 
   private buildEnhancementPrompt = (menuItems: TSearchResultItem[], naturalQuery: string): string => {
     const menuList = menuItems.map((menuItem, index) =>
-      `${index + 1}. ${menuItem.name} - ${menuItem.description ? `- ${menuItem.description.substring(0, 100)}` : ''} (${menuItem.restaurant.name}) - ${menuItem.price}₽`,
+      `${index + 1}. ${menuItem.name} - ${menuItem.description ? `- ${menuItem.description.substring(0, 80)}` : ''} (${menuItem.restaurant.name}) - ${menuItem.price}₽`,
     ).join('\n');
 
     return `Ты эксперт по гастрономии. Тебе дан пользовательский запрос и список блюд с ресторанами и ценой.
@@ -210,7 +211,8 @@ ${menuList}
 
 Дай сначала индексы максимально релевантных блюд, затем менее релевантных, внутри каждой группы — по цене.
 
-Отвечай списком индексов в порядке убывания релевантности: 3,1,5,2,4`;
+Отвечай ТОЛЬКО списком индексов в порядке убывания релевантности, не добавляй никаких комментариев, не используй другие символы, кроме запятых: number[]
+Если нет релевантных блюд, отвечай пустым массивом: []`;
   };
 
   private callLLM = async (prompt: string): Promise<string> => {
@@ -414,7 +416,7 @@ ${menuList}
       const numbers = response.match(/\d+/g)?.map(Number) || [];
 
       if (numbers.length === 0) {
-        return originalResults;
+        return [];
       }
 
       // Создаем новый массив с переупорядоченными результатами
@@ -424,13 +426,6 @@ ${menuList}
         const index = number - 1; // Нумерация с 1
         if (index >= 0 && index < originalResults.length) {
           enhancedResults.push(originalResults[index]);
-        }
-      }
-
-      // Добавляем оставшиеся результаты в конец
-      for (let i = 0; i < originalResults.length; i++) {
-        if (!enhancedResults.includes(originalResults[i])) {
-          enhancedResults.push(originalResults[i]);
         }
       }
 

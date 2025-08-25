@@ -193,14 +193,21 @@ export class MessageHandlers {
     ctx.user.state = EUserState.WAITING_FOR_SEARCH_QUERY;
 
     try {
-      await ctx.reply('🔍 Ищу для вас...');
+      const botMessage = await ctx.reply('🔍 Ищу для вас...');
+
+      const timeout = setTimeout(() => {
+        void ctx.telegram.editMessageText(ctx.chat.id, botMessage.message_id, undefined, '🔍 Перебираю варианты...');
+      }, 10000);
 
       // Выполняем поиск через SearchService
       const results = await this.searchService.searchFood(query, ctx.user.telegramId, {
         enableLLMEnhancement: true,
+        maxEnhenceMenu: 100,
       });
 
       if (results.length === 0) {
+        clearTimeout(timeout);
+        await ctx.telegram.deleteMessage(ctx.chat.id, botMessage.message_id);
         await ctx.reply(
           `😔 По запросу "${query}" ничего не найдено в городе ${ctx.user.city}.\n\nПопробуйте изменить запрос или использовать другие ключевые слова.`,
         );
@@ -216,8 +223,10 @@ export class MessageHandlers {
       );
 
       // Форматируем результаты
-      const resultsMessage = this.formatSearchResults(results, query);
-      await ctx.reply(resultsMessage);
+      clearTimeout(timeout);
+      await ctx.telegram.deleteMessage(ctx.chat.id, botMessage.message_id);
+      const resultsMessage = this.formatSearchResults(results);
+      await ctx.reply(resultsMessage, { parse_mode: 'Markdown' });
     } catch (error) {
       ConsoleLogger.error('Ошибка при поиске', error as Error, {
         telegramId: ctx.from?.id,
@@ -230,14 +239,14 @@ export class MessageHandlers {
     }
   };
 
-  private formatSearchResults = (results: TSearchResultItem[], query: string): string => {
-    const header = `🍽️ Найдено ${results.length} результатов по запросу "${query}":\n\n`;
+  private formatSearchResults = (results: TSearchResultItem[]): string => {
+    const header = `🍽️ Найдено ${results.length} результатов:\n\n`;
 
     const resultsList = results.slice(0, 10).map((item, index) => {
       const price = item.price ? `💰 ${item.price} ₽` : '';
       const restaurant = item.restaurant?.name ? `🏪 ${item.restaurant.name}` : '';
 
-      return `${index + 1}. ${item.name}\n${restaurant} ${price}\n`;
+      return `${index + 1}. [${item.name}](${item.orderUrl})\n${restaurant} ${price}\n`;
     }).join('\n');
 
     const footer = results.length > 10

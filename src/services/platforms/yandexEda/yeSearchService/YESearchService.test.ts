@@ -490,4 +490,57 @@ describe('YESearchService', () => {
       expect(result).toBe('test:58.0105,56.2294');
     });
   });
+
+  describe('calculateTagRelevance', () => {
+    it('должен правильно оценивать релевантность тегов', () => {
+      const queryTags = ['пицца', 'томаты'];
+      type TMockedService = { calculateTagRelevance: (item: TMenuItem, queryTags: string[]) => number };
+      const relevance = (service as unknown as TMockedService).calculateTagRelevance(mockMenuItem2, queryTags);
+      expect(relevance).toBeGreaterThan(0);
+    });
+
+    it('должен возвращать 0 для нерелевантных блюд', () => {
+      const queryTags = ['пицца', 'паста'];
+      type TMockedService = { calculateTagRelevance: (item: TMenuItem, queryTags: string[]) => number };
+      const relevance = (service as unknown as TMockedService).calculateTagRelevance(mockMenuItem, queryTags);
+      expect(relevance).toBe(0);
+    });
+  });
+
+  describe('sortByRelevance', () => {
+    it('должен сортировать блюда по релевантности', () => {
+      const items = [mockMenuItem, mockMenuItem2];
+      const query: TStructuredQuery = { tags: ['пицца'] };
+      const sorted = service.sortByRelevance(items, query);
+      expect(sorted[0].name).toBe('Пицца Маргарита');
+    });
+
+    it('должен учитывать цену при равной релевантности', () => {
+      const pizza1 = { ...mockMenuItem2, price: 600 };
+      const pizza2 = { ...mockMenuItem2, price: 400, id: 'pizza2' };
+      const items = [pizza1, pizza2];
+      const query: TStructuredQuery = { tags: ['пицца'] };
+      const sorted = service.sortByRelevance(items, query);
+      expect(sorted[0].price).toBe(400);
+    });
+  });
+
+  describe('filterMenuItems', () => {
+    it('должен фильтровать по тегам с улучшенной логикой', () => {
+      const items = [mockMenuItem, mockMenuItem2];
+      const query: TStructuredQuery = { tags: ['пицца'] };
+      type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
+      const filtered = (service as unknown as TMockedService).filterMenuItems(items, query);
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].name).toBe('Пицца Маргарита');
+    });
+
+    it('должен исключать недоступные блюда', () => {
+      const items = [mockMenuItem3];
+      const query: TStructuredQuery = {};
+      type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
+      const filtered = (service as unknown as TMockedService).filterMenuItems(items, query);
+      expect(filtered).toHaveLength(0);
+    });
+  });
 });

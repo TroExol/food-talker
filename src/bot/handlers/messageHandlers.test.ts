@@ -88,11 +88,11 @@ describe('MessageHandlers', () => {
       type TMessageHandlers = { formatSearchResults: (results: TSearchResultItem[], query: string) => string };
       const formatted = (messageHandlers as unknown as TMessageHandlers).formatSearchResults(mockResults, 'пицца');
 
-      expect(formatted).toContain('🍽️ Найдено 2 результатов по запросу "пицца"');
-      expect(formatted).toContain('1. Пицца Маргарита');
+      expect(formatted).toContain('🍽️ Найдено 2 результатов');
+      expect(formatted).toContain('1. [Пицца Маргарита]');
       expect(formatted).toContain('🏪 Пиццерия');
       expect(formatted).toContain('💰 500 ₽');
-      expect(formatted).toContain('2. Бургер Классический');
+      expect(formatted).toContain('2. [Бургер Классический]');
     });
 
     it('should handle empty results', () => {
@@ -118,8 +118,8 @@ describe('MessageHandlers', () => {
 
       expect(formatted).toContain('🍽️ Найдено 15 результатов');
       expect(formatted).toContain('... и еще 5 результатов');
-      expect(formatted).toContain('10. Блюдо 10');
-      expect(formatted).not.toContain('11. Блюдо 11');
+      expect(formatted).toContain('10. [Блюдо 10]');
+      expect(formatted).not.toContain('11. [Блюдо 11]');
     });
   });
 });

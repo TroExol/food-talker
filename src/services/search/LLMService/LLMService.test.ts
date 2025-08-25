@@ -279,7 +279,7 @@ describe('LLMService', () => {
 
       const result = await llmService.enhanceSearchResults(mockResults, 'тест');
 
-      expect(result).toEqual(mockResults);
+      expect(result).toEqual([]);
     });
   });
 
@@ -343,20 +343,20 @@ describe('LLMService', () => {
       expect(result).toEqual([mockResults[2], mockResults[0], mockResults[1]]);
     });
 
-    it('должен добавлять оставшиеся результаты в конец', () => {
+    it('не должен добавлять оставшиеся результаты в конец', () => {
       const response = '2';
 
       const result = (llmService as unknown as MockLLMService).parseEnhancedResults(response, mockResults);
 
-      expect(result).toEqual([mockResults[1], mockResults[0], mockResults[2]]);
+      expect(result).toEqual([mockResults[1]]);
     });
 
-    it('должен возвращать оригинальные результаты при пустом ответе', () => {
+    it('не должен возвращать оригинальные результаты при пустом ответе', () => {
       const response = '';
 
       const result = (llmService as unknown as MockLLMService).parseEnhancedResults(response, mockResults);
 
-      expect(result).toEqual(mockResults);
+      expect(result).toEqual([]);
     });
 
     it('должен игнорировать некорректные номера', () => {
@@ -364,7 +364,7 @@ describe('LLMService', () => {
 
       const result = (llmService as unknown as MockLLMService).parseEnhancedResults(response, mockResults);
 
-      expect(result).toEqual([mockResults[1], mockResults[0], mockResults[2]]);
+      expect(result).toEqual([mockResults[1], mockResults[0]]);
     });
   });
 

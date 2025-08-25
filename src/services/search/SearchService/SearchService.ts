@@ -20,6 +20,7 @@ export class SearchService {
   private readonly cacheTTL = 1800; // 30 минут
 
   constructor(
+    private readonly thinkingLLMService: LLMService,
     private readonly llmService: LLMService,
     private readonly yeApiService: YEApiService,
     private readonly yeSearchService: YESearchService,
@@ -48,13 +49,19 @@ export class SearchService {
       const restaurants = await this.getRestaurants(user.city);
       const restaurantNames = restaurants.map(r => r.name);
 
-      const structuredQuery = await this.llmService.stuctureQuery(naturalQuery, restaurantNames);
+      const structuredQuery = await this.thinkingLLMService.stuctureQuery(naturalQuery, restaurantNames);
 
       const searchResults = await this.platformsSearch(structuredQuery, user.city);
 
+      // Сначала сортируем по релевантности, затем применяем LLM-улучшение
+      const rankedResults = this.rankSearchResults(searchResults);
+
+      // Ограничиваем количество результатов для LLM-обработки
+      const limitedResults = this.limitResults(rankedResults, options.maxEnhenceMenu || 40);
+
       const finalResults = options.enableLLMEnhancement
-        ? await this.enhanceResultsWithLLM(searchResults, naturalQuery)
-        : this.rankSearchResults(searchResults);
+        ? await this.enhanceResultsWithLLM(limitedResults, naturalQuery)
+        : rankedResults;
 
       await this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, finalResults);
 
@@ -120,7 +127,7 @@ export class SearchService {
     if (searchResults.length === 0) return searchResults;
 
     try {
-      return await this.llmService.enhanceSearchResults(searchResults, originalQuery);
+      return await this.thinkingLLMService.enhanceSearchResults(searchResults, originalQuery);
     } catch (error) {
       ConsoleLogger.warn('Не удалось улучшить результаты через LLM', error as Error);
       return searchResults; // Fallback к оригинальным результатам
@@ -128,22 +135,25 @@ export class SearchService {
   };
 
   private rankSearchResults = (results: TSearchResultItem[]): TSearchResultItem[] => {
-    // Простая логика ранжирования:
-    // 1. По рейтингу ресторана (позже)
-    // 2. По цене (более доступные сначала)
-    // 3. По наличию изображения
-
+    // Улучшенная логика ранжирования с учетом релевантности запросу
     return results.sort((a, b) => {
-      // Наличие изображения
-      if (a.image && !b.image) return -1;
-      if (!a.image && b.image) return 1;
+      // Наличие изображения (базовый бонус)
+      const imageScoreA = a.image ? 2 : 0;
+      const imageScoreB = b.image ? 2 : 0;
 
-      // Цена (более дешевые сначала)
-      if (a.price !== b.price) {
-        return a.price - b.price;
+      // Цена (более доступные получают небольшой бонус)
+      const priceScoreA = Math.max(0, 1000 - a.price) / 100; // Бонус до 10 баллов
+      const priceScoreB = Math.max(0, 1000 - b.price) / 100;
+
+      // Общий счет
+      const totalScoreA = imageScoreA + priceScoreA;
+      const totalScoreB = imageScoreB + priceScoreB;
+
+      if (totalScoreA !== totalScoreB) {
+        return totalScoreB - totalScoreA;
       }
 
-      // По названию для стабильности
+      // При равном счете - по названию для стабильности
       return a.name.localeCompare(b.name);
     });
   };

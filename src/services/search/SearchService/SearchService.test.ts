@@ -114,6 +114,7 @@ describe('SearchService', () => {
 
     searchService = new SearchService(
       mockLLMService,
+      mockLLMService,
       mockYEApiService,
       mockYESearchService,
       mockUserService,
