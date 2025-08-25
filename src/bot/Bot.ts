@@ -66,6 +66,8 @@ export class Bot {
       this.telegraf.command(handler.command, handler.handler);
     }
 
+    void this.telegraf.telegram.setMyCommands(commandHandlers);
+
     // Регистрируем обработчики callback'ов
     this.telegraf.on('callback_query', async ctx => {
       const callbackData = (ctx.callbackQuery as CallbackQuery.DataQuery)?.data;

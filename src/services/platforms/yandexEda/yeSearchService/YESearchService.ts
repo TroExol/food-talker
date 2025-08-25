@@ -37,28 +37,36 @@ export class YESearchService {
         return cached;
       }
 
-      const restaurants = (await this.yeApiService.getRestaurants(city));
+      const restaurants = await this.yeApiService.getRestaurants(city);
       const allMenuItems: TMenuItem[] = [];
 
       const addedMenu: Map<string, TMenuItem> = new Map();
 
-      // Загружаем меню для каждого ресторана
-      for (const restaurant of restaurants) {
+      // Параллельно загружаем меню для всех ресторанов
+      const menuPromises = restaurants.map(async restaurant => {
         try {
-          const menuItems = await this.yeApiService.getRestaurantMenu(restaurant.id, city);
-          for (const item of menuItems) {
-            const key = `${item.restaurant.name}-${item.name}-${item.price}`;
-            if (!addedMenu.has(key)) {
-              addedMenu.set(key, item);
-              allMenuItems.push(item);
-            }
-          }
+          return await this.yeApiService.getRestaurantMenu(restaurant.id, city);
         } catch (error) {
           // Логируем ошибку но продолжаем с другими ресторанами
           ConsoleLogger.warn('Не удалось загрузить меню для ресторана Яндекс.Еда', {
             restaurantId: restaurant.id,
             error: (error as Error).message,
           });
+          return [];
+        }
+      });
+
+      // Ждем завершения всех загрузок меню
+      const menuResults = await Promise.all(menuPromises);
+
+      // Объединяем все результаты
+      for (const menuItems of menuResults) {
+        for (const item of menuItems) {
+          const key = `${item.restaurant.name}-${item.name}-${item.price}`;
+          if (!addedMenu.has(key)) {
+            addedMenu.set(key, item);
+            allMenuItems.push(item);
+          }
         }
       }
 

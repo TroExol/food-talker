@@ -16,8 +16,11 @@ import { AppError } from '@/utils/AppError';
 
 import type { TSearchOptions } from './types';
 
+import { AsyncRequestManager } from './AsyncRequestManager';
+
 export class SearchService {
   private readonly cacheTTL = 1800; // 30 минут
+  private readonly asyncRequestManager: AsyncRequestManager;
 
   constructor(
     private readonly llmService: LLMService,
@@ -25,7 +28,9 @@ export class SearchService {
     private readonly yeSearchService: YESearchService,
     private readonly userService: UserService,
     private readonly cacheService: CacheService,
-  ) { }
+  ) {
+    this.asyncRequestManager = new AsyncRequestManager(3); // Максимум 3 одновременных запроса
+  }
 
   public searchFood = async (
     naturalQuery: string,
@@ -33,9 +38,10 @@ export class SearchService {
     options: TSearchOptions = {},
   ): Promise<TSearchResultItem[]> => {
     const startTime = Date.now();
+    const requestId = `search_${telegramId}_${Date.now()}`;
 
     try {
-      ConsoleLogger.info('Начинаем поиск еды', { query: naturalQuery, telegramId, options });
+      ConsoleLogger.info('Начинаем поиск еды', { query: naturalQuery, telegramId, options, requestId });
 
       // Валидация входных данных
       this.validateSearchInput(naturalQuery, telegramId);
@@ -45,12 +51,21 @@ export class SearchService {
         throw AppError.userNotFound(telegramId);
       }
 
-      const restaurants = await this.getRestaurants(user.city);
-      const restaurantNames = restaurants.map(r => r.name);
+      // Параллельно получаем рестораны и структурируем запрос через менеджер
+      const restaurants = await this.asyncRequestManager.executeRequest(
+        `${requestId}_restaurants`,
+        () => this.getRestaurants(user.city),
+      );
+      const structuredQuery = await this.asyncRequestManager.executeRequest(
+        `${requestId}_structure`,
+        () => this.llmService.stuctureQuery(naturalQuery, restaurants.map(restaurant => restaurant.name)),
+      );
 
-      const structuredQuery = await this.llmService.stuctureQuery(naturalQuery, restaurantNames);
-
-      const searchResults = await this.platformsSearch(structuredQuery, user.city);
+      // Получаем результаты поиска через менеджер
+      const searchResults = await this.asyncRequestManager.executeRequest(
+        `${requestId}_search`,
+        () => this.platformsSearch(structuredQuery, user.city),
+      );
 
       // Сначала сортируем по релевантности, затем применяем LLM-улучшение
       const rankedResults = this.rankSearchResults(searchResults);
@@ -59,10 +74,16 @@ export class SearchService {
       const limitedResults = this.limitResults(rankedResults, options.maxEnhenceMenu || 40);
 
       const finalResults = options.enableLLMEnhancement
-        ? await this.enhanceResultsWithLLM(limitedResults, naturalQuery)
+        ? await this.asyncRequestManager.executeRequest(
+            `${requestId}_enhance`,
+            () => this.enhanceResultsWithLLM(limitedResults, naturalQuery),
+          )
         : rankedResults;
 
-      await this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, finalResults);
+      // Сохраняем историю поиска асинхронно (не блокируем основной поток)
+      this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, finalResults).catch(error => {
+        ConsoleLogger.warn('Не удалось сохранить историю поиска', { error: error as Error, telegramId });
+      });
 
       const duration = Date.now() - startTime;
       ConsoleLogger.info('Поиск еды завершен', {
@@ -71,11 +92,13 @@ export class SearchService {
         resultsCount: finalResults.length,
         duration,
         city: user.city,
+        requestId,
+        stats: this.asyncRequestManager.getStats(),
       });
 
       return finalResults;
     } catch (error) {
-      ConsoleLogger.error('Ошибка поиска еды', error as Error, { query: naturalQuery, telegramId });
+      ConsoleLogger.error('Ошибка поиска еды', error as Error, { query: naturalQuery, telegramId, requestId });
       throw this.handleSearchError(error, naturalQuery);
     }
   };
