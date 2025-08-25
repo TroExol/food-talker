@@ -7,8 +7,8 @@ import {
 } from 'vitest';
 
 import type { TRestaurant } from '@/types/restaurant';
-import type { TMenuItem } from '@/types/menuItem';
 
+import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 import { EAvailableCities } from '@/config/bot/types';
 
 import type { YEApiService } from '../yeApiService/YEApiService';
@@ -57,6 +57,7 @@ describe('YEDataCollectionService', () => {
       restaurant: mockRestaurants[0],
       image: 'https://example.com/image.jpg',
       orderUrl: 'https://example.com/order',
+      category: EDishCategory.MAIN,
     },
   ];
 

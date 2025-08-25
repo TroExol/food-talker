@@ -54,7 +54,7 @@ export class MemoryCacheProvider implements TCacheProvider {
   public set = async <T>(key: string, value: T, ttlSeconds?: number): Promise<void> => {
     try {
       const ttl = ttlSeconds ?? this.config.ttl;
-      const expiresAt = Date.now() + (ttl * 1000);
+      const expiresAt = ttl === 0 ? 0 : Date.now() + (ttl * 1000);
 
       // Проверяем лимит размера кэша
       if (this.cache.size >= this.config.maxSize && !this.cache.has(key)) {
@@ -152,7 +152,7 @@ export class MemoryCacheProvider implements TCacheProvider {
       let cleanedCount = 0;
 
       for (const [key, item] of this.cache.entries()) {
-        if (now > item.expiresAt) {
+        if (now > item.expiresAt && item.expiresAt !== 0) {
           this.cache.delete(key);
           cleanedCount++;
         }

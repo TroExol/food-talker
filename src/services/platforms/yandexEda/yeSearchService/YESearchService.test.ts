@@ -9,11 +9,11 @@ import {
 import type { TStructuredQuery } from '@/types/search';
 import type { TCoordinates } from '@/types/restaurant';
 import type { TRestaurant } from '@/types/restaurant';
-import type { TMenuItem } from '@/types/menuItem';
 import type { EAvailableCities } from '@/config/bot/types';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { CityValidator } from '@/utils/CityValidator';
+import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 
 import type { YEApiService } from '../yeApiService/YEApiService';
 import type { CacheService } from '../../../cacheService/CacheService';
@@ -59,6 +59,7 @@ describe('YESearchService', () => {
     available: true,
     restaurant: mockRestaurant,
     orderUrl: 'https://eda.yandex.ru/order',
+    category: EDishCategory.MAIN,
   };
 
   const mockMenuItem2: TMenuItem = {
@@ -71,6 +72,7 @@ describe('YESearchService', () => {
     available: true,
     restaurant: mockRestaurant,
     orderUrl: 'https://eda.yandex.ru/order',
+    category: EDishCategory.MAIN,
   };
 
   const mockMenuItem3: TMenuItem = {
@@ -83,6 +85,7 @@ describe('YESearchService', () => {
     available: false, // недоступен
     restaurant: mockRestaurant,
     orderUrl: 'https://eda.yandex.ru/order',
+    category: EDishCategory.MAIN,
   };
 
   beforeEach(() => {

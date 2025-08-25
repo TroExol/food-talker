@@ -1,11 +1,11 @@
 import type { TCoordinates } from '@/types/restaurant';
-import type { TMenuItem } from '@/types/menuItem';
 import type { CacheService } from '@/services/cacheService/CacheService';
 import type { EAvailableCities } from '@/config/bot/types';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
+import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 import { botConfig } from '@/config/bot';
 
 import type {
@@ -203,7 +203,8 @@ export class YEApiService implements TYEService {
       const yeMenu = await this.requestRestaurantMenu(restaurantId, coordinates, restaurant.additionalInfo.brandSlug);
 
       // Трансформируем данные
-      const menuItems = this.yeDataTransformer.transformMenu(yeMenu, restaurant);
+      const menuItems = (await this.yeDataTransformer.transformMenu(yeMenu, restaurant))
+        .filter(item => item.category !== EDishCategory.ACCESSORY);
 
       // Кэшируем результат
       await this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);

@@ -821,4 +821,75 @@ describe('LLMService', () => {
       });
     });
   });
+
+  describe('categorizeDish', () => {
+    it('должен успешно категоризировать основное блюдо', async () => {
+      const mockResponse = 'main';
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: mockResponse } }],
+          usage: { total_tokens: 100, prompt_tokens: 50, completion_tokens: 50 },
+        }),
+      });
+
+      const result = await llmService.categorizeDish('Пицца Маргарита');
+
+      expect(result).toBe('main');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('http://localhost:1234/v1/chat/completions'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+          }) as object,
+          body: expect.stringContaining('Пицца Маргарита') as string,
+        }),
+      );
+    });
+
+    it('должен использовать кэш при повторном запросе', async () => {
+      // Мокаем кэш для возврата значения
+      mockCacheService.get = vi.fn().mockResolvedValue('drink');
+
+      const result = await llmService.categorizeDish('Кола');
+
+      expect(result).toBe('drink');
+      expect(mockFetch).not.toHaveBeenCalled(); // Не должно быть вызовов к API
+    });
+
+    it('должен обрабатывать неизвестные категории', async () => {
+      const mockResponse = 'unknown_category';
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: mockResponse } }],
+          usage: { total_tokens: 100, prompt_tokens: 50, completion_tokens: 50 },
+        }),
+      });
+
+      const result = await llmService.categorizeDish('Странное блюдо');
+
+      expect(result).toBe('main'); // Fallback к MAIN при неизвестной категории
+    });
+
+    it('должен использовать перманентный кэш (TTL = 0)', async () => {
+      const mockResponse = 'sauce';
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: mockResponse } }],
+          usage: { total_tokens: 100, prompt_tokens: 50, completion_tokens: 50 },
+        }),
+      });
+
+      await llmService.categorizeDish('Кетчуп');
+
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        expect.any(String),
+        'sauce',
+        0,
+      );
+    });
+  });
 });

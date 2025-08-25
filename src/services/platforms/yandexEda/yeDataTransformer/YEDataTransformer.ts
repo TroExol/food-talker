@@ -1,5 +1,6 @@
 import type { TCoordinates } from '@/types/restaurant';
 import type { TMenuItem } from '@/types/menuItem';
+import type { LLMService } from '@/services/search/LLMService/LLMService';
 import type {
   TYEMenuItemFromServer,
   TYERestaurant,
@@ -7,11 +8,16 @@ import type {
 } from '@/services/platforms/yandexEda/yeApiService/types';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { EDishCategory } from '@/types/menuItem';
 import { botConfig } from '@/config/bot';
 
 import type { TYEDataTransformer } from './types';
 
 export class YEDataTransformer implements TYEDataTransformer {
+  constructor(
+    private readonly llmService: LLMService,
+  ) { }
+
   public transformRestaurant = (yeRestaurant: TYERestaurantFromServer, coordinates: TCoordinates): TYERestaurant => {
     try {
       const restaurant: TYERestaurant = {
@@ -34,13 +40,25 @@ export class YEDataTransformer implements TYEDataTransformer {
     }
   };
 
-  public transformMenuItem = (yeMenuItem: TYEMenuItemFromServer, restaurant: TYERestaurant): TMenuItem => {
+  public transformMenuItem = async (
+    yeMenuItem: TYEMenuItemFromServer,
+    restaurant: TYERestaurant,
+  ): Promise<TMenuItem> => {
     try {
       const ingredients = this.extractIngredients(yeMenuItem);
 
       const imageUrl = yeMenuItem.picture?.uri
         ? `https://eda.yandex${yeMenuItem.picture.uri.replace('{w}x{h}', '400x400')}`
         : undefined;
+
+      // Определяем категорию блюда через LLM
+      let category: EDishCategory;
+      try {
+        category = await this.llmService.categorizeDish(yeMenuItem.name);
+      } catch (error) {
+        ConsoleLogger.error('Ошибка категоризации блюда, используем MAIN', error as Error, { dishName: yeMenuItem.name });
+        category = EDishCategory.MAIN; // Fallback к основной категории
+      }
 
       const menuItem: TMenuItem = {
         id: yeMenuItem.id.toString(),
@@ -52,6 +70,7 @@ export class YEDataTransformer implements TYEDataTransformer {
         available: yeMenuItem.available && (yeMenuItem.inStock !== false),
         restaurant,
         orderUrl: `https://eda.yandex.ru/r/${restaurant.additionalInfo.brandSlug}?placeSlug=${restaurant.id}`,
+        category,
       };
 
       return menuItem;
@@ -67,8 +86,34 @@ export class YEDataTransformer implements TYEDataTransformer {
   public transformRestaurants = (yeRestaurant: TYERestaurantFromServer[], coordinates: TCoordinates): TYERestaurant[] =>
     yeRestaurant.map(place => this.transformRestaurant(place, coordinates));
 
-  public transformMenu = (yeMenuItems: TYEMenuItemFromServer[], restaurant: TYERestaurant): TMenuItem[] =>
-    yeMenuItems.map(item => this.transformMenuItem(item, restaurant));
+  public transformMenu = async (
+    yeMenuItems: TYEMenuItemFromServer[],
+    restaurant: TYERestaurant,
+  ): Promise<TMenuItem[]> => {
+    try {
+      const menuItems: TMenuItem[] = [];
+
+      for (const yeMenuItem of yeMenuItems) {
+        try {
+          const menuItem = await this.transformMenuItem(yeMenuItem, restaurant);
+          menuItems.push(menuItem);
+        } catch (error) {
+          ConsoleLogger.error('Не удалось трансформировать элемент меню', error as Error, {
+            menuItemId: yeMenuItem.id,
+            restaurantId: restaurant.id,
+          });
+        }
+      }
+
+      return menuItems;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка трансформации меню Яндекс.Еда', error as Error, {
+        restaurantId: restaurant.id,
+        itemsCount: yeMenuItems.length,
+      });
+      throw new Error(`Не удалось трансформировать меню Яндекс.Еда для ресторана: ${restaurant.id}`);
+    }
+  };
 
   private extractIngredients = (yeMenuItem: TYEMenuItemFromServer): string[] => {
     if (!yeMenuItem.descriptions?.length) {

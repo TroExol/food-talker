@@ -4,7 +4,7 @@ import { yeApiService } from '@/services/platforms/yandexEda/yeApiService/instan
 import { redisCacheService } from '@/services/cacheService/instances';
 
 import { SearchService } from './SearchService';
-import { llmService, thinkingLLMService } from '../LLMService/instances';
+import { llmService } from '../LLMService/instances';
 
 export class SearchServiceFactory {
   private static instance: SearchService | null = null;
@@ -13,7 +13,6 @@ export class SearchServiceFactory {
     if (!SearchServiceFactory.instance) {
       const userService = await UserServiceFactory.getInstance();
       return new SearchService(
-        thinkingLLMService,
         llmService,
         yeApiService,
         yeSearchService,

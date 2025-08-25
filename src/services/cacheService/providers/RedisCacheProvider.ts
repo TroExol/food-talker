@@ -91,7 +91,11 @@ export class RedisCacheProvider implements TCacheProvider {
       const ttl = ttlSeconds ?? this.config.ttl;
       const serializedValue = JSON.stringify(value);
 
-      await this.client.setEx(key, ttl, serializedValue);
+      if (ttl === 0) {
+        await this.client.set(key, serializedValue);
+      } else {
+        await this.client.setEx(key, ttl, serializedValue);
+      }
 
       ConsoleLogger.debug('Redis кэш установлен', { key, ttl });
     } catch (error) {

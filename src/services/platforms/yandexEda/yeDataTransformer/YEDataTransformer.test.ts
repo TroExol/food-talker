@@ -1,19 +1,35 @@
 import {
+  beforeEach,
   describe,
   expect,
   it,
+  vi,
 } from 'vitest';
 
+import type { LLMService } from '@/services/search/LLMService/LLMService';
 import type {
   TYEMenuItemFromServer,
   TYERestaurant,
   TYERestaurantFromServer,
 } from '@/services/platforms/yandexEda/yeApiService/types';
 
+import { EDishCategory } from '@/types/menuItem';
+
 import { YEDataTransformer } from './YEDataTransformer';
 
+// Мокаем LLMService
+const mockLLMService = {
+  categorizeDish: vi.fn(),
+} as unknown as LLMService;
+
 describe('DataTransformer', () => {
-  const transformer = new YEDataTransformer();
+  const transformer = new YEDataTransformer(mockLLMService);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Мокаем categorizeDish для возврата MAIN категории
+    mockLLMService.categorizeDish = vi.fn().mockResolvedValue(EDishCategory.MAIN);
+  });
 
   const mockRestaurant: TYERestaurant = {
     id: 'test-restaurant',
@@ -26,7 +42,7 @@ describe('DataTransformer', () => {
   };
 
   describe('extractIngredients', () => {
-    it('должен извлечь ингредиенты из стандартного описания с "Состав:"', () => {
+    it('должен извлечь ингредиенты из стандартного описания с "Состав:"', async () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 1,
         name: 'Тест блюдо',
@@ -51,7 +67,7 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       // Проверяем что ингредиенты извлечены (исключая названия роллов)
       expect(result.ingredients.length).toBeGreaterThan(0);
@@ -59,7 +75,7 @@ describe('DataTransformer', () => {
       expect(result.ingredients).not.toContain('Калифорния');
     });
 
-    it('должен извлечь ингредиенты из простого списка без title "Состав"', () => {
+    it('должен извлечь ингредиенты из простого списка без title "Состав"', async () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 2,
         name: 'Простое блюдо',
@@ -84,7 +100,7 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       expect(result.ingredients).toContain('рис');
       expect(result.ingredients).toContain('сыр сливочный');
@@ -92,7 +108,7 @@ describe('DataTransformer', () => {
       expect(result.ingredients.length).toBeGreaterThan(10);
     });
 
-    it('должен извлечь ингредиенты из описания с рекламным текстом', () => {
+    it('должен извлечь ингредиенты из описания с рекламным текстом', async () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 3,
         name: 'Сет роллов',
@@ -117,7 +133,7 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       expect(result.ingredients).toContain('лосось');
       expect(result.ingredients).toContain('огурец');
@@ -125,7 +141,7 @@ describe('DataTransformer', () => {
       expect(result.ingredients.length).toBeGreaterThan(4);
     });
 
-    it('должен вернуть пустой массив если нет описания состава', () => {
+    it('должен вернуть пустой массив если нет описания состава', async () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 4,
         name: 'Блюдо без состава',
@@ -150,12 +166,12 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       expect(result.ingredients).toEqual([]);
     });
 
-    it('должен игнорировать рекламный текст и найти чистый список ингредиентов', () => {
+    it('должен игнорировать рекламный текст и найти чистый список ингредиентов', async () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 6,
         name: 'Сложное блюдо',
@@ -187,7 +203,7 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       // Должен найти чистый список ингредиентов, а не рекламный текст с названиями роллов
       expect(result.ingredients).toContain('рис');
@@ -197,7 +213,7 @@ describe('DataTransformer', () => {
       expect(result.ingredients).toContain('лава темпура');
     });
 
-    it('должен вернуть пустой массив если нет descriptions', () => {
+    it('должен вернуть пустой массив если нет descriptions', async () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 5,
         name: 'Блюдо без описаний',
@@ -213,9 +229,106 @@ describe('DataTransformer', () => {
         publicId: 'test5',
       };
 
-      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       expect(result.ingredients).toEqual([]);
+    });
+  });
+
+  describe('transformMenuItem', () => {
+    it('должен определить категорию блюда через LLM', async () => {
+      const yeMenuItem: TYEMenuItemFromServer = {
+        id: 1,
+        name: 'Пицца Маргарита',
+        description: 'Классическая пицца',
+        available: true,
+        inStock: true,
+        price: 500,
+        decimalPrice: '500',
+        promoTypes: [],
+        optionsGroups: [],
+        adult: false,
+        shippingType: 'all',
+        publicId: 'test',
+        descriptions: [],
+      };
+
+      // Мокаем LLM для возврата категории MAIN
+      mockLLMService.categorizeDish = vi.fn().mockResolvedValue(EDishCategory.MAIN);
+
+      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+
+      expect(mockLLMService.categorizeDish).toHaveBeenCalledWith('Пицца Маргарита');
+      expect(result.category).toBe(EDishCategory.MAIN);
+    });
+
+    it('должен обработать ошибку категоризации и вернуть MAIN', async () => {
+      const yeMenuItem: TYEMenuItemFromServer = {
+        id: 2,
+        name: 'Бургер',
+        description: 'Сочный бургер',
+        available: true,
+        inStock: true,
+        price: 400,
+        decimalPrice: '400',
+        promoTypes: [],
+        optionsGroups: [],
+        adult: false,
+        shippingType: 'all',
+        publicId: 'test2',
+        descriptions: [],
+      };
+
+      // Мокаем ошибку LLM
+      mockLLMService.categorizeDish = vi.fn().mockRejectedValue(new Error('LLM Error'));
+
+      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+
+      expect(result.category).toBe(EDishCategory.MAIN); // Fallback к MAIN
+    });
+  });
+
+  describe('transformMenu', () => {
+    it('должен трансформировать массив блюд', async () => {
+      const yeMenuItems: TYEMenuItemFromServer[] = [
+        {
+          id: 1,
+          name: 'Блюдо 1',
+          description: '',
+          available: true,
+          inStock: true,
+          price: 300,
+          decimalPrice: '300',
+          promoTypes: [],
+          optionsGroups: [],
+          adult: false,
+          shippingType: 'all',
+          publicId: 'test1',
+          descriptions: [],
+        },
+        {
+          id: 2,
+          name: 'Блюдо 2',
+          description: '',
+          available: true,
+          inStock: true,
+          price: 400,
+          decimalPrice: '400',
+          promoTypes: [],
+          optionsGroups: [],
+          adult: false,
+          shippingType: 'all',
+          publicId: 'test2',
+          descriptions: [],
+        },
+      ];
+
+      const result = await transformer.transformMenu(yeMenuItems, mockRestaurant);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe('Блюдо 1');
+      expect(result[1].name).toBe('Блюдо 2');
+      expect(mockLLMService.categorizeDish).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -20,7 +20,6 @@ export class SearchService {
   private readonly cacheTTL = 1800; // 30 минут
 
   constructor(
-    private readonly thinkingLLMService: LLMService,
     private readonly llmService: LLMService,
     private readonly yeApiService: YEApiService,
     private readonly yeSearchService: YESearchService,
@@ -49,7 +48,7 @@ export class SearchService {
       const restaurants = await this.getRestaurants(user.city);
       const restaurantNames = restaurants.map(r => r.name);
 
-      const structuredQuery = await this.thinkingLLMService.stuctureQuery(naturalQuery, restaurantNames);
+      const structuredQuery = await this.llmService.stuctureQuery(naturalQuery, restaurantNames);
 
       const searchResults = await this.platformsSearch(structuredQuery, user.city);
 
@@ -127,7 +126,7 @@ export class SearchService {
     if (searchResults.length === 0) return searchResults;
 
     try {
-      return await this.thinkingLLMService.enhanceSearchResults(searchResults, originalQuery);
+      return await this.llmService.enhanceSearchResults(searchResults, originalQuery);
     } catch (error) {
       ConsoleLogger.warn('Не удалось улучшить результаты через LLM', error as Error);
       return searchResults; // Fallback к оригинальным результатам

@@ -7,7 +7,6 @@ import {
 } from 'vitest';
 
 import type { TCoordinates } from '@/types/restaurant';
-import type { TMenuItem } from '@/types/menuItem';
 import type {
   TYEMenuFromServer,
   TYEMenuItemFromServer,
@@ -19,6 +18,7 @@ import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
+import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 import { EAvailableCities } from '@/config/bot/types';
 
 import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
@@ -372,6 +372,7 @@ describe('YEApiService', () => {
         restaurant: mockTransformedRestaurant,
         orderUrl: 'https://eda.yandex.ru/r/test-brand?placeSlug=test-restaurant',
         image: 'https://example.com/image.jpg',
+        category: EDishCategory.MAIN,
       },
     ];
 

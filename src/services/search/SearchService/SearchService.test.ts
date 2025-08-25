@@ -9,7 +9,6 @@ import {
 } from 'vitest';
 
 import type { TSearchResultItem } from '@/types/search';
-import type { TMenuItem } from '@/types/menuItem';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { LLMService } from '@/services/search/LLMService/LLMService';
 import type { YESearchService } from '@/services/platforms/yandexEda/yeSearchService/YESearchService';
@@ -17,6 +16,7 @@ import type { YEApiService } from '@/services/platforms/yandexEda/yeApiService/Y
 import type { TYERestaurant } from '@/services/platforms/yandexEda/yeApiService/types';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
+import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 import { ESubscriptionType, type TUser } from '@/services/user/UserRepository/types';
 import { EAvailableCities } from '@/config/bot/types';
 
@@ -58,6 +58,7 @@ describe('SearchService', () => {
     restaurant: mockRestaurant,
     image: 'https://example.com/pizza.jpg',
     orderUrl: 'https://eda.yandex.ru/restaurant1',
+    category: EDishCategory.MAIN,
   };
 
   const mockSearchResult: TSearchResultItem = {
@@ -113,7 +114,6 @@ describe('SearchService', () => {
     } as unknown as YESearchService;
 
     searchService = new SearchService(
-      mockLLMService,
       mockLLMService,
       mockYEApiService,
       mockYESearchService,

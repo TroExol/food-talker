@@ -6,6 +6,7 @@ import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { sleep } from '@/utils/sleep';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { EDishCategory } from '@/types/menuItem';
 import { botConfig } from '@/config/bot';
 
 import type { TLLMConfig } from './types';
@@ -215,9 +216,9 @@ ${menuList}
 Если нет релевантных блюд, отвечай пустым массивом: []`;
   };
 
-  private callLLM = async (prompt: string): Promise<string> => {
+  private callLLM = async (prompt: string, model?: string, url?: string): Promise<string> => {
     const request: TLLMRequest = {
-      model: this.model,
+      model: model ?? this.model,
       messages: [
         {
           role: 'system',
@@ -239,7 +240,7 @@ ${menuList}
           controller.abort();
         }, this.timeoutMs);
 
-        const response = await fetch(this.apiUrl, {
+        const response = await fetch(url ?? this.apiUrl, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
@@ -439,5 +440,78 @@ ${menuList}
   private generateCacheKey = (type: string, ...params: unknown[]): string => {
     const data = JSON.stringify({ type, params });
     return `llm:${createHash('sha256').update(data).digest('hex')}`;
+  };
+
+  public categorizeDish = async (dishName: string): Promise<EDishCategory> => {
+    try {
+      ConsoleLogger.debug('Начинаю категоризацию блюда', { dishName });
+
+      const cacheKey = this.generateCacheKey('categorize', dishName);
+      const cached = await this.cacheService.get<EDishCategory>(cacheKey);
+
+      if (cached) {
+        ConsoleLogger.debug('Найдена кэшированная категория блюда', { dishName, category: cached });
+        return cached;
+      }
+
+      const prompt = this.buildCategorizationPrompt(dishName);
+      const response = await this.callLLM(prompt, 'qwen/qwen3-4b-2507', 'http://localhost:1234/v1/chat/completions');
+      const category = this.parseCategoryResponse(response);
+
+      // Перманентный кэш (TTL = 0 означает "без истечения")
+      await this.cacheService.set(cacheKey, category, 0);
+
+      ConsoleLogger.debug('Блюдо успешно категоризировано', {
+        dishName,
+        category,
+      });
+
+      return category;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка категоризации блюда, возвращаю MAIN', error as Error, { dishName });
+      return EDishCategory.MAIN; // Fallback к основной категории
+    }
+  };
+
+  private buildCategorizationPrompt = (dishName: string): string => {
+    return `Ты эксперт по гастрономии. Определи категорию блюда по названию.
+
+Категории:
+- main: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп)
+- side: гарниры (картошка, рис, макароны, салат как гарнир, овощи)
+- drink: напитки (кола, сок, чай, кофе, лимонад, вода)
+- sauce: соусы (кетчуп, майонез, горчица, соус, заправка)
+- accessory: аксессуары (салфетки, палочки, вилка, ложка, контейнер)
+
+Правила:
+1. Если блюдо содержит мясо/рыбу/морепродукты - это main
+2. Если это жидкое и пьется - это drink
+3. Если это приправа/заправка - это sauce
+4. Если это столовые приборы/упаковка - это accessory
+5. Если это дополнение к основному блюду - это side
+
+Название блюда: "${dishName}"
+
+Ответь только одной категорией: main/side/drink/sauce/accessory`;
+  };
+
+  private parseCategoryResponse = (response: string): EDishCategory => {
+    const cleanResponse = response.trim().toLowerCase();
+
+    switch (cleanResponse) {
+      case 'accessory':
+        return EDishCategory.ACCESSORY;
+      case 'drink':
+        return EDishCategory.DRINK;
+      case 'main':
+        return EDishCategory.MAIN;
+      case 'sauce':
+        return EDishCategory.SAUCE;
+      case 'side':
+        return EDishCategory.SIDE;
+      default:
+        ConsoleLogger.warn('Неизвестная категория от LLM, возвращаю MAIN', { response: cleanResponse });
+        return EDishCategory.MAIN;
+    }
   };
 }

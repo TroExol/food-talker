@@ -9,7 +9,7 @@ import type {
 
 export interface TYEDataTransformer {
   transformRestaurant: (restaurant: TYERestaurantFromServer, coordinates: TCoordinates) => TYERestaurant;
-  transformMenuItem: (menuItem: TYEMenuItemFromServer, restaurant: TYERestaurant) => TMenuItem;
+  transformMenuItem: (menuItem: TYEMenuItemFromServer, restaurant: TYERestaurant) => Promise<TMenuItem>;
   transformRestaurants: (restaurant: TYERestaurantFromServer[], coordinates: TCoordinates) => TYERestaurant[];
-  transformMenu: (menuItems: TYEMenuItemFromServer[], restaurant: TYERestaurant) => TMenuItem[];
+  transformMenu: (menuItems: TYEMenuItemFromServer[], restaurant: TYERestaurant) => Promise<TMenuItem[]>;
 }
