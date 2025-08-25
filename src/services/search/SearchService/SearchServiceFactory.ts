@@ -1,3 +1,4 @@
+import { vectorSearchService } from '@/services/vectorSearch/instances';
 import { UserServiceFactory } from '@/services/user/UserServiceFactory';
 import { yeSearchService } from '@/services/platforms/yandexEda/yeSearchService/instances';
 import { yeApiService } from '@/services/platforms/yandexEda/yeApiService/instances';
@@ -18,6 +19,7 @@ export class SearchServiceFactory {
         yeSearchService,
         userService,
         redisCacheService,
+        vectorSearchService,
       );
     }
     return SearchServiceFactory.instance;

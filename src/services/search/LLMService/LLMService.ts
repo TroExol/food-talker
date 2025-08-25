@@ -376,14 +376,8 @@ ${menuList}
       }
     }
 
-    if (query.dishCategories) {
-      repairedQuery.dishCategories = Array.isArray(query.dishCategories)
-        ? [...new Set(
-            query.dishCategories
-              .filter((c: unknown) => typeof c === 'string' && c !== '')
-              .map(c => c.toLowerCase().trim() as EDishCategory),
-          )]
-        : [];
+    if (query.category) {
+      repairedQuery.category = query.category.toLowerCase().trim() as EDishCategory;
     }
 
     if (query.exclusions) {
@@ -432,14 +426,8 @@ ${menuList}
         }
       }
 
-      if (query.exclusions?.dishCategories) {
-        repairedQuery.exclusions.dishCategories = Array.isArray(query.exclusions.dishCategories)
-          ? [...new Set(
-              query.exclusions.dishCategories
-                .filter((c: unknown) => typeof c === 'string' && c !== '')
-                .map(c => c.toLowerCase().trim()),
-            )]
-          : [];
+      if (query.exclusions?.category) {
+        repairedQuery.exclusions.category = query.exclusions.category.toLowerCase().trim() as EDishCategory;
       }
     }
 

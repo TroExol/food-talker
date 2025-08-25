@@ -1,4 +1,5 @@
 import type { TCoordinates } from '@/types/restaurant';
+import type { VectorSyncService } from '@/services/vectorSearch/VectorSyncService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 import type { EAvailableCities } from '@/config/bot/types';
 
@@ -17,11 +18,10 @@ import type {
   TYERestaurant,
   TYERestaurantFromServer,
   TYERestaurantsFromServer,
-  TYEService,
 } from './types';
 import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
 
-export class YEApiService implements TYEService {
+export class YEApiService {
   private readonly config: TYEApiConfig;
   private readonly rateLimitState: TYERateLimitState;
   // TTL для разных типов данных (в секундах)
@@ -33,6 +33,7 @@ export class YEApiService implements TYEService {
   constructor(
     private readonly cacheService: CacheService,
     private readonly yeDataTransformer: YEDataTransformer,
+    private readonly vectorSyncService: VectorSyncService,
   ) {
     this.config = {
       baseUrl: 'https://eda.yandex.ru',
@@ -205,6 +206,8 @@ export class YEApiService implements TYEService {
       // Трансформируем данные
       const menuItems = (await this.yeDataTransformer.transformMenu(yeMenu, restaurant))
         .filter(item => item.category !== EDishCategory.ACCESSORY);
+
+      void this.vectorSyncService.syncMenu(menuItems);
 
       // Кэшируем результат
       await this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);

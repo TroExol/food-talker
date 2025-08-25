@@ -7,6 +7,7 @@ import {
 } from 'vitest';
 
 import type { TCoordinates } from '@/types/restaurant';
+import type { VectorSyncService } from '@/services/vectorSearch/VectorSyncService';
 import type {
   TYEMenuFromServer,
   TYEMenuItemFromServer,
@@ -54,7 +55,11 @@ describe('YEApiService', () => {
       transformMenu: vi.fn(),
     } as unknown as YEDataTransformer;
 
-    service = new YEApiService(mockCacheService, mockDataTransformer);
+    const mockVectorSyncService = {
+      syncMenu: vi.fn(),
+    } as unknown as VectorSyncService;
+
+    service = new YEApiService(mockCacheService, mockDataTransformer, mockVectorSyncService);
     (service as any).config.delayBetweenRequestsMs = 0;
   });
 
@@ -411,7 +416,11 @@ describe('YEApiService', () => {
         transformMenu: vi.fn().mockReturnValue(mockTransformedMenuItems),
       } as unknown as YEDataTransformer;
 
-      service = new YEApiService(mockCacheService, mockDataTransformer);
+      const mockVectorSyncService = {
+        syncMenu: vi.fn(),
+      } as unknown as VectorSyncService;
+
+      service = new YEApiService(mockCacheService, mockDataTransformer, mockVectorSyncService);
       (service as any).config.delayBetweenRequestsMs = 0;
     });
 
@@ -574,7 +583,11 @@ describe('YEApiService', () => {
         transformMenu: vi.fn(),
       } as unknown as YEDataTransformer;
 
-      const service = new YEApiService(mockCacheService, mockDataTransformer);
+      const mockVectorSyncService = {
+        syncMenu: vi.fn(),
+      } as unknown as VectorSyncService;
+
+      const service = new YEApiService(mockCacheService, mockDataTransformer, mockVectorSyncService);
 
       await service.clearCache();
       expect(mockCacheService.clear).toHaveBeenCalled();
@@ -603,7 +616,11 @@ describe('YEApiService', () => {
         transformMenu: vi.fn(),
       } as unknown as YEDataTransformer;
 
-      const service = new YEApiService(mockCacheService, mockDataTransformer);
+      const mockVectorSyncService = {
+        syncMenu: vi.fn(),
+      } as unknown as VectorSyncService;
+
+      const service = new YEApiService(mockCacheService, mockDataTransformer, mockVectorSyncService);
 
       const stats = await service.getCacheStats();
 

@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
 import type { TRestaurant } from '@/types/restaurant';
 import type { TMenuItem } from '@/types/menuItem';
+import type { VectorSearchService } from '@/services/vectorSearch/VectorSearchService';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { LLMService } from '@/services/search/LLMService/LLMService';
 import type { YESearchService } from '@/services/platforms/yandexEda/yeSearchService/YESearchService';
@@ -16,11 +17,8 @@ import { AppError } from '@/utils/AppError';
 
 import type { TSearchOptions } from './types';
 
-import { AsyncRequestManager } from './AsyncRequestManager';
-
 export class SearchService {
   private readonly cacheTTL = 1800; // 30 минут
-  private readonly asyncRequestManager: AsyncRequestManager;
 
   constructor(
     private readonly llmService: LLMService,
@@ -28,9 +26,8 @@ export class SearchService {
     private readonly yeSearchService: YESearchService,
     private readonly userService: UserService,
     private readonly cacheService: CacheService,
-  ) {
-    this.asyncRequestManager = new AsyncRequestManager(3); // Максимум 3 одновременных запроса
-  }
+    private readonly vectorSearchService: VectorSearchService,
+  ) { }
 
   public searchFood = async (
     naturalQuery: string,
@@ -38,10 +35,9 @@ export class SearchService {
     options: TSearchOptions = {},
   ): Promise<TSearchResultItem[]> => {
     const startTime = Date.now();
-    const requestId = `search_${telegramId}_${Date.now()}`;
 
     try {
-      ConsoleLogger.info('Начинаем поиск еды', { query: naturalQuery, telegramId, options, requestId });
+      ConsoleLogger.info('Начинаем поиск еды', { query: naturalQuery, telegramId, options });
 
       // Валидация входных данных
       this.validateSearchInput(naturalQuery, telegramId);
@@ -52,54 +48,90 @@ export class SearchService {
       }
 
       // Параллельно получаем рестораны и структурируем запрос через менеджер
-      const restaurants = await this.asyncRequestManager.executeRequest(
-        `${requestId}_restaurants`,
-        () => this.getRestaurants(user.city),
-      );
-      const structuredQuery = await this.asyncRequestManager.executeRequest(
-        `${requestId}_structure`,
-        () => this.llmService.stuctureQuery(naturalQuery, restaurants.map(restaurant => restaurant.name)),
+      const restaurants = await this.getRestaurants(user.city);
+      const structuredQuery = await this.llmService.stuctureQuery(
+        naturalQuery,
+        restaurants.map(restaurant => restaurant.name),
       );
 
-      // Получаем результаты поиска через менеджер
-      const searchResults = await this.asyncRequestManager.executeRequest(
-        `${requestId}_search`,
-        () => this.platformsSearch(structuredQuery, user.city),
-      );
+      // Используем векторный поиск вместо структурированного
+      let results = await this.vectorSearch(naturalQuery, structuredQuery);
 
-      // Сначала сортируем по релевантности, затем применяем LLM-улучшение
-      const rankedResults = this.rankSearchResults(searchResults);
+      // Если векторный поиск не дал результатов, используем традиционный
+      if (results.length === 0) {
+        ConsoleLogger.info('Векторный поиск не дал результатов, используем традиционный поиск', {
+          query: naturalQuery,
+          structuredQuery,
+        });
+        results = await this.platformsSearch(structuredQuery, user.city);
+      }
 
       // Ограничиваем количество результатов для LLM-обработки
-      const limitedResults = this.limitResults(rankedResults, options.maxEnhenceMenu || 40);
+      results = this.limitResults(results, options.maxEnhenceMenu || 40);
 
-      const finalResults = options.enableLLMEnhancement
-        ? await this.asyncRequestManager.executeRequest(
-            `${requestId}_enhance`,
-            () => this.enhanceResultsWithLLM(limitedResults, naturalQuery),
-          )
-        : rankedResults;
+      results = options.enableLLMEnhancement
+        ? await this.enhanceResultsWithLLM(results, naturalQuery)
+        : results;
 
       // Сохраняем историю поиска асинхронно (не блокируем основной поток)
-      this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, finalResults).catch(error => {
+      this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, results).catch((error: unknown) => {
         ConsoleLogger.warn('Не удалось сохранить историю поиска', { error: error as Error, telegramId });
       });
 
       const duration = Date.now() - startTime;
-      ConsoleLogger.info('Поиск еды завершен', {
+      ConsoleLogger.info('Векторный поиск еды завершен', {
         query: naturalQuery,
         telegramId,
-        resultsCount: finalResults.length,
+        resultsCount: results.length,
         duration,
         city: user.city,
-        requestId,
-        stats: this.asyncRequestManager.getStats(),
       });
 
-      return finalResults;
+      return results;
     } catch (error) {
-      ConsoleLogger.error('Ошибка поиска еды', error as Error, { query: naturalQuery, telegramId, requestId });
+      ConsoleLogger.error('Ошибка поиска еды', error as Error, { query: naturalQuery, telegramId });
       throw this.handleSearchError(error, naturalQuery);
+    }
+  };
+
+  // Векторный поиск
+  private vectorSearch = async (
+    naturalQuery: string,
+    structuredQuery: TStructuredQuery,
+  ): Promise<TSearchResultItem[]> => {
+    try {
+      const vectorResults = await this.vectorSearchService.searchMenu(naturalQuery, {
+        category: structuredQuery.category,
+        restaurantNames: structuredQuery.restaurants,
+        minPrice: structuredQuery.priceRange?.min,
+        maxPrice: structuredQuery.priceRange?.max,
+        limit: 200,
+        minSimilarity: 0.3,
+      });
+
+      // Преобразуем результаты в формат TSearchResultItem
+      const searchResults: TSearchResultItem[] = vectorResults.map(result => ({
+        id: result.id,
+        name: result.name,
+        description: result.description,
+        tags: [], // Векторный поиск не использует теги
+        price: result.price,
+        restaurant: result.restaurant,
+        orderUrl: result.orderUrl,
+        image: result.image,
+      }));
+
+      ConsoleLogger.debug('Векторный поиск выполнен', {
+        naturalQuery,
+        structuredQuery,
+        resultsCount: searchResults.length,
+        maxSimilarity: vectorResults[0]?.similarity,
+      });
+
+      return searchResults;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка векторного поиска', error as Error, { naturalQuery, structuredQuery });
+      return []; // Возвращаем пустой массив для fallback к традиционному поиску
     }
   };
 
@@ -154,30 +186,6 @@ export class SearchService {
       ConsoleLogger.warn('Не удалось улучшить результаты через LLM', error as Error);
       return searchResults; // Fallback к оригинальным результатам
     }
-  };
-
-  private rankSearchResults = (results: TSearchResultItem[]): TSearchResultItem[] => {
-    // Улучшенная логика ранжирования с учетом релевантности запросу
-    return results.sort((a, b) => {
-      // Наличие изображения (базовый бонус)
-      const imageScoreA = a.image ? 2 : 0;
-      const imageScoreB = b.image ? 2 : 0;
-
-      // Цена (более доступные получают небольшой бонус)
-      const priceScoreA = Math.max(0, 1000 - a.price) / 100; // Бонус до 10 баллов
-      const priceScoreB = Math.max(0, 1000 - b.price) / 100;
-
-      // Общий счет
-      const totalScoreA = imageScoreA + priceScoreA;
-      const totalScoreB = imageScoreB + priceScoreB;
-
-      if (totalScoreA !== totalScoreB) {
-        return totalScoreB - totalScoreA;
-      }
-
-      // При равном счете - по названию для стабильности
-      return a.name.localeCompare(b.name);
-    });
   };
 
   private limitResults = (searchResults: TSearchResultItem[], maxResults: number): TSearchResultItem[] => {

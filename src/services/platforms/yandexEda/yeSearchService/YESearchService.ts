@@ -153,10 +153,8 @@ export class YESearchService {
       }
 
       // Фильтрация по категориям блюд
-      if (query.dishCategories?.length) {
-        const categoryMatch = query.dishCategories.some(category =>
-          item.category?.toLowerCase() === category.toLowerCase(),
-        );
+      if (query.category) {
+        const categoryMatch = item.category?.toLowerCase() === query.category.toLowerCase();
         if (!categoryMatch) return false;
       }
 
@@ -180,9 +178,7 @@ export class YESearchService {
         }
 
         // Исключения по категориям
-        if (query.exclusions.dishCategories?.some(category =>
-          item.category?.toLowerCase() === category.toLowerCase(),
-        )) {
+        if (query.exclusions.category?.toLowerCase() === item.category?.toLowerCase()) {
           return false;
         }
 
@@ -281,10 +277,8 @@ export class YESearchService {
     }
 
     // Бонус за соответствие категории (высокий приоритет)
-    if (query.dishCategories?.length) {
-      const categoryMatch = query.dishCategories.some(category =>
-        item.category?.toLowerCase() === category.toLowerCase(),
-      );
+    if (query.category) {
+      const categoryMatch = item.category?.toLowerCase() === query.category.toLowerCase();
       if (categoryMatch) {
         score += 20; // Высокий бонус за соответствие категории
       }

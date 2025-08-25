@@ -170,7 +170,7 @@ export class UserRepository implements TUserRepository {
         id,
         telegramId,
         historyItem.query,
-        JSON.stringify(historyItem.structuredQuery),
+        historyItem.structuredQuery ? JSON.stringify(historyItem.structuredQuery) : null,
         historyItem.resultsCount,
         timestamp.toISOString(),
       ]);
