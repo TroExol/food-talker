@@ -42,4 +42,5 @@ export const botConfig: TBotConfig = {
     delayBetweenRequestsMs: 200,
     retries: 3,
   },
+  fallbackFoodImage: 'https://i.postimg.cc/Vk5DKb2j/generated-image.jpg',
 };

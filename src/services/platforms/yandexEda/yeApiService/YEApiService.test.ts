@@ -371,6 +371,7 @@ describe('YEApiService', () => {
         available: true,
         restaurant: mockTransformedRestaurant,
         orderUrl: 'https://eda.yandex.ru/r/test-brand?placeSlug=test-restaurant',
+        image: 'https://example.com/image.jpg',
       },
     ];
 

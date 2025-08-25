@@ -1,5 +1,13 @@
 import type { TCoordinates } from '@/types/restaurant';
 import type { TMenuItem } from '@/types/menuItem';
+import type { CacheService } from '@/services/cacheService/CacheService';
+import type { EAvailableCities } from '@/config/bot/types';
+
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { CityValidator } from '@/utils/CityValidator';
+import { AppError } from '@/utils/AppError';
+import { botConfig } from '@/config/bot';
+
 import type {
   TYEApiConfig,
   TYECoordinates,
@@ -10,15 +18,7 @@ import type {
   TYERestaurantFromServer,
   TYERestaurantsFromServer,
   TYEService,
-} from '@/services/platforms/yandexEda/yeApiService/types';
-import type { CacheService } from '@/services/cacheService/CacheService';
-import type { EAvailableCities } from '@/config/bot/types';
-
-import { ConsoleLogger } from '@/utils/ConsoleLogger';
-import { CityValidator } from '@/utils/CityValidator';
-import { AppError } from '@/utils/AppError';
-import { botConfig } from '@/config/bot';
-
+} from './types';
 import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
 
 export class YEApiService implements TYEService {

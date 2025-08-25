@@ -6,7 +6,7 @@ export interface TMenuItem {
   description: string;
   ingredients: string[];
   price: number; // RUB
-  image?: string;
+  image: string;
   available: boolean;
   restaurant: TRestaurant;
   orderUrl: string;

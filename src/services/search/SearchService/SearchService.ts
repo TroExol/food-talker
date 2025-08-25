@@ -46,13 +46,21 @@ export class SearchService implements TSearchService {
         throw AppError.userNotFound(telegramId);
       }
 
+      const cacheKey = this.generateFinalResultsCacheKey(naturalQuery, user.city);
+      const cached = await this.cacheService.get<TSearchResultItem[]>(cacheKey);
+
+      if (cached) {
+        ConsoleLogger.debug('Найдены кэшированные финальные результаты поиска', { city: user.city, cacheKey });
+        return cached;
+      }
+
       const restaurants = await this.getRestaurants(user.city);
       const restaurantNames = restaurants.map(r => r.name);
 
       const structuredQuery = await this.llmService.stuctureQuery(naturalQuery, restaurantNames);
 
       const searchResults = await this.platformsSearch(structuredQuery, user.city);
-
+      console.log('searchResults', searchResults);
       const enhancedResults = options.enableLLMEnhancement
         ? await this.enhanceResultsWithLLM(searchResults, naturalQuery)
         : this.rankSearchResults(searchResults);
@@ -61,7 +69,6 @@ export class SearchService implements TSearchService {
 
       await this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, finalResults);
 
-      const cacheKey = this.generateFinalResultsCacheKey(naturalQuery, user.city);
       await this.cacheService.set(cacheKey, finalResults, this.cacheTTL);
 
       const duration = Date.now() - startTime;

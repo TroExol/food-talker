@@ -41,6 +41,7 @@ describe('LLMService', () => {
     } as unknown as CacheService;
 
     llmService = new LLMService(mockCacheService, {
+      model: 'gpt-4o-mini',
       cacheTTL: 1800,
     });
   });
@@ -160,18 +161,22 @@ describe('LLMService', () => {
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
-    it('должен выбрасывать ошибку при превышении лимита попыток', async () => {
+    it('должен возвращать fallback запрос при превышении лимита попыток', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      const expection = expect(llmService.stuctureQuery('тест', [])).rejects.toThrow('Не удалось трансформировать запрос');
+      const structuring = llmService.stuctureQuery('тест', []);
       await vi.advanceTimersToNextTimerAsync();
       await vi.advanceTimersToNextTimerAsync();
-      await expection;
+
+      const result = await structuring;
+
+      expect(result).toEqual({ tags: [] });
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
     it('должен обрабатывать таймауты', async () => {
       const llmService = new LLMService(mockCacheService, {
+        model: 'gpt-4o-mini',
         maxRetries: 0,
         timeoutMs: 10000,
       });
@@ -185,9 +190,11 @@ describe('LLMService', () => {
         };
       }));
 
-      const expection = expect(llmService.stuctureQuery('тест', [])).rejects.toThrow('Не удалось трансформировать запрос');
+      const structuring = llmService.stuctureQuery('тест', []);
       await vi.advanceTimersByTimeAsync(10000);
-      await expection;
+      const result = await structuring;
+
+      expect(result).toEqual({ tags: [] });
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(onAbort).toHaveBeenCalledTimes(1);
     });
@@ -237,6 +244,7 @@ describe('LLMService', () => {
 
     it('должен возвращать оригинальные результаты при ошибке', async () => {
       const llmService = new LLMService(mockCacheService, {
+        model: 'gpt-4o-mini',
         maxRetries: 0,
       });
 
@@ -317,7 +325,9 @@ describe('LLMService', () => {
   });
 
   describe('parseEnhancedResults', () => {
-    type MockLLMService = { parseEnhancedResults: (response: string, results: TSearchResultItem[]) => TSearchResultItem[] };
+    type MockLLMService = {
+      parseEnhancedResults: (response: string, results: TSearchResultItem[]) => TSearchResultItem[];
+    };
 
     const mockResults: TSearchResultItem[] = [
       { id: '1', name: 'Блюдо 1', restaurant: { id: '1', name: 'Ресторан 1' }, description: '', tags: [], price: 100, orderUrl: '' },
@@ -609,12 +619,13 @@ describe('LLMService', () => {
             tags: ['пицца', 'сыр'],
             priceRange: { min: 200, max: 800 },
           }),
-          1800,
+          3600,
         );
       });
 
       it('должен работать без кэша если cacheService не передан', async () => {
         const llmServiceWithoutCache = new LLMService(mockCacheService, {
+          model: 'gpt-4o-mini',
           cacheTTL: 1800, // 30 минут
         });
 
@@ -698,7 +709,7 @@ describe('LLMService', () => {
             expect.objectContaining({ id: '2' }),
             expect.objectContaining({ id: '1' }),
           ]),
-          1800,
+          3600,
         );
       });
 

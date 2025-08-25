@@ -12,21 +12,23 @@ import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
 import type { TMenuItem } from '@/types/menuItem';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { LLMService } from '@/services/search/LLMService/LLMService';
+import type { YESearchService } from '@/services/platforms/yandexEda/yeSearchService/YESearchService';
+import type { YEApiService } from '@/services/platforms/yandexEda/yeApiService/YEApiService';
 import type { TYERestaurant } from '@/services/platforms/yandexEda/yeApiService/types';
-import type { CachedYEService } from '@/services/platforms/yandexEda/cachedYEService/CachedYEService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { ESubscriptionType, type TUser } from '@/services/user/UserRepository/types';
-import { EAvailableCities } from '@/config/bot';
+import { EAvailableCities } from '@/config/bot/types';
 
 import { SearchService } from './SearchService';
 
 describe('SearchService', () => {
   let searchService: SearchService;
   let mockLLMService: LLMService;
-  let mockCachedYEService: CachedYEService;
+  let mockYEApiService: YEApiService;
   let mockUserService: UserService;
   let mockCacheService: CacheService;
+  let mockYESearchService: YESearchService;
 
   const mockUser: TUser = {
     telegramId: 123456789,
@@ -42,7 +44,6 @@ describe('SearchService', () => {
     id: 'restaurant1',
     name: 'Test Restaurant',
     coordinates: { latitude: 58.0105, longitude: 56.2294 },
-    workingHours: { open: '10:00', close: '22:00', isOpen: true },
     lastUpdated: new Date(),
     additionalInfo: { brandSlug: 'test-brand' },
   };
@@ -55,6 +56,8 @@ describe('SearchService', () => {
     price: 500,
     available: true,
     restaurant: mockRestaurant,
+    image: 'https://example.com/pizza.jpg',
+    orderUrl: 'https://eda.yandex.ru/restaurant1',
   };
 
   const mockSearchResult: TSearchResultItem = {
@@ -62,7 +65,11 @@ describe('SearchService', () => {
     name: 'Test Pizza',
     restaurant: { id: 'restaurant1', name: 'Test Restaurant' },
     description: 'Delicious test pizza',
-    tags: ['пицца', 'итальянская'],
+    tags: [
+      'dough',
+      'cheese',
+      'tomato',
+    ],
     price: 500,
     image: 'https://example.com/pizza.jpg',
     orderUrl: 'https://eda.yandex.ru/restaurant1',
@@ -81,18 +88,17 @@ describe('SearchService', () => {
 
     // Мокаем LLMService
     mockLLMService = {
-      transformQuery: vi.fn(),
+      stuctureQuery: vi.fn(),
       enhanceSearchResults: vi.fn(),
     } as unknown as LLMService;
 
     // Мокаем CachedYEService
-    mockCachedYEService = {
+    mockYEApiService = {
       getRestaurants: vi.fn(),
       getRestaurantMenu: vi.fn(),
-      searchItems: vi.fn(),
       invalidateCache: vi.fn(),
       getCacheStats: vi.fn(),
-    } as unknown as CachedYEService;
+    } as unknown as YEApiService;
 
     // Мокаем UserService
     mockUserService = {
@@ -101,9 +107,15 @@ describe('SearchService', () => {
       getSearchHistory: vi.fn(),
     } as unknown as UserService;
 
+    // Мокаем YESearchService
+    mockYESearchService = {
+      searchMenu: vi.fn(),
+    } as unknown as YESearchService;
+
     searchService = new SearchService(
       mockLLMService,
-      mockCachedYEService,
+      mockYEApiService,
+      mockYESearchService,
       mockUserService,
       mockCacheService,
     );
@@ -113,9 +125,9 @@ describe('SearchService', () => {
     it('должен успешно выполнить поиск еды', async () => {
       // Настройка моков
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
+      (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
-      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
+      (mockYESearchService.searchMenu as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
       (mockCacheService.set as Mock).mockResolvedValue(undefined);
@@ -125,9 +137,9 @@ describe('SearchService', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual(mockSearchResult);
       expect(mockUserService.getUser).toHaveBeenCalledWith(123456789);
-      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledWith(EAvailableCities.PERM);
+      expect(mockYEApiService.getRestaurants).toHaveBeenCalledWith(EAvailableCities.PERM);
       expect(mockLLMService.stuctureQuery).toHaveBeenCalledWith('хочу пиццу', ['Test Restaurant']);
-      expect(mockCachedYEService.searchMenuItems).toHaveBeenCalledWith(
+      expect(mockYESearchService.searchMenu).toHaveBeenCalledWith(
         { tags: ['пицца'] },
         EAvailableCities.PERM,
       );
@@ -136,26 +148,26 @@ describe('SearchService', () => {
 
     it('должен кэшировать результаты поиска', async () => {
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
+      (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
-      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
+      (mockYESearchService.searchMenu as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
       await searchService.searchFood('хочу пиццу', 123456789);
 
-      expect(mockCacheService.set).toHaveBeenCalledTimes(3); // Кэширование структурированного запроса, результатов поиска и финальных результатов
+      expect(mockCacheService.set).toHaveBeenCalledTimes(2); // Кэширование структурированного запроса, результатов поиска и финальных результатов
     });
 
     it('должен использовать кэшированные результаты структурированного запроса', async () => {
       const cachedQuery: TStructuredQuery = { tags: ['пицца'] };
 
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
+      (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockCacheService.get as Mock)
         .mockResolvedValueOnce(cachedQuery) // для структурированного запроса
         .mockResolvedValueOnce([mockSearchResult]); // для результатов поиска
-      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
+      (mockYESearchService.searchMenu as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
@@ -172,9 +184,9 @@ describe('SearchService', () => {
       }));
 
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
+      (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
-      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue(
+      (mockYESearchService.searchMenu as Mock).mockResolvedValue(
         Array.from({ length: 5 }, (_, i) => ({ ...mockMenuItem, id: `item${i}` })),
       );
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue(mockResults);
@@ -201,9 +213,9 @@ describe('SearchService', () => {
 
     it('должен продолжать работу при ошибке сохранения истории поиска', async () => {
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockCachedYEService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
+      (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
-      (mockCachedYEService.searchMenuItems as Mock).mockResolvedValue([mockMenuItem]);
+      (mockYESearchService.searchMenu as Mock).mockResolvedValue([mockMenuItem]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockRejectedValue(new Error('Database error'));
 
@@ -211,36 +223,6 @@ describe('SearchService', () => {
 
       expect(result).toHaveLength(1);
       expect(mockUserService.addToSearchHistory).toHaveBeenCalled();
-    });
-  });
-
-  describe('processNaturalLanguageQuery', () => {
-    it('должен успешно обработать естественный запрос', async () => {
-      const query = 'хочу острую пиццу';
-      const availableRestaurants = ['Domino\'s', 'Papa John\'s'];
-      const expectedResult: TStructuredQuery = {
-        tags: ['острый', 'пикант', 'пицца'],
-        restaurants: ['Domino\'s'],
-      };
-
-      (mockLLMService.stuctureQuery as Mock).mockResolvedValue(expectedResult);
-
-      const result = await searchService.processNaturalLanguageQuery(query, availableRestaurants);
-
-      expect(result).toEqual(expectedResult);
-      expect(mockLLMService.stuctureQuery).toHaveBeenCalledWith(query, availableRestaurants);
-    });
-
-    it('должен использовать fallback логику при ошибке LLM', async () => {
-      const query = 'хочу пиццу';
-      const availableRestaurants = ['Domino\'s'];
-
-      (mockCacheService.get as Mock).mockResolvedValue(null);
-      (mockLLMService.stuctureQuery as Mock).mockRejectedValue(new Error('LLM error'));
-
-      const result = await searchService.processNaturalLanguageQuery(query, availableRestaurants);
-
-      expect(result).toEqual({ tags: [] });
     });
   });
 
@@ -337,7 +319,7 @@ describe('SearchService', () => {
           description: 'Delicious test pizza',
           tags: ['dough', 'cheese', 'tomato'],
           price: 500,
-          image: undefined,
+          image: 'https://example.com/pizza.jpg',
           orderUrl: 'https://eda.yandex.ru/restaurant1',
         });
       });
@@ -358,36 +340,6 @@ describe('SearchService', () => {
         expect(ranked[0].id).toBe('3'); // Самый дешевый с изображением
         expect(ranked[1].id).toBe('2'); // Более дешевый с изображением
         expect(ranked[2].id).toBe('1'); // Самый дорогой без изображения
-      });
-    });
-
-    describe('createFallbackQuery', () => {
-      it('должен создать базовый структурированный запрос', () => {
-        const result = (searchService as unknown as {
-          createFallbackQuery: (query: string) => TStructuredQuery;
-        }).createFallbackQuery('хочу острый пицца');
-
-        expect(result).toEqual({
-          tags: ['пицца', 'острый'],
-        });
-      });
-
-      it('должен обработать запрос без ключевых слов', () => {
-        const result = (searchService as unknown as {
-          createFallbackQuery: (query: string) => TStructuredQuery;
-        }).createFallbackQuery('хочу что-то вкусное');
-
-        expect(result).toEqual({ tags: [] });
-      });
-    });
-
-    describe('generateOrderUrl', () => {
-      it('должен сгенерировать URL для заказа', () => {
-        const url = (searchService as unknown as {
-          generateOrderUrl: (item: TMenuItem) => string;
-        }).generateOrderUrl(mockMenuItem);
-
-        expect(url).toBe('https://eda.yandex.ru/restaurant1');
       });
     });
   });

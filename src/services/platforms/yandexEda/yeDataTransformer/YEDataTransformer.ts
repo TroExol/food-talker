@@ -7,6 +7,7 @@ import type {
 } from '@/services/platforms/yandexEda/yeApiService/types';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { botConfig } from '@/config/bot';
 
 import type { TYEDataTransformer } from './types';
 
@@ -47,7 +48,7 @@ export class YEDataTransformer implements TYEDataTransformer {
         description: yeMenuItem.description || '',
         ingredients,
         price: yeMenuItem.price,
-        image: imageUrl,
+        image: imageUrl || botConfig.fallbackFoodImage,
         available: yeMenuItem.available && (yeMenuItem.inStock !== false),
         restaurant,
         orderUrl: `https://eda.yandex.ru/r/${restaurant.additionalInfo.brandSlug}?placeSlug=${restaurant.id}`,

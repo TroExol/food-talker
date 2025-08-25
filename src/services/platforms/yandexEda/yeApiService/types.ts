@@ -227,7 +227,6 @@ export interface TYEService {
   getRestaurantMenu: (
     id: string,
     city: EAvailableCities,
-    brandSlug: string,
   ) => Promise<TMenuItem[]>;
   clearCache: (pattern?: string) => Promise<void>;
   getCacheStats: () => Promise<{ restaurants: number; menus: number }>;

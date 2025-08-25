@@ -21,6 +21,7 @@ export interface TBotConfig {
   yandexEda: TYandexEdaConfig;
   availableCities: EAvailableCities[];
   sanitizer: TSanitizerConfig;
+  fallbackFoodImage: string;
 }
 
 export interface TDatabaseConfig {

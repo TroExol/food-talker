@@ -11,7 +11,7 @@ import type { TSearchHistoryItem, TUser } from '@/services/user/UserRepository/t
 
 import { AppError } from '@/utils/AppError';
 import { ESubscriptionType } from '@/services/user/UserRepository/types';
-import { EAvailableCities } from '@/config/bot';
+import { EAvailableCities } from '@/config/bot/types';
 
 import type { UserRepository } from '../UserRepository/UserRepository';
 

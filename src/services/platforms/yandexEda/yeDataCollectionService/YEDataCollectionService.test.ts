@@ -9,9 +9,9 @@ import {
 import type { TRestaurant } from '@/types/restaurant';
 import type { TMenuItem } from '@/types/menuItem';
 
-import { EAvailableCities } from '@/config/bot';
+import { EAvailableCities } from '@/config/bot/types';
 
-import type { CachedYEService } from '../cachedYEService/CachedYEService';
+import type { YEApiService } from '../yeApiService/YEApiService';
 
 import { YEDataCollectionService } from './YEDataCollectionService';
 
@@ -24,22 +24,21 @@ vi.mock('node-cron', () => ({
 }));
 
 // Мокаем cityValidator
-vi.mock('@/utils/cityValidator', () => ({
-  cityValidator: {
+vi.mock('@/utils/СityValidator', () => ({
+  СityValidator: {
     getCityCoordinates: vi.fn().mockReturnValue({ latitude: 58.01, longitude: 56.23 }),
   },
 }));
 
 describe('YEDataCollectionService', () => {
   let dataCollectionService: YEDataCollectionService;
-  let mockCachedYEService: CachedYEService;
+  let mockCachedYEService: YEApiService;
 
   const mockRestaurants: TRestaurant[] = [
     {
       id: 'restaurant-1',
       name: 'Тест Ресторан 1',
       coordinates: { latitude: 58.01, longitude: 56.23 },
-      workingHours: { open: '09:00', close: '23:00', isOpen: true },
       lastUpdated: new Date(),
       additionalInfo: {
         brandSlug: 'brand-restaurant-1',
@@ -56,6 +55,8 @@ describe('YEDataCollectionService', () => {
       price: 500,
       available: true,
       restaurant: mockRestaurants[0],
+      image: 'https://example.com/image.jpg',
+      orderUrl: 'https://example.com/order',
     },
   ];
 
@@ -66,15 +67,12 @@ describe('YEDataCollectionService', () => {
     mockCachedYEService = {
       getRestaurants: vi.fn().mockResolvedValue(mockRestaurants),
       getRestaurantMenu: vi.fn().mockResolvedValue(mockMenuItems),
-      getRestaurantBySlug: vi.fn().mockResolvedValue(mockRestaurants[0]),
-      searchItems: vi.fn().mockResolvedValue(mockMenuItems),
-      invalidateCache: vi.fn(),
+      getRestaurantById: vi.fn().mockResolvedValue(mockRestaurants[0]),
       getCacheStats: vi.fn().mockResolvedValue({
         restaurants: 5,
         menus: 25,
-        searches: 3,
       }),
-    } as unknown as CachedYEService;
+    } as unknown as YEApiService;
 
     dataCollectionService = new YEDataCollectionService(mockCachedYEService);
   });
@@ -107,16 +105,7 @@ describe('YEDataCollectionService', () => {
   });
 
   describe('updateRestaurantData', () => {
-    it('должен обновить данные для конкретного города', async () => {
-      await dataCollectionService.updateRestaurants(EAvailableCities.PERM);
-
-      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(1);
-      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledWith(
-        EAvailableCities.PERM,
-      );
-    });
-
-    it('должен обновить данные для всех городов если город не указан', async () => {
+    it('должен обновить данные для всех городов', async () => {
       await dataCollectionService.updateRestaurants();
 
       expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(2); // Для двух городов
@@ -126,7 +115,7 @@ describe('YEDataCollectionService', () => {
       mockCachedYEService.getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
 
       // Проверяем, что функция не выбрасывает ошибку
-      await expect(dataCollectionService.updateRestaurants(EAvailableCities.PERM)).resolves.toBeUndefined();
+      await expect(dataCollectionService.updateRestaurants()).resolves.toBeUndefined();
     });
   });
 
@@ -137,7 +126,6 @@ describe('YEDataCollectionService', () => {
       expect(mockCachedYEService.getRestaurantMenu).toHaveBeenCalledWith(
         'restaurant-1',
         EAvailableCities.PERM,
-        'brand-restaurant-1',
       );
     });
 
