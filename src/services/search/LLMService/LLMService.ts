@@ -2,11 +2,11 @@ import { jsonrepair } from 'jsonrepair';
 import { createHash } from 'crypto';
 
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
-import type { CacheService } from '@/services/cacheService/CacheService';
+import type { TCacheService } from '@/services/cacheService/types';
 
 import { sleep } from '@/utils/sleep';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
-import { EDishCategory } from '@/types/menuItem';
+import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 import { botConfig } from '@/config/bot';
 
 import type { TLLMConfig } from './types';
@@ -49,7 +49,7 @@ export class LLMService implements TLLMService {
   private readonly cacheTTL = 3600; // 1 час
 
   constructor(
-    private readonly cacheService: CacheService,
+    private readonly cacheService: TCacheService,
     config: TLLMConfig,
   ) {
     this.apiUrl = botConfig.llmApiUrl;
@@ -141,48 +141,75 @@ export class LLMService implements TLLMService {
 - В restaurants и exclusions.restaurants — только рестораны, явно указанные в naturalQuery и присутствующие в availableRestaurants.
 - В priceRange/exclusions.priceRange — только если явно названы числа.
 
+Категории блюд (dishCategories):
+- main: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп, шаурма)
+- side: гарниры (картошка, рис, макароны, салат как гарнир, овощи)
+- drink: напитки (кола, сок, чай, кофе, лимонад, вода)
+- sauce: соусы (кетчуп, майонез, горчица, соус, заправка)
+- accessory: аксессуары (салфетки, палочки, вилка, ложка, контейнер)
+
+Определяй категории по контексту запроса:
+- "хочу поесть" → main
+- "что-нибудь попить" → drink  
+- "гарнир к мясу" → side
+- "соус к блюду" → sauce
+- "салфетки/приборы" → accessory
+
 Финальная структура (Только JSON, без лишних данных и пустых массивов):
 
 {
   "restaurants"?: string[],
   "tags"?: string[],
   "priceRange"?: {"min": number, "max": number},
+  "dishCategories"?: string[],
   "exclusions"?: {
     "restaurants"?: string[],
     "tags"?: string[],
-    "priceRange"?: {"min": number, "max": number}
+    "priceRange"?: {"min": number, "max": number},
+    "dishCategories"?: string[]
   }
 }
 
 Пример 1
-naturalQuery: "Очень острая веган пицца не из Domino’s и без бекона"
-availableRestaurants: ["Domino’s", "Dodo", "Papa John’s"]
+naturalQuery: "Очень острая веган пицца не из Domino's и без бекона"
+availableRestaurants: ["Domino's", "Dodo", "Papa John's"]
 {
   "tags": ["острый", "пикант", "чилли", "веган", "пост", "безмяс", "пицца"],
+  "dishCategories": ["main"],
   "exclusions": {
-    "restaurants": ["Domino’s"],
+    "restaurants": ["Domino's"],
     "tags": ["бекон", "bacon"]
   }
 }
 
 Пример 2
-naturalQuery: "Что-нибудь сладкое, до 400, только Burger King"
+naturalQuery: "Что-нибудь сладкое попить, до 400, только Burger King"
 availableRestaurants: ["Burger King", "KFC"]
 {
   "restaurants": ["Burger King"],
   "tags": ["сладкий", "десерт", "сахар"],
+  "dishCategories": ["drink"],
   "priceRange": {"min": 0, "max": 400}
 }
 
 Пример 3
-naturalQuery: "Гриль или азиатское, без майонеза и без лука, до 800"
+naturalQuery: "Гриль или азиатское основное блюдо, без майонеза и без лука, до 800"
 availableRestaurants: ["SushiShop"]
 {
   "tags": ["гриль", "барбекю", "азиат", "суши", "япон"],
+  "dishCategories": ["main"],
   "priceRange": {"min": 0, "max": 800},
   "exclusions": {
     "tags": ["майонез", "лук"]
   }
+}
+
+Пример 4
+naturalQuery: "Гарнир к мясу, картошка или рис"
+availableRestaurants: ["Ресторан"]
+{
+  "tags": ["картошка", "картофель", "рис"],
+  "dishCategories": ["side"]
 }
 
 Требуется только JSON по этой схеме для любого нового входа.
@@ -193,21 +220,33 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
   };
 
   private buildEnhancementPrompt = (menuItems: TSearchResultItem[], naturalQuery: string): string => {
-    const menuList = menuItems.map((menuItem, index) =>
-      `${index + 1}. ${menuItem.name} - ${menuItem.description ? `- ${menuItem.description.substring(0, 80)}` : ''} (${menuItem.restaurant.name}) - ${menuItem.price}₽`,
-    ).join('\n');
+    const menuList = menuItems.map((menuItem, index) => {
+      const category = (menuItem as unknown as TMenuItem).category || 'неизвестно';
+      return `${index + 1}. ${menuItem.name} [${category}] - ${menuItem.description ? `- ${menuItem.description.substring(0, 80)}` : ''} (${menuItem.restaurant.name}) - ${menuItem.price}₽`;
+    }).join('\n');
 
-    return `Ты эксперт по гастрономии. Тебе дан пользовательский запрос и список блюд с ресторанами и ценой.
-Отсортируй список блюд по степени соответствия пользовательскому запросу, уделяя максимум внимания схожести и релевантности названия блюда (и ресторана) к запросу. Цена учитывается только если блюда одинаково релевантны запросу.
+    return `Ты эксперт по гастрономии. Тебе дан пользовательский запрос и список блюд с ресторанами, категориями и ценой.
+Отсортируй список блюд по степени соответствия пользовательскому запросу, учитывая:
 
-Сначала расположи блюда, которые по названию и характеристикам максимально соответствуют запросу пользователя — например, близки по названию, виду кухни, ингредиентам и особенностям запроса. Только если несколько блюд совпадают по релевантности, сортируй их внутри группы по цене (от дешевого к дорогому).
+1. КАТЕГОРИЮ БЛЮДА - это самый важный фактор:
+   - main: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп)
+   - side: гарниры (картошка, рис, макароны, салат как гарнир, овощи)
+   - drink: напитки (кола, сок, чай, кофе, лимонад, вода)
+   - sauce: соусы (кетчуп, майонез, горчица, соус, заправка)
+   - accessory: аксессуары (салфетки, палочки, вилка, ложка, контейнер)
 
-Не сортируй по цене, если блюда явно различаются по соответствию запросу — лучше поставить более подходящее блюдо даже, если оно дороже.
+2. РЕЛЕВАНТНОСТЬ названия блюда к запросу
+3. Цену (только если блюда одинаково релевантны)
+
+ПРАВИЛА СОРТИРОВКИ:
+- Сначала блюда нужной категории, затем остальные
+- Внутри категории - по релевантности названия к запросу
+- При равной релевантности - по цене (от дешевого к дорогому)
 
 Запрос пользователя:
 "${naturalQuery}"
 
-Список блюд в формате index. Название блюда - описание блюда (если есть) - (ресторан) - цена:
+Список блюд в формате index. Название блюда [категория] - описание блюда (если есть) - (ресторан) - цена:
 ${menuList}
 
 Дай сначала индексы максимально релевантных блюд, затем менее релевантных, внутри каждой группы — по цене.
@@ -337,6 +376,16 @@ ${menuList}
       }
     }
 
+    if (query.dishCategories) {
+      repairedQuery.dishCategories = Array.isArray(query.dishCategories)
+        ? [...new Set(
+            query.dishCategories
+              .filter((c: unknown) => typeof c === 'string' && c !== '')
+              .map(c => c.toLowerCase().trim() as EDishCategory),
+          )]
+        : [];
+    }
+
     if (query.exclusions) {
       repairedQuery.exclusions = {};
 
@@ -381,6 +430,16 @@ ${menuList}
         if (repairedQuery.exclusions.priceRange.min > repairedQuery.exclusions.priceRange.max) {
           repairedQuery.exclusions.priceRange = { min: 0, max: repairedQuery.exclusions.priceRange.max };
         }
+      }
+
+      if (query.exclusions?.dishCategories) {
+        repairedQuery.exclusions.dishCategories = Array.isArray(query.exclusions.dishCategories)
+          ? [...new Set(
+              query.exclusions.dishCategories
+                .filter((c: unknown) => typeof c === 'string' && c !== '')
+                .map(c => c.toLowerCase().trim()),
+            )]
+          : [];
       }
     }
 

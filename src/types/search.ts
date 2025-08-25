@@ -9,12 +9,12 @@ export interface TStructuredQuery {
   restaurants?: string[];
   tags?: string[];
   priceRange?: TPriceRange;
-  categories?: EDishCategory[];
+  dishCategories?: EDishCategory[]; // Категории блюд: main, side, drink, sauce, accessory
   exclusions?: {
     restaurants?: string[];
     tags?: string[];
     priceRange?: TPriceRange;
-    categories?: EDishCategory[];
+    dishCategories?: string[]; // Исключения по категориям
   };
 }
 

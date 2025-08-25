@@ -202,7 +202,7 @@ export class MessageHandlers {
       // Выполняем поиск через SearchService
       const results = await this.searchService.searchFood(query, ctx.user.telegramId, {
         enableLLMEnhancement: true,
-        maxEnhenceMenu: 100,
+        maxEnhenceMenu: 60,
       });
 
       if (results.length === 0) {
@@ -213,14 +213,6 @@ export class MessageHandlers {
         );
         return;
       }
-
-      // Сохраняем в историю поиска
-      await this.userService.addToSearchHistory(
-        ctx.user.telegramId,
-        query,
-        { restaurants: [], tags: [] }, // Упрощенная структура для заглушки
-        results,
-      );
 
       // Форматируем результаты
       clearTimeout(timeout);

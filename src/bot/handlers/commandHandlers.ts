@@ -119,7 +119,7 @@ ${ctx.user.state === EUserState.WAITING_FOR_CITY
     }
 
     try {
-      const history = await this.userService.getSearchHistory(ctx.user.telegramId, 5);
+      const history = await this.userService.getSearchHistory(ctx.user.telegramId, 10);
 
       if (history.length === 0) {
         await ctx.reply('История поиска пуста. Попробуйте найти что-нибудь вкусное!');
@@ -130,7 +130,7 @@ ${ctx.user.state === EUserState.WAITING_FOR_CITY
 
       for (let i = 0; i < history.length; i++) {
         const item = history[i];
-        const date = new Date().toLocaleDateString('ru-RU', {
+        const date = new Date(item.timestamp).toLocaleDateString('ru-RU', {
           day: '2-digit',
           month: '2-digit',
           hour: '2-digit',
@@ -138,7 +138,7 @@ ${ctx.user.state === EUserState.WAITING_FOR_CITY
         });
 
         historyMessage += `${i + 1}. "${item.query}"\n`;
-        historyMessage += `   📅 ${date} | 🔍 ${item.results?.length || 0} результатов\n\n`;
+        historyMessage += `   📅 ${date} | 🔍 ${item.resultsCount || 0} результатов\n\n`;
       }
 
       await ctx.reply(historyMessage);

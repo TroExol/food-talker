@@ -171,7 +171,7 @@ export class UserRepository implements TUserRepository {
         telegramId,
         historyItem.query,
         JSON.stringify(historyItem.structuredQuery),
-        historyItem.results.length,
+        historyItem.resultsCount,
         timestamp.toISOString(),
       ]);
 
@@ -205,6 +205,7 @@ export class UserRepository implements TUserRepository {
         query: entity.query,
         structuredQuery: JSON.parse(entity.structured_query) as TSearchHistoryItem['structuredQuery'],
         results: [], // Результаты не сохраняются в БД
+        resultsCount: entity.results_count,
         timestamp: new Date(entity.created_at),
       }));
     } catch (error) {

@@ -1,5 +1,6 @@
 import type { TBotContext } from '@/types/telegram';
 
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError, EErrorType } from '@/utils/AppError';
 import { EAvailableCities } from '@/config/bot/types';
 
@@ -8,7 +9,7 @@ export class ErrorHandlerMiddleware {
     try {
       await next();
     } catch (error) {
-      console.error('Bot error:', error);
+      ConsoleLogger.error('Bot error:', error as Error);
 
       let message = 'Произошла ошибка. Попробуйте позже.';
 
@@ -42,7 +43,7 @@ export class ErrorHandlerMiddleware {
       try {
         await ctx.reply(message);
       } catch (replyError) {
-        console.error('Failed to send error message:', replyError);
+        ConsoleLogger.error('Не удалось отправить сообщение об ошибке:', replyError as Error);
       }
     }
   };

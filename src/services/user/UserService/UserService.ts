@@ -187,6 +187,7 @@ export class UserService implements TUserService {
         query: queryValidation.sanitizedInput as string,
         structuredQuery,
         results,
+        resultsCount: results.length,
       });
 
       return historyItem;

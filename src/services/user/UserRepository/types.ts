@@ -30,6 +30,7 @@ export interface TSearchHistoryItem {
   query: string;
   structuredQuery: TStructuredQuery;
   results: TSearchResultItem[];
+  resultsCount: number;
   timestamp: Date;
 }
 

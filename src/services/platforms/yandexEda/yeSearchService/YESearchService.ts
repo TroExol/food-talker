@@ -144,6 +144,14 @@ export class YESearchService {
         if (!restaurantMatch) return false;
       }
 
+      // Фильтрация по категориям блюд
+      if (query.dishCategories?.length) {
+        const categoryMatch = query.dishCategories.some(category =>
+          item.category?.toLowerCase() === category.toLowerCase(),
+        );
+        if (!categoryMatch) return false;
+      }
+
       // Улучшенная фильтрация по тегам
       if (query.tags?.length) {
         const relevanceScore = this.calculateTagRelevance(item, query.tags);
@@ -162,6 +170,14 @@ export class YESearchService {
         if (query.exclusions.restaurants?.includes(item.restaurant.name)) {
           return false;
         }
+
+        // Исключения по категориям
+        if (query.exclusions.dishCategories?.some(category =>
+          item.category?.toLowerCase() === category.toLowerCase(),
+        )) {
+          return false;
+        }
+
         if (
           query.exclusions.tags?.some(tag => item.ingredients.some(i => i.toLowerCase().includes(tag.toLowerCase())))
           || query.exclusions.tags
@@ -254,6 +270,16 @@ export class YESearchService {
     // Релевантность по тегам
     if (query.tags?.length) {
       score += this.calculateTagRelevance(item, query.tags);
+    }
+
+    // Бонус за соответствие категории (высокий приоритет)
+    if (query.dishCategories?.length) {
+      const categoryMatch = query.dishCategories.some(category =>
+        item.category?.toLowerCase() === category.toLowerCase(),
+      );
+      if (categoryMatch) {
+        score += 20; // Высокий бонус за соответствие категории
+      }
     }
 
     // Бонус за соответствие ценовому диапазону

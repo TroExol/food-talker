@@ -278,6 +278,7 @@ describe('UserService', () => {
         query,
         structuredQuery,
         results,
+        resultsCount: results.length,
         timestamp: new Date(),
       };
 
@@ -307,6 +308,7 @@ describe('UserService', () => {
           query: 'пицца',
           structuredQuery: {},
           results: [],
+          resultsCount: 0,
           timestamp: new Date(),
         },
       ];
