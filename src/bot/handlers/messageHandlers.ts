@@ -5,7 +5,9 @@ import type {
 } from 'telegraf/types';
 
 import type { TBotContext, TMessageHandler } from '@/types/telegram';
-import type { TUserService } from '@/services/user/UserService/types';
+import type { TSearchResultItem } from '@/types/search';
+import type { UserService } from '@/services/user/UserService/UserService';
+import type { SearchService } from '@/services/search/SearchService/SearchService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
@@ -14,7 +16,10 @@ import { EAvailableCities } from '@/config/bot/types';
 import { botConfig } from '@/config/bot';
 
 export class MessageHandlers {
-  constructor(private readonly userService: TUserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly searchService: SearchService,
+  ) {}
 
   public getHandlers = (): TMessageHandler[] => {
     return [
@@ -190,13 +195,29 @@ export class MessageHandlers {
     try {
       await ctx.reply('🔍 Ищу для вас...');
 
-      // TODO: Здесь будет интеграция с SearchService
-      // const results = await this.searchService.searchFood(query, ctx.user.telegramId);
+      // Выполняем поиск через SearchService
+      const results = await this.searchService.searchFood(query, ctx.user.telegramId, {
+        enableLLMEnhancement: true,
+      });
 
-      // Временная заглушка
-      await ctx.reply(
-        `Поиск по запросу "${query}" в городе ${ctx.user.city} будет реализован в следующих задачах.`,
+      if (results.length === 0) {
+        await ctx.reply(
+          `😔 По запросу "${query}" ничего не найдено в городе ${ctx.user.city}.\n\nПопробуйте изменить запрос или использовать другие ключевые слова.`,
+        );
+        return;
+      }
+
+      // Сохраняем в историю поиска
+      await this.userService.addToSearchHistory(
+        ctx.user.telegramId,
+        query,
+        { restaurants: [], tags: [] }, // Упрощенная структура для заглушки
+        results,
       );
+
+      // Форматируем результаты
+      const resultsMessage = this.formatSearchResults(results, query);
+      await ctx.reply(resultsMessage);
     } catch (error) {
       ConsoleLogger.error('Ошибка при поиске', error as Error, {
         telegramId: ctx.from?.id,
@@ -207,5 +228,22 @@ export class MessageHandlers {
     } finally {
       ctx.user.state = EUserState.IDLE;
     }
+  };
+
+  private formatSearchResults = (results: TSearchResultItem[], query: string): string => {
+    const header = `🍽️ Найдено ${results.length} результатов по запросу "${query}":\n\n`;
+
+    const resultsList = results.slice(0, 10).map((item, index) => {
+      const price = item.price ? `💰 ${item.price} ₽` : '';
+      const restaurant = item.restaurant?.name ? `🏪 ${item.restaurant.name}` : '';
+
+      return `${index + 1}. ${item.name}\n${restaurant} ${price}\n`;
+    }).join('\n');
+
+    const footer = results.length > 10
+      ? `\n... и еще ${results.length - 10} результатов\n\n💡 Используйте более конкретные запросы для точного поиска.`
+      : '\n\n💡 Нажмите на название блюда для заказа.';
+
+    return header + resultsList + footer;
   };
 }

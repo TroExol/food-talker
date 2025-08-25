@@ -55,7 +55,7 @@ export class LLMService implements TLLMService {
     this.apiKey = botConfig.llmApiKey;
     this.model = config.model;
     this.maxRetries = config?.maxRetries ?? 2;
-    this.timeoutMs = config?.timeoutMs ?? 15000;
+    this.timeoutMs = config?.timeoutMs ?? 20000;
     this.systemPrompt = config?.systemPrompt ?? 'Ты - помощник для поиска еды. Reasoning: low';
   }
 
@@ -192,19 +192,25 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
 
   private buildEnhancementPrompt = (menuItems: TSearchResultItem[], naturalQuery: string): string => {
     const menuList = menuItems.map((menuItem, index) =>
-      `${index + 1}. ${menuItem.name} (${menuItem.restaurant.name}) - ${menuItem.price}₽`,
+      `${index + 1}. ${menuItem.name} - ${menuItem.description ? `- ${menuItem.description.substring(0, 100)}` : ''} (${menuItem.restaurant.name}) - ${menuItem.price}₽`,
     ).join('\n');
 
-    return `Ты - помощник для ранжирования результатов поиска еды.
+    return `Ты эксперт по гастрономии. Тебе дан пользовательский запрос и список блюд с ресторанами и ценой.
+Отсортируй список блюд по степени соответствия пользовательскому запросу, уделяя максимум внимания схожести и релевантности названия блюда (и ресторана) к запросу. Цена учитывается только если блюда одинаково релевантны запросу.
 
-Оригинальный запрос: "${naturalQuery}"
+Сначала расположи блюда, которые по названию и характеристикам максимально соответствуют запросу пользователя — например, близки по названию, виду кухни, ингредиентам и особенностям запроса. Только если несколько блюд совпадают по релевантности, сортируй их внутри группы по цене (от дешевого к дорогому).
 
-Найденные блюда:
+Не сортируй по цене, если блюда явно различаются по соответствию запросу — лучше поставить более подходящее блюдо даже, если оно дороже.
+
+Запрос пользователя:
+"${naturalQuery}"
+
+Список блюд в формате index. Название блюда - описание блюда (если есть) - (ресторан) - цена:
 ${menuList}
 
-Проранжируй блюда по релевантности запросу. Верни номера блюд в порядке убывания релевантности, разделенные запятыми. Ограничься 30 блюдами.
+Дай сначала индексы максимально релевантных блюд, затем менее релевантных, внутри каждой группы — по цене.
 
-Пример ответа: 3,1,5,2,4`;
+Отвечай списком индексов в порядке убывания релевантности: 3,1,5,2,4`;
   };
 
   private callLLM = async (prompt: string): Promise<string> => {
@@ -264,7 +270,7 @@ ${menuList}
           throw error;
         }
 
-        ConsoleLogger.warn(`Попытка ${attempt} не удалась, повторяю...`, error as Error);
+        ConsoleLogger.warn(`Попытка ${attempt + 1} не удалась, повторяю...`, error as Error);
         await sleep(1000 * attempt); // Exponential backoff
       }
     }

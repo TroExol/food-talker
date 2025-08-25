@@ -11,7 +11,9 @@ async function main(): Promise<void> {
 
     const bot = await BotFactory.getInstance();
 
-    await bot.start();
+    // TODO: запуск коллектора данных
+
+    void bot.start();
 
     ConsoleLogger.info('Food Talker бот запущен. Нажмите Ctrl+C для остановки.');
 
@@ -28,7 +30,7 @@ async function main(): Promise<void> {
       process.exit(0);
     });
   } catch (error) {
-    ConsoleLogger.error('Не удалось запустить приложение:', error as Error);
+    ConsoleLogger.error('Ошибка работы приложения:', error as Error);
     process.exit(1);
   }
 }

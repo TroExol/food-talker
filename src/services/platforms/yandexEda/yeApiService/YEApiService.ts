@@ -115,6 +115,7 @@ export class YEApiService implements TYEService {
 
       // Загружаем из API
       ConsoleLogger.debug('Кэш ресторанов Яндекс.Еда не найден, загружаем из API', { coordinates });
+
       const restaurantsFromServer = await this.requestRestaurants(coordinates);
 
       // Трансформируем данные

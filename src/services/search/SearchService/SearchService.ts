@@ -14,10 +14,9 @@ import { Validator } from '@/utils/Validator';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
 
-import type { TSearchOptions, TSearchService } from './types';
+import type { TSearchOptions } from './types';
 
-export class SearchService implements TSearchService {
-  private readonly defaultMaxResults = 20;
+export class SearchService {
   private readonly cacheTTL = 1800; // 30 минут
 
   constructor(
@@ -46,30 +45,18 @@ export class SearchService implements TSearchService {
         throw AppError.userNotFound(telegramId);
       }
 
-      const cacheKey = this.generateFinalResultsCacheKey(naturalQuery, user.city);
-      const cached = await this.cacheService.get<TSearchResultItem[]>(cacheKey);
-
-      if (cached) {
-        ConsoleLogger.debug('Найдены кэшированные финальные результаты поиска', { city: user.city, cacheKey });
-        return cached;
-      }
-
       const restaurants = await this.getRestaurants(user.city);
       const restaurantNames = restaurants.map(r => r.name);
 
       const structuredQuery = await this.llmService.stuctureQuery(naturalQuery, restaurantNames);
 
       const searchResults = await this.platformsSearch(structuredQuery, user.city);
-      console.log('searchResults', searchResults);
-      const enhancedResults = options.enableLLMEnhancement
+
+      const finalResults = options.enableLLMEnhancement
         ? await this.enhanceResultsWithLLM(searchResults, naturalQuery)
         : this.rankSearchResults(searchResults);
 
-      const finalResults = this.limitResults(enhancedResults, options.maxResults || this.defaultMaxResults);
-
       await this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, finalResults);
-
-      await this.cacheService.set(cacheKey, finalResults, this.cacheTTL);
 
       const duration = Date.now() - startTime;
       ConsoleLogger.info('Поиск еды завершен', {
@@ -254,11 +241,6 @@ export class SearchService implements TSearchService {
       city,
     });
     return `search:results:${createHash('sha256').update(data).digest('hex')}`;
-  };
-
-  private generateFinalResultsCacheKey = (query: string, city: EAvailableCities): string => {
-    const data = JSON.stringify({ query, city });
-    return `search:final:${createHash('sha256').update(data).digest('hex')}`;
   };
 
   private handleSearchError = (error: unknown, query: string): AppError => {

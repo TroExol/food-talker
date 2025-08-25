@@ -3,7 +3,8 @@ import type { CallbackQuery } from 'telegraf/types';
 import { Telegraf } from 'telegraf';
 
 import type { TBotContext, TRateLimitConfig } from '@/types/telegram';
-import type { TUserService } from '@/services/user/UserService/types';
+import type { UserService } from '@/services/user/UserService/UserService';
+import type { SearchService } from '@/services/search/SearchService/SearchService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 
@@ -24,7 +25,8 @@ export class Bot {
 
   constructor(
     private readonly token: string,
-    private readonly userService: TUserService,
+    private readonly userService: UserService,
+    private readonly searchService: SearchService,
   ) {
     this.telegraf = new Telegraf<TBotContext>(token);
 
@@ -38,7 +40,7 @@ export class Bot {
     this.rateLimitMiddleware = new RateLimitMiddleware(this.rateLimitConfig);
     this.errorHandlerMiddleware = new ErrorHandlerMiddleware();
     this.commandHandlers = new CommandHandlers(userService);
-    this.messageHandlers = new MessageHandlers(userService);
+    this.messageHandlers = new MessageHandlers(userService, searchService);
 
     this.setupMiddleware();
     this.setupHandlers();
@@ -123,18 +125,16 @@ export class Bot {
     try {
       ConsoleLogger.info('Запускаем Telegram бота...');
 
-      // Запускаем бота в режиме polling
-      await this.telegraf.launch();
-
-      ConsoleLogger.info('Telegram бот запущен успешно');
-
       // Запускаем периодическую очистку rate limit
       setInterval(() => {
         this.rateLimitMiddleware.cleanup();
       }, 5 * 60 * 1000); // Каждые 5 минут
+
+      // Запускаем бота в режиме polling
+      await this.telegraf.launch();
     } catch (error) {
-      ConsoleLogger.error('Не удалось запустить Telegram бота:', error as Error);
-      throw error;
+      ConsoleLogger.error('Ошибка работы бота:', error as Error);
+      void this.start();
     }
   };
 

@@ -63,14 +63,14 @@
     - Implement search history tracking
     - _Requirements: 2.1, 2.4, 2.6, 8.4_
 
-- [ ] 7. Develop Telegram bot handlers and middleware
+- [x] 7. Develop Telegram bot handlers and middleware
   - [x] 7.1 Create basic bot setup and command handlers
     - Set up Telegraf bot with webhook/polling configuration
     - Implement /start, /help, /address, /history, /cancel commands
     - Create middleware for authentication and rate limiting
     - _Requirements: 1.1, 1.3, 8.1, 8.2, 8.3, 9.2_
 
-  - [ ] 7.2 Implement message handlers and user interaction
+  - [x] 7.2 Implement message handlers and user interaction
     - Create text message handler for search queries
     - Implement callback query handlers for inline keyboards
     - Add user registration flow and city selection

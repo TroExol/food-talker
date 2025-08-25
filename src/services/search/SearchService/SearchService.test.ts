@@ -8,7 +8,7 @@ import {
   vi,
 } from 'vitest';
 
-import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { TSearchResultItem } from '@/types/search';
 import type { TMenuItem } from '@/types/menuItem';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { LLMService } from '@/services/search/LLMService/LLMService';
@@ -146,38 +146,7 @@ describe('SearchService', () => {
       expect(mockUserService.addToSearchHistory).toHaveBeenCalled();
     });
 
-    it('должен кэшировать результаты поиска', async () => {
-      (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
-      (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
-      (mockYESearchService.searchMenu as Mock).mockResolvedValue([mockMenuItem]);
-      (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
-      (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
-
-      await searchService.searchFood('хочу пиццу', 123456789);
-
-      expect(mockCacheService.set).toHaveBeenCalledTimes(2); // Кэширование структурированного запроса, результатов поиска и финальных результатов
-    });
-
-    it('должен использовать кэшированные результаты структурированного запроса', async () => {
-      const cachedQuery: TStructuredQuery = { tags: ['пицца'] };
-
-      (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
-      (mockCacheService.get as Mock)
-        .mockResolvedValueOnce(cachedQuery) // для структурированного запроса
-        .mockResolvedValueOnce([mockSearchResult]); // для результатов поиска
-      (mockYESearchService.searchMenu as Mock).mockResolvedValue([mockMenuItem]);
-      (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
-      (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
-
-      await searchService.searchFood('хочу пиццу', 123456789);
-
-      expect(mockLLMService.stuctureQuery).not.toHaveBeenCalled();
-      expect(mockCacheService.get).toHaveBeenCalled();
-    });
-
-    it('должен ограничить количество результатов', async () => {
+    it('не должен ограничить количество результатов', async () => {
       const mockResults = Array.from({ length: 5 }, (_, i) => ({
         ...mockSearchResult,
         id: `item${i}`,
@@ -192,9 +161,9 @@ describe('SearchService', () => {
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue(mockResults);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
-      const result = await searchService.searchFood('хочу пиццу', 123456789, { maxResults: 3 });
+      const result = await searchService.searchFood('хочу пиццу', 123456789);
 
-      expect(result).toHaveLength(3);
+      expect(result).toHaveLength(5);
     });
 
     it('должен обрабатывать ошибку если пользователь не найден', async () => {
