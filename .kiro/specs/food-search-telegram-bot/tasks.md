@@ -64,7 +64,7 @@
     - _Requirements: 2.1, 2.4, 2.6, 8.4_
 
 - [ ] 7. Develop Telegram bot handlers and middleware
-  - [ ] 7.1 Create basic bot setup and command handlers
+  - [x] 7.1 Create basic bot setup and command handlers
     - Set up Telegraf bot with webhook/polling configuration
     - Implement /start, /help, /address, /history, /cancel commands
     - Create middleware for authentication and rate limiting

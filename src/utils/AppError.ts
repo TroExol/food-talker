@@ -1,6 +1,6 @@
 import { botConfig } from '@/config/bot';
 
-export enum TErrorType {
+export enum EErrorType {
   API_ERROR = 'API_ERROR',
   CACHE_ERROR = 'CACHE_ERROR',
   CITY_NOT_SUPPORTED = 'CITY_NOT_SUPPORTED',
@@ -15,13 +15,13 @@ export enum TErrorType {
 }
 
 export class AppError extends Error {
-  public readonly type: TErrorType;
+  public readonly type: EErrorType;
   public readonly code: string;
   public readonly details?: unknown;
   public readonly isUserFacing: boolean;
 
   constructor(
-    type: TErrorType,
+    type: EErrorType,
     code: string,
     message: string,
     isUserFacing = false,
@@ -36,36 +36,36 @@ export class AppError extends Error {
   }
 
   static validationError(message: string, details?: unknown): AppError {
-    return new AppError(TErrorType.VALIDATION_ERROR, 'VALIDATION_FAILED', message, true, details);
+    return new AppError(EErrorType.VALIDATION_ERROR, 'VALIDATION_FAILED', message, true, details);
   }
 
   static apiError(message: string, details?: unknown): AppError {
-    return new AppError(TErrorType.API_ERROR, 'API_FAILED', message, false, details);
+    return new AppError(EErrorType.API_ERROR, 'API_FAILED', message, false, details);
   }
 
   static networkError(message: string, details?: unknown): AppError {
-    return new AppError(TErrorType.NETWORK_ERROR, 'NETWORK_FAILED', message, false, details);
+    return new AppError(EErrorType.NETWORK_ERROR, 'NETWORK_FAILED', message, false, details);
   }
 
   static llmError(message: string, details?: unknown): AppError {
-    return new AppError(TErrorType.LLM_ERROR, 'LLM_FAILED', message, false, details);
+    return new AppError(EErrorType.LLM_ERROR, 'LLM_FAILED', message, false, details);
   }
 
   static databaseError(message: string, details?: unknown): AppError {
-    return new AppError(TErrorType.DATABASE_ERROR, 'DATABASE_FAILED', message, false, details);
+    return new AppError(EErrorType.DATABASE_ERROR, 'DATABASE_FAILED', message, false, details);
   }
 
   static rateLimitError(message: string, details?: unknown): AppError {
-    return new AppError(TErrorType.RATE_LIMIT_ERROR, 'RATE_LIMIT_EXCEEDED', message, true, details);
+    return new AppError(EErrorType.RATE_LIMIT_ERROR, 'RATE_LIMIT_EXCEEDED', message, true, details);
   }
 
   static systemError(message: string, details?: unknown): AppError {
-    return new AppError(TErrorType.SYSTEM_ERROR, 'SYSTEM_FAILED', message, false, details);
+    return new AppError(EErrorType.SYSTEM_ERROR, 'SYSTEM_FAILED', message, false, details);
   }
 
   static userNotFound(telegramId: number): AppError {
     return new AppError(
-      TErrorType.USER_NOT_FOUND,
+      EErrorType.USER_NOT_FOUND,
       'USER_NOT_FOUND',
       'Пользователь не найден',
       true,
@@ -75,7 +75,7 @@ export class AppError extends Error {
 
   static cityNotSupported(city: string): AppError {
     return new AppError(
-      TErrorType.CITY_NOT_SUPPORTED,
+      EErrorType.CITY_NOT_SUPPORTED,
       'CITY_NOT_SUPPORTED',
       `Город "${city}" пока не поддерживается. Доступные города: ${botConfig.availableCities.join(', ')}`,
       true,
@@ -84,10 +84,10 @@ export class AppError extends Error {
   }
 
   static cacheError(message: string, details?: unknown): AppError {
-    return new AppError(TErrorType.CACHE_ERROR, 'CACHE_FAILED', message, false, details);
+    return new AppError(EErrorType.CACHE_ERROR, 'CACHE_FAILED', message, false, details);
   }
 
   static dataCollectionError(message: string, details?: unknown): AppError {
-    return new AppError(TErrorType.DATA_COLLECTION_ERROR, 'DATA_COLLECTION_FAILED', message, false, details);
+    return new AppError(EErrorType.DATA_COLLECTION_ERROR, 'DATA_COLLECTION_FAILED', message, false, details);
   }
 }
