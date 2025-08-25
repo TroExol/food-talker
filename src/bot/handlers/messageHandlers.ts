@@ -5,9 +5,9 @@ import type {
 } from 'telegraf/types';
 
 import type { TBotContext, TMessageHandler } from '@/types/telegram';
-import type { TSearchResultItem } from '@/types/search';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { SearchService } from '@/services/search/SearchService/SearchService';
+import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
@@ -19,6 +19,7 @@ export class MessageHandlers {
   constructor(
     private readonly userService: UserService,
     private readonly searchService: SearchService,
+    private readonly messageFormatter: MessageFormatterService,
   ) {}
 
   public getHandlers = (): TMessageHandler[] => {
@@ -26,6 +27,22 @@ export class MessageHandlers {
       {
         pattern: /^city:(.+)$/,
         handler: this.handleCitySelection,
+      },
+      {
+        pattern: /^item:(.+)$/,
+        handler: this.handleItemSelection,
+      },
+      {
+        pattern: /^history:(.+)$/,
+        handler: this.handleHistoryItemSelection,
+      },
+      {
+        pattern: /^page:(\d+)$/,
+        handler: this.handlePageNavigation,
+      },
+      {
+        pattern: /^show_more:(\d+)$/,
+        handler: this.handleShowMore,
       },
       {
         pattern: /.*/,
@@ -75,16 +92,13 @@ export class MessageHandlers {
       await ctx.answerCbQuery(`Город изменен на: ${selectedCity}`);
 
       // Отправляем приветственное сообщение
-      const welcomeMessage = `
-✅ Город успешно изменен на: ${selectedCity}
+      const userName = ctx.from?.first_name;
+      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName);
 
-Теперь вы можете искать еду! Просто напишите, что хотите съесть, например:
-• "Хочу пиццу с пепперони"
-• "Ищу суши с лососем"
-• "Покажи бургеры до 500 рублей"
-      `.trim();
-
-      await ctx.reply(welcomeMessage);
+      await ctx.reply(formattedMessage.text, {
+        parse_mode: formattedMessage.parseMode,
+        reply_markup: formattedMessage.replyMarkup,
+      });
     } catch (error) {
       ConsoleLogger.error('Ошибка при обновлении города', error as Error, {
         telegramId: ctx.from?.id,
@@ -101,7 +115,7 @@ export class MessageHandlers {
       throw AppError.userNotFound(ctx.from?.id ?? 0);
     }
 
-    const messageText = ctx.message.text;
+    const messageText = ctx.message?.text;
     if (!messageText) {
       return;
     }
@@ -144,16 +158,13 @@ export class MessageHandlers {
       ctx.user!.city = normalizedCity;
       ctx.user!.state = EUserState.IDLE;
 
-      const welcomeMessage = `
-✅ Город успешно установлен: ${normalizedCity}
+      const userName = ctx.from?.first_name;
+      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName);
 
-Теперь вы можете искать еду! Просто напишите, что хотите съесть, например:
-• "Хочу пиццу с пепперони"
-• "Ищу суши с лососем"
-• "Покажи бургеры до 500 рублей"
-      `.trim();
-
-      await ctx.reply(welcomeMessage);
+      await ctx.reply(formattedMessage.text, {
+        parse_mode: formattedMessage.parseMode,
+        reply_markup: formattedMessage.replyMarkup,
+      });
     } catch (error) {
       ConsoleLogger.error('Ошибка при установке города', error as Error, {
         telegramId: ctx.from?.id,
@@ -208,17 +219,24 @@ export class MessageHandlers {
       if (results.length === 0) {
         clearTimeout(timeout);
         await ctx.telegram.deleteMessage(ctx.chat.id, botMessage.message_id);
-        await ctx.reply(
-          `😔 По запросу "${query}" ничего не найдено в городе ${ctx.user.city}.\n\nПопробуйте изменить запрос или использовать другие ключевые слова.`,
-        );
+
+        const noResultsMessage = this.messageFormatter.formatNoResultsMessage(query);
+        await ctx.reply(noResultsMessage.text, {
+          parse_mode: noResultsMessage.parseMode,
+          reply_markup: noResultsMessage.replyMarkup,
+        });
         return;
       }
 
       // Форматируем результаты
       clearTimeout(timeout);
       await ctx.telegram.deleteMessage(ctx.chat.id, botMessage.message_id);
-      const resultsMessage = this.formatSearchResults(results);
-      await ctx.reply(resultsMessage, { parse_mode: 'Markdown' });
+
+      const formattedResults = this.messageFormatter.formatSearchResults(results);
+      await ctx.reply(formattedResults.text, {
+        parse_mode: formattedResults.parseMode,
+        reply_markup: formattedResults.replyMarkup,
+      });
     } catch (error) {
       ConsoleLogger.error('Ошибка при поиске', error as Error, {
         telegramId: ctx.from?.id,
@@ -231,20 +249,154 @@ export class MessageHandlers {
     }
   };
 
-  private formatSearchResults = (results: TSearchResultItem[]): string => {
-    const header = `🍽️ Найдено ${results.length} результатов:\n\n`;
+  // Обработчики callback'ов для inline кнопок
+  private handleItemSelection = async (_ctx: TBotContext): Promise<void> => {
+    const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
 
-    const resultsList = results.slice(0, 10).map((item, index) => {
-      const price = item.price ? `💰 ${item.price} ₽` : '';
-      const restaurant = item.restaurant?.name ? `🏪 ${item.restaurant.name}` : '';
+    if (!ctx.user) {
+      throw AppError.userNotFound(ctx.from?.id ?? 0);
+    }
 
-      return `${index + 1}. [${item.name}](${item.orderUrl})\n${restaurant} ${price}\n`;
-    }).join('\n');
+    const callbackData = ctx.callbackQuery.data;
+    if (!callbackData) {
+      await ctx.answerCbQuery('Неверные данные callback');
+      return;
+    }
 
-    const footer = results.length > 10
-      ? `\n... и еще ${results.length - 10} результатов\n\n💡 Используйте более конкретные запросы для точного поиска.`
-      : '\n\n💡 Нажмите на название блюда для заказа.';
+    const match = callbackData.match(/^item:(.+)$/);
+    if (!match) {
+      await ctx.answerCbQuery('Неверный формат выбора блюда');
+      return;
+    }
 
-    return header + resultsList + footer;
+    const itemId = match[1];
+
+    try {
+      await ctx.answerCbQuery('Загружаем информацию о блюде...');
+
+      // TODO: Получить детальную информацию о блюде из SearchService
+      // const itemDetails = await this.searchService.getItemDetails(itemId);
+
+      await ctx.reply(`🍽️ <b>Детальная информация о блюде</b>\n\nID: ${itemId}\n\nФункция в разработке...`, {
+        parse_mode: 'HTML',
+      });
+    } catch (error) {
+      ConsoleLogger.error('Ошибка при получении информации о блюде', error as Error, {
+        telegramId: ctx.from?.id,
+        itemId,
+      });
+      await ctx.answerCbQuery('Ошибка при загрузке информации о блюде');
+    }
+  };
+
+  private handleHistoryItemSelection = async (_ctx: TBotContext): Promise<void> => {
+    const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
+
+    if (!ctx.user) {
+      throw AppError.userNotFound(ctx.from?.id ?? 0);
+    }
+
+    const callbackData = ctx.callbackQuery.data;
+    if (!callbackData) {
+      await ctx.answerCbQuery('Неверные данные callback');
+      return;
+    }
+
+    const match = callbackData.match(/^history:(.+)$/);
+    if (!match) {
+      await ctx.answerCbQuery('Неверный формат выбора из истории');
+      return;
+    }
+
+    const itemId = match[1];
+
+    try {
+      await ctx.answerCbQuery('Повторяем поиск...');
+
+      // TODO: Получить информацию о блюде из истории и повторить поиск
+      await ctx.reply(`📋 <b>Повторный поиск</b>\n\nID: ${itemId}\n\nФункция в разработке...`, {
+        parse_mode: 'HTML',
+      });
+    } catch (error) {
+      ConsoleLogger.error('Ошибка при повторном поиске', error as Error, {
+        telegramId: ctx.from?.id,
+        itemId,
+      });
+      await ctx.answerCbQuery('Ошибка при повторном поиске');
+    }
+  };
+
+  private handlePageNavigation = async (_ctx: TBotContext): Promise<void> => {
+    const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
+
+    if (!ctx.user) {
+      throw AppError.userNotFound(ctx.from?.id ?? 0);
+    }
+
+    const callbackData = ctx.callbackQuery.data;
+    if (!callbackData) {
+      await ctx.answerCbQuery('Неверные данные callback');
+      return;
+    }
+
+    const match = callbackData.match(/^page:(\d+)$/);
+    if (!match) {
+      await ctx.answerCbQuery('Неверный формат навигации');
+      return;
+    }
+
+    const pageNumber = parseInt(match[1], 10);
+
+    try {
+      await ctx.answerCbQuery(`Переходим на страницу ${pageNumber}...`);
+
+      // TODO: Получить результаты для указанной страницы
+      await ctx.reply(`📄 <b>Навигация по страницам</b>\n\nСтраница: ${pageNumber}\n\nФункция в разработке...`, {
+        parse_mode: 'HTML',
+      });
+    } catch (error) {
+      ConsoleLogger.error('Ошибка при навигации по страницам', error as Error, {
+        telegramId: ctx.from?.id,
+        pageNumber,
+      });
+      await ctx.answerCbQuery('Ошибка при навигации');
+    }
+  };
+
+  private handleShowMore = async (_ctx: TBotContext): Promise<void> => {
+    const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
+
+    if (!ctx.user) {
+      throw AppError.userNotFound(ctx.from?.id ?? 0);
+    }
+
+    const callbackData = ctx.callbackQuery.data;
+    if (!callbackData) {
+      await ctx.answerCbQuery('Неверные данные callback');
+      return;
+    }
+
+    const match = callbackData.match(/^show_more:(\d+)$/);
+    if (!match) {
+      await ctx.answerCbQuery('Неверный формат показа дополнительных результатов');
+      return;
+    }
+
+    const currentPage = parseInt(match[1], 10);
+
+    try {
+      await ctx.answerCbQuery('Загружаем дополнительные результаты...');
+
+      // TODO: Получить дополнительные результаты
+      await ctx.reply(`📄 <b>Дополнительные результаты</b>\n\nТекущая страница: ${currentPage}\n\nФункция в разработке...`, {
+        parse_mode: 'HTML',
+      });
+    } catch (error) {
+      ConsoleLogger.error('Ошибка при загрузке дополнительных результатов', error as Error, {
+        telegramId: ctx.from?.id,
+        currentPage,
+      });
+      await ctx.answerCbQuery('Ошибка при загрузке результатов');
+    }
   };
 }

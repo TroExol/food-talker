@@ -28,6 +28,7 @@ interface TVectorSearchResult {
   similarity: number;
   category: EDishCategory;
   image: string;
+  ingredients: string[];
 }
 
 interface TDatabaseRow {
@@ -41,6 +42,7 @@ interface TDatabaseRow {
   similarity: number;
   category: EDishCategory;
   image: string;
+  ingredients: string[];
 }
 
 export class VectorSearchService {
@@ -145,14 +147,14 @@ export class VectorSearchService {
           updated_at = CURRENT_TIMESTAMP
       `, [
         menuItem.id,
-        menuItem.name.toLowerCase(),
-        menuItem.description.toLowerCase(),
-        menuItem.ingredients.map(ingredient => ingredient.toLowerCase()),
+        menuItem.name,
+        menuItem.description,
+        menuItem.ingredients,
         menuItem.price,
         menuItem.image,
         menuItem.available,
         menuItem.restaurant.id,
-        menuItem.restaurant.name.toLowerCase(),
+        menuItem.restaurant.name,
         menuItem.orderUrl,
         menuItem.category,
         `[${embedding.join(',')}]`,
@@ -195,7 +197,7 @@ export class VectorSearchService {
       // Строим SQL запрос с фильтрами
       let sql = `
         SELECT 
-          id, name, description, price, restaurant_id, restaurant_name, order_url, category, image,
+          id, name, description, price, restaurant_id, restaurant_name, order_url, category, image, ingredients,
           1 - (embedding <=> $1) as similarity
         FROM dishes 
         WHERE available = true
@@ -212,8 +214,10 @@ export class VectorSearchService {
       }
 
       if (restaurantNames) {
-        sql += ` AND restaurant_name = ANY($${paramIndex})`;
-        params.push(restaurantNames);
+        // проверка с нижним регистром
+        const restaurantNamesLower = restaurantNames.map(name => name.toLowerCase());
+        sql += ` AND LOWER(restaurant_name) = ANY($${paramIndex})`;
+        params.push(restaurantNamesLower);
         paramIndex++;
       }
 
@@ -248,6 +252,7 @@ export class VectorSearchService {
         similarity: row.similarity,
         category: row.category,
         image: row.image,
+        ingredients: row.ingredients,
       }));
 
       ConsoleLogger.debug('Векторный поиск выполнен', {

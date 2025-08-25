@@ -1,10 +1,13 @@
 import type { TBotContext } from '@/types/telegram';
+import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError, EErrorType } from '@/utils/AppError';
 import { EAvailableCities } from '@/config/bot/types';
 
 export class ErrorHandlerMiddleware {
+  constructor(private readonly messageFormatter: MessageFormatterService) {}
+
   public handleError = async (ctx: TBotContext, next: () => Promise<void>): Promise<void> => {
     try {
       await next();
@@ -41,7 +44,15 @@ export class ErrorHandlerMiddleware {
       }
 
       try {
-        await ctx.reply(message);
+        if (error instanceof AppError) {
+          const formattedError = this.messageFormatter.formatErrorMessage(error);
+          await ctx.reply(formattedError.text, {
+            parse_mode: formattedError.parseMode,
+            reply_markup: formattedError.replyMarkup,
+          });
+        } else {
+          await ctx.reply(message);
+        }
       } catch (replyError) {
         ConsoleLogger.error('Не удалось отправить сообщение об ошибке:', replyError as Error);
       }

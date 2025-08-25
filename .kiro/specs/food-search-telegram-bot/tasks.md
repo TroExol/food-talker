@@ -77,7 +77,7 @@
     - _Requirements: 1.2, 2.1, 8.5_
 
 - [ ] 8. Build message formatting and result display
-  - [ ] 8.1 Create MessageFormatter service
+  - [x] 8.1 Create MessageFormatter service
     - Implement search result formatting with photos and details
     - Create inline keyboard generation for "Order" buttons
     - Add pagination support for "Show more" functionality
@@ -158,3 +158,4 @@
   - [ ] 14.2 Limit the number of user requests to 10 requests per month on Basic subscription
   - [ ] 14.3 On Basic subscripton use only vector data base
   - [ ] 14.4 On Premium subscripton use vector data base and LLM
+  - [ ] 14.5 Calc used tokens for user

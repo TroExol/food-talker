@@ -25,9 +25,6 @@ export class VectorSyncService {
 
           await this.vectorSearchService.upsertMenuItem(menuItem);
           syncedDishes++;
-
-          // Небольшая пауза между блюдами
-          await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
           ConsoleLogger.error('Ошибка синхронизации блюда', error as Error, {
             menuItemId: menuItem.id,

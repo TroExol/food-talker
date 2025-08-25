@@ -114,7 +114,7 @@ export class SearchService {
         id: result.id,
         name: result.name,
         description: result.description,
-        tags: [], // Векторный поиск не использует теги
+        tags: result.ingredients,
         price: result.price,
         restaurant: result.restaurant,
         orderUrl: result.orderUrl,
