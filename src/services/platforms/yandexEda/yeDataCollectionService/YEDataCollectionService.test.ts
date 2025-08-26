@@ -15,17 +15,9 @@ import type { YEApiService } from '../yeApiService/YEApiService';
 
 import { YEDataCollectionService } from './YEDataCollectionService';
 
-// Мокаем node-cron
-vi.mock('node-cron', () => ({
-  schedule: vi.fn().mockReturnValue({
-    start: vi.fn(),
-    stop: vi.fn(),
-  }),
-}));
-
 // Мокаем cityValidator
-vi.mock('@/utils/СityValidator', () => ({
-  СityValidator: {
+vi.mock('@/utils/CityValidator', () => ({
+  CityValidator: {
     getCityCoordinates: vi.fn().mockReturnValue({ latitude: 58.01, longitude: 56.23 }),
   },
 }));
@@ -78,34 +70,7 @@ describe('YEDataCollectionService', () => {
     dataCollectionService = new YEDataCollectionService(mockCachedYEService);
   });
 
-  describe('startCollection', () => {
-    it('должен запустить сбор данных и выполнить первоначальную загрузку', async () => {
-      void dataCollectionService.startCollection();
-      await vi.advanceTimersToNextTimerAsync();
-
-      // Проверяем что вызваны методы для загрузки данных
-      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(2); // Для двух городов
-    });
-
-    it('должен предотвратить повторный запуск', async () => {
-      void dataCollectionService.startCollection();
-      await vi.advanceTimersToNextTimerAsync();
-
-      // Попытка повторного запуска
-      await dataCollectionService.startCollection();
-
-      // Должен быть вызван только один раз (первый запуск)
-      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(2);
-    });
-
-    it('должен обработать ошибку при запуске', async () => {
-      mockCachedYEService.getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
-
-      await expect(dataCollectionService.startCollection()).rejects.toThrow('Не удалось запустить сбор данных');
-    });
-  });
-
-  describe('updateRestaurantData', () => {
+  describe('updateRestaurants', () => {
     it('должен обновить данные для всех городов', async () => {
       await dataCollectionService.updateRestaurants();
 
@@ -120,7 +85,7 @@ describe('YEDataCollectionService', () => {
     });
   });
 
-  describe('updateMenuData', () => {
+  describe('updateRestaurantMenu', () => {
     it('должен обновить меню ресторана', async () => {
       await dataCollectionService.updateRestaurantMenu('restaurant-1', EAvailableCities.PERM);
 
@@ -146,8 +111,6 @@ describe('YEDataCollectionService', () => {
         lastUpdateTime: null, // Еще не было обновлений
         totalRestaurants: 5,
         totalMenuItems: 25,
-        updateFrequency: 'каждые 40 минут',
-        isRunning: false,
         errors: 0,
       });
     });
@@ -167,14 +130,32 @@ describe('YEDataCollectionService', () => {
     });
   });
 
-  describe('stopCollection', () => {
-    it('должен остановить сбор данных и cron задачи', async () => {
-      void dataCollectionService.startCollection();
-      await vi.advanceTimersToNextTimerAsync();
-      dataCollectionService.stopCollection();
+  describe('initialDataLoad', () => {
+    it('должен выполнить первоначальную загрузку данных', async () => {
+      void dataCollectionService.initialDataLoad();
+      await vi.runAllTimersAsync();
 
-      const stats = await dataCollectionService.getCollectionStats();
-      expect(stats.isRunning).toBe(false);
+      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(2); // Для двух городов
+    });
+
+    it('должен обработать ошибку при загрузке', async () => {
+      mockCachedYEService.getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
+
+      await expect(dataCollectionService.initialDataLoad()).rejects.toThrow('Не удалось загрузить первоначальные данные');
+    });
+  });
+
+  describe('updateCityRestaurants', () => {
+    it('должен обновить данные ресторанов для города', async () => {
+      await dataCollectionService.updateCityRestaurants(EAvailableCities.PERM);
+
+      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledWith(EAvailableCities.PERM);
+    });
+
+    it('должен обработать ошибку при обновлении города', async () => {
+      mockCachedYEService.getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
+
+      await expect(dataCollectionService.updateCityRestaurants(EAvailableCities.PERM)).rejects.toThrow();
     });
   });
 });

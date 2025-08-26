@@ -16,6 +16,7 @@ export interface TMenuItemEntity {
   category: string;
   image: string;
   ingredients: string[];
+  expires_at: string;
 }
 
 export type TVectorMenuItem = {

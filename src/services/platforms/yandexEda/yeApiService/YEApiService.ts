@@ -27,7 +27,6 @@ export class YEApiService {
   // TTL для разных типов данных (в секундах)
   private readonly cacheTTL = {
     restaurants: 3600, // 1 час
-    menu: 1800, // 30 минут
   };
 
   constructor(
@@ -210,7 +209,7 @@ export class YEApiService {
       void this.menuService.createMenu(menuItems);
 
       // Кэшируем результат
-      await this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);
+      await this.cacheService.set(cacheKey, menuItems, botConfig.cache.ttlMenu);
 
       ConsoleLogger.info('Меню Яндекс.Еда загружено и кэшировано', {
         restaurantId,

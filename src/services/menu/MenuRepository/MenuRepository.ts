@@ -5,6 +5,7 @@ import type { EAvailableCities } from '@/config/bot/types';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
+import { botConfig } from '@/config/bot';
 
 import type {
   TMenuItemEntity,
@@ -20,11 +21,13 @@ export class MenuRepository {
 
   public create = async (menuItem: TVectorMenuItem): Promise<TVectorMenuItem> => {
     try {
+      const expiresAt = new Date(Date.now() + botConfig.cache.ttlMenu * 1000).toISOString();
+
       await this.db.run(`
         INSERT INTO dishes (
           id, name, description, ingredients, price, image, available,
-          restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, order_url, category, embedding
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, order_url, category, embedding, expires_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
           description = EXCLUDED.description,
@@ -38,6 +41,7 @@ export class MenuRepository {
           order_url = EXCLUDED.order_url,
           category = EXCLUDED.category,
           embedding = EXCLUDED.embedding,
+          expires_at = EXCLUDED.expires_at,
           updated_at = CURRENT_TIMESTAMP
       `, [
         menuItem.id,
@@ -54,6 +58,7 @@ export class MenuRepository {
         menuItem.orderUrl,
         menuItem.category,
         `[${menuItem.embedding.join(',')}]`,
+        expiresAt,
       ]);
 
       ConsoleLogger.info('Блюдо создано', { menuItemId: menuItem.id });
@@ -66,10 +71,12 @@ export class MenuRepository {
 
   public createBulk = async (menu: TVectorMenuItem[]): Promise<void> => {
     try {
+      const expiresAt = new Date(Date.now() + botConfig.cache.ttlMenu * 1000).toISOString();
+
       await this.db.run(`
       INSERT INTO dishes (
         id, name, description, ingredients, price, image, available,
-        restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, order_url, category, embedding
+        restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, order_url, category, embedding, expires_at
       ) VALUES $1
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -84,6 +91,7 @@ export class MenuRepository {
         order_url = EXCLUDED.order_url,
         category = EXCLUDED.category,
         embedding = EXCLUDED.embedding,
+        expires_at = EXCLUDED.expires_at,
         updated_at = CURRENT_TIMESTAMP
       RETURNING id
       `, [
@@ -102,6 +110,7 @@ export class MenuRepository {
           item.orderUrl,
           item.category,
           `[${item.embedding.join(',')}]`,
+          expiresAt,
         ]),
       ]);
     } catch (error) {
@@ -113,7 +122,7 @@ export class MenuRepository {
   public findById = async (menuItemId: string): Promise<TVectorSearchResultItem | null> => {
     try {
       const menuItemEntity = await this.db.get<TMenuItemEntity>(`
-        SELECT * FROM dishes WHERE id = $1
+        SELECT * FROM dishes WHERE id = $1 AND expires_at > CURRENT_TIMESTAMP
       `, [menuItemId]);
 
       if (!menuItemEntity) {
@@ -151,6 +160,7 @@ export class MenuRepository {
         FROM dishes 
         WHERE available = true
           AND 1 - (embedding <=> $1) >= $2
+          AND expires_at > CURRENT_TIMESTAMP
       `;
 
       const params: unknown[] = [`[${queryEmbedding.join(',')}]`, minSimilarity];
@@ -355,12 +365,31 @@ export class MenuRepository {
 
   public getMenuCount = async (): Promise<number> => {
     try {
-      const result = await this.db.get<{ count: string }>('SELECT COUNT(*) as count FROM dishes');
+      const result = await this.db.get<{ count: string }>('SELECT COUNT(*) as count FROM dishes WHERE expires_at > CURRENT_TIMESTAMP');
 
       return parseInt(result?.count || '0', 10);
     } catch (error) {
       ConsoleLogger.error('Ошибка получения количества блюд', error as Error);
       throw error;
+    }
+  };
+
+  public cleanupExpiredDishes = async (): Promise<number> => {
+    try {
+      const result = await this.db.run(`
+        DELETE FROM dishes 
+        WHERE expires_at <= CURRENT_TIMESTAMP
+      `);
+
+      const deletedCount = result.changes;
+      if (deletedCount > 0) {
+        ConsoleLogger.info('Очищены просроченные блюда', { deletedCount });
+      }
+
+      return deletedCount;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка очистки просроченных блюд', error as Error);
+      throw AppError.databaseError('CLEANUP_EXPIRED_DISHES_FAILED', 'Не удалось очистить просроченные блюда');
     }
   };
 

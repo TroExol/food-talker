@@ -139,6 +139,7 @@ const migrations: TMigration[] = [
           order_url TEXT NOT NULL,
           category VARCHAR(50) NOT NULL,
           embedding vector(768),
+          expires_at TIMESTAMP NOT NULL,
           created_at TEXT DEFAULT now(),
           updated_at TEXT DEFAULT now()
         )
@@ -154,6 +155,8 @@ const migrations: TMigration[] = [
       await db.run('CREATE INDEX IF NOT EXISTS dishes_price_idx ON dishes(price)');
       // Индексы для координат ресторанов
       await db.run('CREATE INDEX IF NOT EXISTS dishes_coordinates_idx ON dishes(restaurant_latitude, restaurant_longitude)');
+      // Индекс для TTL
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_expires_at_idx ON dishes(expires_at)');
     },
     down: async db => {
       await db.run('DROP TABLE IF EXISTS search_history');
@@ -185,6 +188,30 @@ const migrations: TMigration[] = [
 
       // Удаляем индекс
       await db.run('DROP INDEX IF EXISTS dishes_coordinates_idx');
+    },
+  },
+  {
+    version: 3,
+    description: 'Добавление TTL для записей в таблице dishes',
+    up: async db => {
+      // Добавляем колонку expires_at если её нет
+      await db.run(`
+        ALTER TABLE dishes
+        ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP
+      `);
+
+      // Создаем индекс для TTL
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_expires_at_idx ON dishes(expires_at)');
+    },
+    down: async db => {
+      // Удаляем колонку expires_at
+      await db.run(`
+        ALTER TABLE dishes
+        DROP COLUMN IF EXISTS expires_at
+      `);
+
+      // Удаляем индекс
+      await db.run('DROP INDEX IF EXISTS dishes_expires_at_idx');
     },
   },
 ];

@@ -1,5 +1,3 @@
-import * as cron from 'node-cron';
-
 import type { EAvailableCities } from '@/config/bot/types';
 
 import { sleep } from '@/utils/sleep';
@@ -8,87 +6,16 @@ import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
 import { botConfig } from '@/config/bot';
 
-import type { TCollectionStats, TYEDataCollectionService } from './types';
+import type { TCollectionStats } from './types';
 import type { YEApiService } from '../yeApiService/YEApiService';
 
-export class YEDataCollectionService implements TYEDataCollectionService {
-  private cronJobs: cron.ScheduledTask[] = [];
-  private isRunning = false;
+export class YEDataCollectionService {
   private lastUpdateTime: Date | null = null;
   private errorCount = 0;
-  private readonly frequencyMinutes = {
-    updateRestaurants: 40,
-  };
 
   constructor(
     private readonly yeApiService: YEApiService,
   ) { }
-
-  public startCollection = async (): Promise<void> => {
-    try {
-      if (this.isRunning) {
-        ConsoleLogger.warn('Сбор данных Яндекс.Еда уже запущен');
-        return;
-      }
-
-      this.isRunning = true;
-      this.scheduleUpdates();
-
-      // Выполняем первоначальную загрузку данных
-      await this.initialDataLoad();
-
-      ConsoleLogger.info('Сбор данных Яндекс.Еда запущен');
-    } catch (error) {
-      this.isRunning = false;
-      ConsoleLogger.error('Не удалось запустить сбор данных Яндекс.Еда', error as Error);
-      throw AppError.dataCollectionError('Не удалось запустить сбор данных Яндекс.Еда', error);
-    }
-  };
-
-  public stopCollection = (): void => {
-    try {
-      this.isRunning = false;
-
-      // Останавливаем все cron задачи
-      this.cronJobs.forEach(job => {
-        void (async () => {
-          try {
-            await job.stop();
-          } catch (error) {
-            ConsoleLogger.error('Не удалось остановить cron задачу Яндекс.Еда', error as Error);
-          }
-        })();
-      });
-      this.cronJobs = [];
-
-      ConsoleLogger.info('Сбор данных Яндекс.Еда остановлен');
-    } catch (error) {
-      ConsoleLogger.error('Не удалось остановить сбор данных Яндекс.Еда', error as Error);
-      throw AppError.dataCollectionError('Не удалось остановить сбор данных Яндекс.Еда', error);
-    }
-  };
-
-  public scheduleUpdates = (): void => {
-    try {
-      // Обновление данных ресторанов каждые 40 минут
-      const restaurantsUpdateJob = cron.schedule(`*/${this.frequencyMinutes.updateRestaurants} * * * *`, async () => {
-        ConsoleLogger.info('Начало запланированного обновления данных ресторанов Яндекс.Еда');
-        await this.updateRestaurants();
-      });
-
-      this.cronJobs.push(restaurantsUpdateJob);
-
-      // Запускаем задачи
-      void restaurantsUpdateJob.start();
-
-      ConsoleLogger.info('Настроены задачи сбора данных Яндекс.Еда', {
-        updateRestaurants: `каждые ${this.frequencyMinutes.updateRestaurants} минут`,
-      });
-    } catch (error) {
-      ConsoleLogger.error('Не удалось настроить задачи сбора данных Яндекс.Еда', error as Error);
-      throw AppError.dataCollectionError('Не удалось настроить задачи сбора данных Яндекс.Еда', error);
-    }
-  };
 
   public updateRestaurants = async (): Promise<void> => {
     try {
@@ -136,8 +63,6 @@ export class YEDataCollectionService implements TYEDataCollectionService {
         lastUpdateTime: this.lastUpdateTime,
         totalRestaurants: cacheStats.restaurants,
         totalMenuItems: cacheStats.menus,
-        updateFrequency: `каждые ${this.frequencyMinutes.updateRestaurants} минут`,
-        isRunning: this.isRunning,
         errors: this.errorCount,
       };
     } catch (error) {
@@ -146,7 +71,7 @@ export class YEDataCollectionService implements TYEDataCollectionService {
     }
   };
 
-  private initialDataLoad = async (): Promise<void> => {
+  public initialDataLoad = async (): Promise<void> => {
     try {
       ConsoleLogger.info('Начало первоначальной загрузки данных Яндекс.Еда');
 

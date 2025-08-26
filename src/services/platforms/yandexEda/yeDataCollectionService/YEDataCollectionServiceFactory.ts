@@ -12,4 +12,8 @@ export class YEDataCollectionServiceFactory {
     }
     return YEDataCollectionServiceFactory.instance;
   };
+
+  static resetInstance = (): void => {
+    YEDataCollectionServiceFactory.instance = null;
+  };
 }

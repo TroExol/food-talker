@@ -9,6 +9,9 @@ export const botConfig: TBotConfig = {
       minLength: 2,
     },
   },
+  cache: {
+    ttlMenu: 1800,
+  },
   availableCities: Object.values(EAvailableCities),
   yandexEda: {
     baseUrl: 'https://eda.yandex.ru',

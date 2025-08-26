@@ -12,11 +12,16 @@ export interface TSanitizerConfig {
   userSearchPrompt: TUserSerchPromptSanitizerConfig;
 }
 
+export interface TCacheConfig {
+  ttlMenu: number;
+}
+
 export interface TBotConfig {
   yandexEda: TYandexEdaConfig;
   availableCities: EAvailableCities[];
   sanitizer: TSanitizerConfig;
   fallbackFoodImage: string;
+  cache: TCacheConfig;
 }
 
 export interface TYandexEdaConfig {
