@@ -1,4 +1,4 @@
-import { environment } from '../config/environment';
+import { environment } from '@/config/environment';
 
 export class ConsoleLogger {
   private static logLevel = environment.LOG_LEVEL;

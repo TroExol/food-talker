@@ -1,11 +1,11 @@
 import type { TCoordinates } from '@/types/restaurant';
 import type { TMenuItem } from '@/types/menuItem';
-import type { LLMService } from '@/services/search/LLMService/LLMService';
 import type {
   TYEMenuItemFromServer,
   TYERestaurant,
   TYERestaurantFromServer,
 } from '@/services/platforms/yandexEda/yeApiService/types';
+import type { LLMService } from '@/services/LLMService/LLMService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { EDishCategory } from '@/types/menuItem';
@@ -61,7 +61,7 @@ export class YEDataTransformer implements TYEDataTransformer {
       }
 
       const menuItem: TMenuItem = {
-        id: yeMenuItem.id.toString(),
+        id: `ye_${yeMenuItem.id}`,
         name: yeMenuItem.name,
         description: yeMenuItem.description || '',
         ingredients,

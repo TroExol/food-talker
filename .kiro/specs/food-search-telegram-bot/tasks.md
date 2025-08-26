@@ -86,18 +86,14 @@
   - [ ] 8.2 Add rich message formatting
     - Implement restaurant card formatting with all required fields
     - Create error message templates for user-friendly errors
-    - Add placeholder image handling for missing photos
     - _Requirements: 4.1, 4.5_
 
 - [ ] 9. Implement error handling and monitoring
   - [ ] 9.1 Create comprehensive error handling system
-    - Implement AppError classes with proper categorization
-    - Create error recovery strategies and fallback mechanisms
     - Add admin notification system for critical errors
     - _Requirements: 7.5, 10.4, 11.5_
 
   - [ ] 9.2 Add logging and metrics collection
-    - Implement structured logging with different log levels
     - Create metrics collection for performance monitoring
     - Add health check endpoints for system monitoring
     - _Requirements: 11.1, 11.2, 11.3, 11.4_
@@ -114,26 +110,11 @@
     - Add resource usage tracking and optimization
     - _Requirements: 9.2, 9.5, 11.2_
 
-- [ ] 11. Write comprehensive tests
-  - [ ] 11.1 Create unit tests for all services
-    - Write tests for UserService, SearchService, LLMService
-    - Test YandexEdaService API integration with mocks
-    - Create tests for validation and error handling utilities
-    - _Requirements: All requirements validation_
-
-  - [ ] 11.2 Implement integration tests
-    - Test bot command flows with mock Telegram updates
-    - Create end-to-end search flow tests
-    - Test external API integration with proper mocking
-    - _Requirements: Complete user journey validation_
+- [ ] 11. Connect collectors to CollectionService
+  - [ ] 11.1 Implement CollectionService with other collectors
+  - [ ] 11.2 Start collections wuth bot starting
 
 - [ ] 12. Add configuration and deployment setup
-  - [ ] 12.1 Create environment configuration
-    - Set up environment variable validation
-    - Create configuration files for different environments
-    - Add Docker configuration for deployment
-    - _Requirements: 9.3, 10.1, 10.5_
-
   - [ ] 12.2 Add production readiness features
     - Implement graceful shutdown handling
     - Create health check endpoints

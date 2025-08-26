@@ -9,7 +9,7 @@ export interface TStructuredQuery {
   restaurants?: string[];
   tags?: string[];
   priceRange?: TPriceRange;
-  category?: EDishCategory; // Категории блюд: main, side, drink, sauce, accessory
+  category?: EDishCategory; // Категории блюд
   exclusions?: {
     restaurants?: string[];
     tags?: string[];
@@ -30,6 +30,7 @@ export interface TSearchResultItem {
   description: string;
   tags: string[];
   price: number; // RUB
-  image?: string;
+  image: string;
   orderUrl: string;
+  category: EDishCategory;
 }

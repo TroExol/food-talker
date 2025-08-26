@@ -13,27 +13,10 @@ export interface TSanitizerConfig {
 }
 
 export interface TBotConfig {
-  telegramToken: string;
-  llmApiUrl: string;
-  llmApiKey: string;
-  database: TDatabaseConfig;
-  cache: TCacheConfig;
   yandexEda: TYandexEdaConfig;
   availableCities: EAvailableCities[];
   sanitizer: TSanitizerConfig;
   fallbackFoodImage: string;
-}
-
-export interface TDatabaseConfig {
-  url: string;
-  maxConnections: number;
-  timeout: number;
-}
-
-export interface TCacheConfig {
-  ttl: number;
-  maxSize: number;
-  redisUrl?: string;
 }
 
 export interface TYandexEdaConfig {

@@ -1,11 +1,11 @@
 import { createClient, type RedisClientType } from 'redis';
 
-import type { TCacheConfig } from '@/config/bot/types';
-
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
+import { environment } from '@/config/environment';
 
 import type { TCacheProvider, TCacheProviderStats } from './types';
+import type { TCacheConfig } from '../types';
 
 export class RedisCacheProvider implements TCacheProvider {
   private readonly client: RedisClientType;
@@ -18,12 +18,12 @@ export class RedisCacheProvider implements TCacheProvider {
   constructor(config: TCacheConfig) {
     this.config = config;
 
-    if (!config.redisUrl) {
+    if (!environment.REDIS_URL) {
       throw AppError.cacheError('Redis URL обязателен для Redis cache provider');
     }
 
     this.client = createClient({
-      url: config.redisUrl,
+      url: environment.REDIS_URL,
       socket: {
         reconnectStrategy: retries => {
           ConsoleLogger.warn('Redis переподключение', { attempt: retries });
@@ -38,14 +38,6 @@ export class RedisCacheProvider implements TCacheProvider {
   public async connect(): Promise<void> {
     try {
       if (this.isConnected) {
-        return;
-      }
-
-      if (this.isConnecting) {
-        // Ждем завершения текущего подключения
-        while (this.isConnecting) {
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
         return;
       }
 

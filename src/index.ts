@@ -31,12 +31,9 @@ async function main(): Promise<void> {
     });
   } catch (error) {
     ConsoleLogger.error('Ошибка работы приложения:', error as Error);
-    process.exit(1);
+    void main();
   }
 }
 
 // Запускаем приложение
-main().catch(error => {
-  ConsoleLogger.error('Необработанная ошибка:', error as Error);
-  process.exit(1);
-});
+void main();

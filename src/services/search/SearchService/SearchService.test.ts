@@ -10,11 +10,11 @@ import {
 
 import type { TSearchResultItem } from '@/types/search';
 import type { TRestaurant } from '@/types/restaurant';
-import type { VectorSearchService } from '@/services/vectorSearch/VectorSearchService';
 import type { UserService } from '@/services/user/UserService/UserService';
-import type { LLMService } from '@/services/search/LLMService/LLMService';
+import type { VectorSearchService } from '@/services/search/VectorSearchService/VectorSearchService';
 import type { YESearchService } from '@/services/platforms/yandexEda/yeSearchService/YESearchService';
 import type { YEApiService } from '@/services/platforms/yandexEda/yeApiService/YEApiService';
+import type { LLMService } from '@/services/LLMService/LLMService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { EDishCategory, type TMenuItem } from '@/types/menuItem';
@@ -71,6 +71,7 @@ describe('SearchService', () => {
     },
     orderUrl: 'https://test.com/order',
     image: 'test-image.jpg',
+    category: EDishCategory.MAIN,
   };
 
   beforeEach(() => {
@@ -136,7 +137,9 @@ describe('SearchService', () => {
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
-      const result = await searchService.searchFood('хочу пиццу', 123456789);
+      const result = await searchService.searchFood('хочу пиццу', 123456789, {
+        enableVectorSearch: true,
+      });
 
       expect(result).toHaveLength(1);
       // Проверяем только основные поля, так как векторный поиск может изменить формат
@@ -166,7 +169,9 @@ describe('SearchService', () => {
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
       (mockCacheService.set as Mock).mockResolvedValue(undefined);
 
-      const result = await searchService.searchFood('хочу пиццу', 123456789);
+      const result = await searchService.searchFood('хочу пиццу', 123456789, {
+        enableVectorSearch: true,
+      });
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual(mockSearchResult);
@@ -189,7 +194,9 @@ describe('SearchService', () => {
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue(mockResults);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
-      const result = await searchService.searchFood('хочу пиццу', 123456789);
+      const result = await searchService.searchFood('хочу пиццу', 123456789, {
+        enableVectorSearch: true,
+      });
 
       expect(result).toHaveLength(5);
     });
@@ -216,7 +223,9 @@ describe('SearchService', () => {
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockRejectedValue(new Error('Database error'));
 
-      const result = await searchService.searchFood('хочу пиццу', 123456789);
+      const result = await searchService.searchFood('хочу пиццу', 123456789, {
+        enableVectorSearch: true,
+      });
 
       expect(result).toHaveLength(1);
       expect(mockUserService.addToSearchHistory).toHaveBeenCalled();
@@ -318,6 +327,7 @@ describe('SearchService', () => {
           price: 800,
           image: 'test-image.jpg',
           orderUrl: 'https://test.com/order',
+          category: EDishCategory.MAIN,
         });
       });
     });

@@ -3,11 +3,11 @@ import { createHash } from 'crypto';
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
 import type { TRestaurant } from '@/types/restaurant';
 import type { TMenuItem } from '@/types/menuItem';
-import type { VectorSearchService } from '@/services/vectorSearch/VectorSearchService';
 import type { UserService } from '@/services/user/UserService/UserService';
-import type { LLMService } from '@/services/search/LLMService/LLMService';
+import type { VectorSearchService } from '@/services/search/VectorSearchService/VectorSearchService';
 import type { YESearchService } from '@/services/platforms/yandexEda/yeSearchService/YESearchService';
 import type { YEApiService } from '@/services/platforms/yandexEda/yeApiService/YEApiService';
+import type { LLMService } from '@/services/LLMService/LLMService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 import type { EAvailableCities } from '@/config/bot/types';
 
@@ -55,9 +55,11 @@ export class SearchService {
       );
 
       // Используем векторный поиск вместо структурированного
-      let results = await this.vectorSearch(naturalQuery, structuredQuery);
+      let results = options.enableVectorSearch
+        ? await this.vectorSearch(naturalQuery, structuredQuery)
+        : [];
 
-      // Если векторный поиск не дал результатов, используем традиционный
+      // Если векторный поиск не дал результатов, используем фильтрацию и ранжирование
       if (results.length === 0) {
         ConsoleLogger.info('Векторный поиск не дал результатов, используем традиционный поиск', {
           query: naturalQuery,
@@ -109,26 +111,14 @@ export class SearchService {
         minSimilarity: 0.3,
       });
 
-      // Преобразуем результаты в формат TSearchResultItem
-      const searchResults: TSearchResultItem[] = vectorResults.map(result => ({
-        id: result.id,
-        name: result.name,
-        description: result.description,
-        tags: result.ingredients,
-        price: result.price,
-        restaurant: result.restaurant,
-        orderUrl: result.orderUrl,
-        image: result.image,
-      }));
-
       ConsoleLogger.debug('Векторный поиск выполнен', {
         naturalQuery,
         structuredQuery,
-        resultsCount: searchResults.length,
+        resultsCount: vectorResults.length,
         maxSimilarity: vectorResults[0]?.similarity,
       });
 
-      return searchResults;
+      return vectorResults;
     } catch (error) {
       ConsoleLogger.error('Ошибка векторного поиска', error as Error, { naturalQuery, structuredQuery });
       return []; // Возвращаем пустой массив для fallback к традиционному поиску
@@ -248,6 +238,7 @@ export class SearchService {
     return menuItems.map((item, index): TSearchResultItem => ({
       id: item.id || `search_${index}_${Date.now()}`,
       name: item.name,
+      category: item.category,
       restaurant: {
         id: item.restaurant.id,
         name: item.restaurant.name,

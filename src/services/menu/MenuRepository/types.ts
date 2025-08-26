@@ -1,0 +1,34 @@
+import type { TSearchResultItem } from '@/types/search';
+import type { TMenuItem } from '@/types/menuItem';
+
+export interface TMenuItemEntity {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  restaurant_id: string;
+  restaurant_name: string;
+  available: boolean;
+  order_url: string;
+  similarity: number;
+  category: string;
+  image: string;
+  ingredients: string[];
+}
+
+export type TVectorMenuItem = {
+  embedding: number[];
+} & TMenuItem;
+
+export type TVectorSearchResultItem = {
+  similarity: number;
+} & TSearchResultItem;
+
+export interface TVectorMenuSearchOptions {
+  limit?: number;
+  category?: string;
+  restaurantNames?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  minSimilarity?: number;
+}

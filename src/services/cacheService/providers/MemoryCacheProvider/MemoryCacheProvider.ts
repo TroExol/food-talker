@@ -1,10 +1,9 @@
-import type { TCacheConfig } from '@/config/bot/types';
-
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
 
 import type { TMemoryCacheItem } from './types';
 import type { TCacheProvider, TCacheProviderStats } from '../types';
+import type { TCacheConfig } from '../../types';
 
 export class MemoryCacheProvider implements TCacheProvider {
   private readonly cache = new Map<string, TMemoryCacheItem<unknown>>();

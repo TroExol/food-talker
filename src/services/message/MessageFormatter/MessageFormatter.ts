@@ -374,7 +374,7 @@ ${itemsText}
 
   // Приватные методы форматирования
   private formatSearchResultItem(item: TSearchResultItem, index: number): string {
-    // const image = item.image || botConfig.fallbackFoodImage;
+    // const image = item.image;
     const description = this.truncateText(item.description, this.formattingConfig.maxDescriptionLength);
 
     return `${index}. <b><a href="${item.orderUrl}" target="_blank">${this.escapeHtml(item.name)}</a></b>
@@ -390,7 +390,7 @@ ${description
   }
 
   private formatMenuItemText(item: TMenuItem): string {
-    // const image = item.image || botConfig.fallbackFoodImage;
+    // const image = item.image;
     const description = this.truncateText(item.description, this.formattingConfig.maxDescriptionLength);
 
     return `🍽️ <b>${this.escapeHtml(item.name)}</b>

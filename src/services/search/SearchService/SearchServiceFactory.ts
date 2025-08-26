@@ -1,25 +1,24 @@
-import { vectorSearchService } from '@/services/vectorSearch/instances';
 import { UserServiceFactory } from '@/services/user/UserServiceFactory';
-import { yeSearchService } from '@/services/platforms/yandexEda/yeSearchService/instances';
-import { yeApiService } from '@/services/platforms/yandexEda/yeApiService/instances';
-import { redisCacheService } from '@/services/cacheService/instances';
+import { VectorSearchServiceFactory } from '@/services/search/VectorSearchService/VectorSearchServiceFactory';
+import { YESearchServiceFactory } from '@/services/platforms/yandexEda/yeSearchService/YESearchServiceFactory';
+import { YEApiServiceFactory } from '@/services/platforms/yandexEda/yeApiService/YEApiServiceFactory';
+import { CacheServiceFactory } from '@/services/cacheService/CacheServiceFactory';
 
 import { SearchService } from './SearchService';
-import { llmService } from '../LLMService/instances';
+import { LLMServiceFactory } from '../../LLMService/LLMServiceFactory';
 
 export class SearchServiceFactory {
   private static instance: SearchService | null = null;
 
   static getInstance = async (): Promise<SearchService> => {
     if (!SearchServiceFactory.instance) {
-      const userService = await UserServiceFactory.getInstance();
       return new SearchService(
-        llmService,
-        yeApiService,
-        yeSearchService,
-        userService,
-        redisCacheService,
-        vectorSearchService,
+        LLMServiceFactory.getInstance(),
+        await YEApiServiceFactory.getInstance(),
+        await YESearchServiceFactory.getInstance(),
+        await UserServiceFactory.getInstance(),
+        CacheServiceFactory.getRedisInstance(),
+        await VectorSearchServiceFactory.getInstance(),
       );
     }
     return SearchServiceFactory.instance;

@@ -21,21 +21,38 @@ export class MigrationRunner {
     }
   };
 
+  public runDownMigrations = async (): Promise<void> => {
+    // Получаем текущую версию
+    const currentVersion = await this.getCurrentVersion();
+
+    // Запускаем все миграции начиная с текущей версии
+    for (const migration of migrations) {
+      if (migration.version < currentVersion) {
+        await this.runDownMigration(migration);
+      }
+    }
+  };
+
   private createMigrationsTable = async (): Promise<void> => {
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS migrations (
         version INTEGER PRIMARY KEY,
         description TEXT NOT NULL,
-        applied_at TEXT DEFAULT (datetime('now'))
+        applied_at TEXT DEFAULT now()
       )
     `);
   };
 
   private getCurrentVersion = async (): Promise<number> => {
-    const result = await this.db.get<{ version: number }>(`
-      SELECT version FROM migrations ORDER BY version DESC LIMIT 1
-    `);
-    return result?.version || 0;
+    try {
+      const result = await this.db.get<{ version: number }>(`
+        SELECT version FROM migrations ORDER BY version DESC
+      `);
+      return result?.version || 0;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка получения текущей версии миграций', error as Error);
+      return 0;
+    }
   };
 
   private runMigration = async (migration: TMigration): Promise<void> => {
@@ -45,13 +62,28 @@ export class MigrationRunner {
       await migration.up(this.db);
 
       await this.db.run(`
-        INSERT INTO migrations (version, description) VALUES (?, ?)
+        INSERT INTO migrations (version, description) VALUES ($1, $2)
       `, [migration.version, migration.description]);
 
       ConsoleLogger.info(`Миграция ${migration.version} успешно применена`);
     } catch (error) {
       ConsoleLogger.error(`Ошибка применения миграции ${migration.version}`, error as Error);
       throw AppError.databaseError('MIGRATION_FAILED', `Не удалось применить миграцию ${migration.version}`);
+    }
+  };
+
+  private runDownMigration = async (migration: TMigration): Promise<void> => {
+    try {
+      ConsoleLogger.info(`Откат миграции ${migration.version}: ${migration.description}`);
+
+      await migration.down(this.db);
+
+      await this.db.run(`
+        DELETE FROM migrations WHERE version = $1
+      `, [migration.version]);
+    } catch (error) {
+      ConsoleLogger.error(`Ошибка отката миграции ${migration.version}`, error as Error);
+      throw AppError.databaseError('MIGRATION_FAILED', `Не удалось откатить миграцию ${migration.version}`);
     }
   };
 }
@@ -69,8 +101,8 @@ const migrations: TMigration[] = [
           city TEXT NOT NULL,
           subscription_type TEXT NOT NULL DEFAULT 'basic',
           subscription_expiry TEXT,
-          created_at TEXT DEFAULT (datetime('now')),
-          updated_at TEXT DEFAULT (datetime('now'))
+          created_at TEXT DEFAULT now(),
+          updated_at TEXT DEFAULT now()
         )
       `);
 
@@ -81,33 +113,48 @@ const migrations: TMigration[] = [
           user_telegram_id INTEGER NOT NULL,
           query TEXT NOT NULL,
           structured_query TEXT NOT NULL,
-          results_count INTEGER NOT NULL,
-          created_at TEXT DEFAULT (datetime('now')),
+          results JSONB NOT NULL,
+          created_at TEXT DEFAULT now(),
           FOREIGN KEY (user_telegram_id) REFERENCES users (telegram_id)
         )
       `);
 
-      // Restaurant cache table
+      // Создаем расширение pgvector (только для PostgreSQL)
+      await db.run('CREATE EXTENSION IF NOT EXISTS vector');
+
+      // Создаем таблицу для блюд с векторами
       await db.run(`
-        CREATE TABLE IF NOT EXISTS restaurant_cache (
-          id TEXT PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS dishes (
+          id VARCHAR(255) PRIMARY KEY,
           name TEXT NOT NULL,
-          data TEXT NOT NULL,
-          city TEXT NOT NULL,
-          last_updated TEXT DEFAULT (datetime('now')),
-          is_active INTEGER DEFAULT 1
+          description TEXT,
+          ingredients TEXT,
+          price INTEGER NOT NULL,
+          image TEXT NOT NULL,
+          available BOOLEAN DEFAULT true,
+          restaurant_id VARCHAR(255) NOT NULL,
+          restaurant_name TEXT NOT NULL,
+          order_url TEXT NOT NULL,
+          category VARCHAR(50) NOT NULL,
+          embedding vector(768),
+          created_at TEXT DEFAULT now(),
+          updated_at TEXT DEFAULT now()
         )
       `);
 
       // Индексы для производительности
       await db.run(`CREATE INDEX IF NOT EXISTS idx_users_city ON users(city)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_search_history_user ON search_history(user_telegram_id)`);
-      await db.run(`CREATE INDEX IF NOT EXISTS idx_restaurant_cache_city ON restaurant_cache(city, is_active)`);
+      // Создаем индексы для фильтрации
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_category_idx ON dishes(category)');
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_restaurant_id_idx ON dishes(restaurant_id)');
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_available_idx ON dishes(available)');
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_price_idx ON dishes(price)');
     },
     down: async db => {
-      await db.run('DROP TABLE IF EXISTS restaurant_cache');
       await db.run('DROP TABLE IF EXISTS search_history');
       await db.run('DROP TABLE IF EXISTS users');
+      await db.run('DROP TABLE IF EXISTS dishes');
     },
   },
 ];

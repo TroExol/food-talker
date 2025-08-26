@@ -1,5 +1,5 @@
 import type { TCoordinates } from '@/types/restaurant';
-import type { VectorSyncService } from '@/services/vectorSearch/VectorSyncService';
+import type { MenuService } from '@/services/menu/MenuService/MenuService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 import type { EAvailableCities } from '@/config/bot/types';
 
@@ -33,7 +33,7 @@ export class YEApiService {
   constructor(
     private readonly cacheService: CacheService,
     private readonly yeDataTransformer: YEDataTransformer,
-    private readonly vectorSyncService: VectorSyncService,
+    private readonly menuService: MenuService,
   ) {
     this.config = {
       baseUrl: 'https://eda.yandex.ru',
@@ -207,7 +207,7 @@ export class YEApiService {
       const menuItems = (await this.yeDataTransformer.transformMenu(yeMenu, restaurant))
         .filter(item => item.category !== EDishCategory.ACCESSORY);
 
-      void this.vectorSyncService.syncMenu(menuItems);
+      void this.menuService.createMenu(menuItems);
 
       // Кэшируем результат
       await this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);

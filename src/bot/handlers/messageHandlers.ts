@@ -213,6 +213,7 @@ export class MessageHandlers {
       // Выполняем поиск через SearchService
       const results = await this.searchService.searchFood(query, ctx.user.telegramId, {
         enableLLMEnhancement: true,
+        enableVectorSearch: true,
         maxEnhenceMenu: 60,
       });
 

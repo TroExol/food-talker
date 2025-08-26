@@ -57,6 +57,7 @@ describe('MessageFormatterService', () => {
       price: 750,
       image: 'https://example.com/search-image.jpg',
       orderUrl: 'https://example.com/search-order',
+      category: EDishCategory.MAIN,
     };
   });
 

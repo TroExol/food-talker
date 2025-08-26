@@ -1,22 +1,8 @@
 import type { TBotConfig } from './types';
 
 import { EAvailableCities } from './types';
-import { environment } from '../environment';
 
 export const botConfig: TBotConfig = {
-  telegramToken: environment.BOT_TOKEN,
-  llmApiUrl: environment.LLM_API_URL,
-  llmApiKey: environment.LLM_API_KEY,
-  database: {
-    url: environment.DATABASE_URL,
-    maxConnections: 10,
-    timeout: 5000,
-  },
-  cache: {
-    ttl: 3600, // 1 hour
-    maxSize: 100000,
-    redisUrl: environment.REDIS_URL,
-  },
   sanitizer: {
     userSearchPrompt: {
       maxLength: 500,
