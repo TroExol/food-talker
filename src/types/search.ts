@@ -21,6 +21,10 @@ export interface TStructuredQuery {
 interface TRestaurantInfo {
   id: string;
   name: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export interface TSearchResultItem {

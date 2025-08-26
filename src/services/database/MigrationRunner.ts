@@ -134,6 +134,8 @@ const migrations: TMigration[] = [
           available BOOLEAN DEFAULT true,
           restaurant_id VARCHAR(255) NOT NULL,
           restaurant_name TEXT NOT NULL,
+          restaurant_latitude DECIMAL(10, 8) NOT NULL,
+          restaurant_longitude DECIMAL(11, 8) NOT NULL,
           order_url TEXT NOT NULL,
           category VARCHAR(50) NOT NULL,
           embedding vector(768),
@@ -150,11 +152,39 @@ const migrations: TMigration[] = [
       await db.run('CREATE INDEX IF NOT EXISTS dishes_restaurant_id_idx ON dishes(restaurant_id)');
       await db.run('CREATE INDEX IF NOT EXISTS dishes_available_idx ON dishes(available)');
       await db.run('CREATE INDEX IF NOT EXISTS dishes_price_idx ON dishes(price)');
+      // Индексы для координат ресторанов
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_coordinates_idx ON dishes(restaurant_latitude, restaurant_longitude)');
     },
     down: async db => {
       await db.run('DROP TABLE IF EXISTS search_history');
       await db.run('DROP TABLE IF EXISTS users');
       await db.run('DROP TABLE IF EXISTS dishes');
+    },
+  },
+  {
+    version: 2,
+    description: 'Добавление координат ресторанов в таблицу dishes',
+    up: async db => {
+      // Добавляем колонки координат если их нет
+      await db.run(`
+        ALTER TABLE dishes
+        ADD COLUMN IF NOT EXISTS restaurant_latitude DECIMAL(10, 8),
+        ADD COLUMN IF NOT EXISTS restaurant_longitude DECIMAL(11, 8)
+      `);
+
+      // Создаем индекс для координат
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_coordinates_idx ON dishes(restaurant_latitude, restaurant_longitude)');
+    },
+    down: async db => {
+      // Удаляем колонки координат
+      await db.run(`
+        ALTER TABLE dishes
+        DROP COLUMN IF EXISTS restaurant_latitude,
+        DROP COLUMN IF EXISTS restaurant_longitude
+      `);
+
+      // Удаляем индекс
+      await db.run('DROP INDEX IF EXISTS dishes_coordinates_idx');
     },
   },
 ];

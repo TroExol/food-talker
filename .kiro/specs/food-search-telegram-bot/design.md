@@ -318,6 +318,8 @@ interface TMenuService {
 }
 ```
 
+**Фильтрация по городу**: Метод `searchByEmbedding` поддерживает фильтрацию по городу с использованием координат ресторанов. При указании параметра `city` система автоматически фильтрует результаты по радиусу доставки (по умолчанию 50 км) от центра указанного города.
+
 **EmbeddingService** - Генерация эмбеддингов
 ```typescript
 interface TEmbeddingService {
@@ -595,6 +597,8 @@ interface TVectorMenuSearchOptions {
   minPrice?: number
   maxPrice?: number
   minSimilarity?: number
+  city?: string
+  deliveryRadiusKm?: number
 }
 
 // Yandex.Eda API Response Types
@@ -1065,6 +1069,8 @@ interface TVectorMenuItemEntity {
   price: number
   restaurant_id: string
   restaurant_name: string
+  restaurant_latitude: number
+  restaurant_longitude: number
   available: boolean
   order_url: string
   category: string

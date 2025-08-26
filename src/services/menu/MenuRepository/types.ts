@@ -8,6 +8,8 @@ export interface TMenuItemEntity {
   price: number;
   restaurant_id: string;
   restaurant_name: string;
+  restaurant_latitude: number;
+  restaurant_longitude: number;
   available: boolean;
   order_url: string;
   similarity: number;
@@ -31,4 +33,6 @@ export interface TVectorMenuSearchOptions {
   minPrice?: number;
   maxPrice?: number;
   minSimilarity?: number;
+  city?: string;
+  deliveryRadiusKm?: number;
 }

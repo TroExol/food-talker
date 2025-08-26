@@ -154,6 +154,7 @@ describe('SearchService', () => {
         restaurantNames: undefined,
         minPrice: undefined,
         maxPrice: undefined,
+        city: EAvailableCities.PERM,
       });
       expect(mockUserService.addToSearchHistory).toHaveBeenCalled();
     });

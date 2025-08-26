@@ -56,7 +56,7 @@ export class SearchService {
 
       // Используем векторный поиск вместо структурированного
       let results = options.enableVectorSearch
-        ? await this.vectorSearch(naturalQuery, structuredQuery)
+        ? await this.vectorSearch(user.city, naturalQuery, structuredQuery)
         : [];
 
       // Если векторный поиск не дал результатов, используем фильтрацию и ранжирование
@@ -98,6 +98,7 @@ export class SearchService {
 
   // Векторный поиск
   private vectorSearch = async (
+    city: EAvailableCities,
     naturalQuery: string,
     structuredQuery: TStructuredQuery,
   ): Promise<TSearchResultItem[]> => {
@@ -109,6 +110,7 @@ export class SearchService {
         maxPrice: structuredQuery.priceRange?.max,
         limit: 200,
         minSimilarity: 0.3,
+        city,
       });
 
       ConsoleLogger.debug('Векторный поиск выполнен', {

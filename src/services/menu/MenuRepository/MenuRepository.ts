@@ -1,8 +1,9 @@
 import type { EDishCategory, TMenuItem } from '@/types/menuItem';
-import type { EmbeddingService } from '@/services/EmbeddingService/EmbeddingService';
 import type { TDatabaseConnection } from '@/services/database/types';
+import type { EAvailableCities } from '@/config/bot/types';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
 
 import type {
@@ -14,7 +15,6 @@ import type {
 
 export class MenuRepository {
   constructor(
-    private readonly embeddingService: EmbeddingService,
     private readonly db: TDatabaseConnection,
   ) {}
 
@@ -23,8 +23,8 @@ export class MenuRepository {
       await this.db.run(`
         INSERT INTO dishes (
           id, name, description, ingredients, price, image, available,
-          restaurant_id, restaurant_name, order_url, category, embedding
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, order_url, category, embedding
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
           description = EXCLUDED.description,
@@ -33,6 +33,8 @@ export class MenuRepository {
           image = EXCLUDED.image,
           available = EXCLUDED.available,
           restaurant_name = EXCLUDED.restaurant_name,
+          restaurant_latitude = EXCLUDED.restaurant_latitude,
+          restaurant_longitude = EXCLUDED.restaurant_longitude,
           order_url = EXCLUDED.order_url,
           category = EXCLUDED.category,
           embedding = EXCLUDED.embedding,
@@ -47,6 +49,8 @@ export class MenuRepository {
         menuItem.available,
         menuItem.restaurant.id,
         menuItem.restaurant.name,
+        menuItem.restaurant.coordinates.latitude,
+        menuItem.restaurant.coordinates.longitude,
         menuItem.orderUrl,
         menuItem.category,
         `[${menuItem.embedding.join(',')}]`,
@@ -65,7 +69,7 @@ export class MenuRepository {
       await this.db.run(`
       INSERT INTO dishes (
         id, name, description, ingredients, price, image, available,
-        restaurant_id, restaurant_name, order_url, category, embedding
+        restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, order_url, category, embedding
       ) VALUES $1
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -75,6 +79,8 @@ export class MenuRepository {
         image = EXCLUDED.image,
         available = EXCLUDED.available,
         restaurant_name = EXCLUDED.restaurant_name,
+        restaurant_latitude = EXCLUDED.restaurant_latitude,
+        restaurant_longitude = EXCLUDED.restaurant_longitude,
         order_url = EXCLUDED.order_url,
         category = EXCLUDED.category,
         embedding = EXCLUDED.embedding,
@@ -91,6 +97,8 @@ export class MenuRepository {
           item.available,
           item.restaurant.id,
           item.restaurant.name,
+          item.restaurant.coordinates.latitude,
+          item.restaurant.coordinates.longitude,
           item.orderUrl,
           item.category,
           `[${item.embedding.join(',')}]`,
@@ -131,12 +139,14 @@ export class MenuRepository {
         minPrice,
         maxPrice,
         minSimilarity = 0.3,
+        city,
+        deliveryRadiusKm = 50,
       } = options;
 
       // Строим SQL запрос с фильтрами
       let sql = `
         SELECT 
-          id, name, description, price, restaurant_id, restaurant_name, available, order_url, category, image, ingredients,
+          id, name, description, price, restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, available, order_url, category, image, ingredients,
           1 - (embedding <=> $1) as similarity
         FROM dishes 
         WHERE available = true
@@ -145,6 +155,25 @@ export class MenuRepository {
 
       const params: unknown[] = [`[${queryEmbedding.join(',')}]`, minSimilarity];
       let paramIndex = 3;
+
+      // Фильтрация по городу (радиус доставки)
+      if (city) {
+        const cityCoords = CityValidator.getCityCoordinates(city as EAvailableCities);
+        if (cityCoords) {
+          // Используем формулу гаверсинуса для расчета расстояния
+          sql += `
+            AND (
+              6371 * acos(
+                cos(radians($${paramIndex})) * cos(radians(restaurant_latitude)) * 
+                cos(radians(restaurant_longitude) - radians($${paramIndex + 1})) + 
+                sin(radians($${paramIndex})) * sin(radians(restaurant_latitude))
+              )
+            ) <= $${paramIndex + 2}
+          `;
+          params.push(cityCoords.latitude, cityCoords.longitude, deliveryRadiusKm);
+          paramIndex += 3;
+        }
+      }
 
       if (category) {
         sql += ` AND category = $${paramIndex}`;
@@ -184,6 +213,10 @@ export class MenuRepository {
         restaurant: {
           id: row.restaurant_id,
           name: row.restaurant_name,
+          coordinates: {
+            latitude: row.restaurant_latitude,
+            longitude: row.restaurant_longitude,
+          },
         },
         available: row.available,
         orderUrl: row.order_url,
@@ -251,6 +284,14 @@ export class MenuRepository {
         setParts.push(`restaurant_name = $${paramIndex}`);
         paramIndex++;
         values.push(updates.restaurant.name);
+        if (updates.restaurant.coordinates) {
+          setParts.push(`restaurant_latitude = $${paramIndex}`);
+          paramIndex++;
+          values.push(updates.restaurant.coordinates.latitude);
+          setParts.push(`restaurant_longitude = $${paramIndex}`);
+          paramIndex++;
+          values.push(updates.restaurant.coordinates.longitude);
+        }
       }
       if (updates.orderUrl !== undefined) {
         setParts.push(`order_url = $${paramIndex}`);
@@ -334,6 +375,10 @@ export class MenuRepository {
       restaurant: {
         id: entity.restaurant_id,
         name: entity.restaurant_name,
+        coordinates: {
+          latitude: entity.restaurant_latitude,
+          longitude: entity.restaurant_longitude,
+        },
       },
       orderUrl: entity.order_url,
       category: entity.category as EDishCategory,
