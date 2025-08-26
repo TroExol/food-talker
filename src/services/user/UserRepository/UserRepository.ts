@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import type {
-  ESubscriptionType,
   TSearchHistoryEntity,
   TSearchHistoryItem,
   TUser,
@@ -11,6 +10,7 @@ import type { TDatabaseConnection } from '@/services/database/types';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
+import { ESubscriptionType } from '@/services/user/UserRepository/types';
 
 interface TUserRepository {
   create: (userData: Omit<TUser, 'createdAt' | 'updatedAt'>) => Promise<TUser>;
@@ -151,15 +151,34 @@ export class UserRepository implements TUserRepository {
 
   public findExpiredSubscriptions = async (): Promise<TUser[]> => {
     try {
-      const now = new Date().toISOString();
       const entities = await this.db.query<TUserEntity>(`
-        SELECT * FROM users WHERE subscription_expiry IS NOT NULL AND subscription_expiry < $1
-      `, [now]);
+        SELECT * FROM users WHERE subscription_expiry IS NOT NULL AND subscription_expiry < NOW()
+      `);
 
       return entities.map(entity => this.entityToUser(entity));
     } catch (error) {
       ConsoleLogger.error('Ошибка поиска просроченных подписок', error as Error);
       throw AppError.databaseError('EXPIRED_SUBSCRIPTIONS_FAILED', 'Не удалось найти просроченные подписки');
+    }
+  };
+
+  public cleanupExpiredSubscriptions = async (): Promise<number> => {
+    try {
+      const result = await this.db.run(`
+        UPDATE users 
+        SET subscription_type = ?, subscription_expiry = NULL, updated_at = NOW()
+        WHERE subscription_expiry IS NOT NULL AND subscription_expiry < NOW()
+      `, [ESubscriptionType.BASIC]);
+
+      const updatedCount = result.changes;
+      if (updatedCount > 0) {
+        ConsoleLogger.info('Сброшены просроченные подписки на BASIC', { updatedCount });
+      }
+
+      return updatedCount;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка сброса просроченных подписок', error as Error);
+      throw AppError.databaseError('CLEANUP_EXPIRED_SUBSCRIPTIONS_FAILED', 'Не удалось сбросить просроченные подписки');
     }
   };
 

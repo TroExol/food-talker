@@ -1,5 +1,5 @@
 import type { TBotContext, TCommandHandler } from '@/types/telegram';
-import type { TUserService } from '@/services/user/UserService/types';
+import type { UserService } from '@/services/user/UserService/UserService';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
@@ -9,7 +9,7 @@ import { EAvailableCities } from '@/config/bot/types';
 
 export class CommandHandlers {
   constructor(
-    private readonly userService: TUserService,
+    private readonly userService: UserService,
     private readonly messageFormatter: MessageFormatterService,
   ) {}
 

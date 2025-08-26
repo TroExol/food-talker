@@ -1,3 +1,4 @@
+import type { UserRepository } from '@/services/user/UserRepository/UserRepository';
 import type {
   YEDataCollectionService,
 } from '@/services/platforms/yandexEda/yeDataCollectionService/YEDataCollectionService';
@@ -14,6 +15,7 @@ export class AppSchedulerService {
     private readonly schedulerService: SchedulerService,
     private readonly yeDataCollectionService: YEDataCollectionService,
     private readonly menuRepository: MenuRepository,
+    private readonly userRepository: UserRepository,
   ) { }
 
   public startAllJobs = (): void => {
@@ -85,6 +87,16 @@ export class AppSchedulerService {
       task: async () => {
         ConsoleLogger.info('Начало запланированной очистки просроченных блюд');
         await this.menuRepository.cleanupExpiredDishes();
+      },
+    });
+
+    this.schedulerService.addJob({
+      id: 'cleanup-expired-subscriptions',
+      name: 'Очистка просроченных подписок',
+      cronExpression: `0 0 * * *`, // каждый день в 00:00
+      task: async () => {
+        ConsoleLogger.info('Начало запланированной очистки просроченных подписок');
+        await this.userRepository.cleanupExpiredSubscriptions();
       },
     });
   };

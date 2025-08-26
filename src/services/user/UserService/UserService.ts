@@ -7,10 +7,9 @@ import { AppError } from '@/utils/AppError';
 import { ESubscriptionType } from '@/services/user/UserRepository/types';
 import { EAvailableCities } from '@/config/bot/types';
 
-import type { TUserService } from './types';
 import type { UserRepository } from '../UserRepository/UserRepository';
 
-export class UserService implements TUserService {
+export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
   ) {}
@@ -146,7 +145,6 @@ export class UserService implements TUserService {
 
   public checkSubscriptionExpiry = async (): Promise<TUser[]> => {
     try {
-      // TODO: добавить cron job для проверки просроченных подписок и переключения на BASIC подписку
       const expiredUsers = await this.userRepository.findExpiredSubscriptions();
       ConsoleLogger.info('Найдены пользователи с просроченными подписками', { count: expiredUsers.length });
       return expiredUsers;

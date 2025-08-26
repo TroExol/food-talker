@@ -1,3 +1,4 @@
+import { UserRepositoryFactory } from '@/services/user/UserRepository/UserRepositoryFactory';
 import {
   YEDataCollectionServiceFactory,
 } from '@/services/platforms/yandexEda/yeDataCollectionService/YEDataCollectionServiceFactory';
@@ -15,6 +16,7 @@ export class AppSchedulerServiceFactory {
         SchedulerServiceFactory.getInstance(),
         await YEDataCollectionServiceFactory.getInstance(),
         await MenuRepositoryFactory.getInstance(),
+        await UserRepositoryFactory.getInstance(),
       );
     }
     return AppSchedulerServiceFactory.instance;
