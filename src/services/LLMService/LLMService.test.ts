@@ -11,19 +11,13 @@ import {
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
+import { EDishCategory } from '@/types/menuItem';
+
 import { LLMService } from './LLMService';
 
 // Мокируем fetch
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
-
-// Мокируем конфигурацию
-vi.mock('@/config/bot', () => ({
-  botConfig: {
-    llmApiUrl: 'https://api.openrouter.ai/v1/chat/completions',
-    llmApiKey: 'test-api-key',
-  },
-}));
 
 describe('LLMService', () => {
   let llmService: LLMService;
@@ -74,14 +68,14 @@ describe('LLMService', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.openrouter.ai/v1/chat/completions',
+        'test-llm-api-url',
         expect.objectContaining({
           method: 'POST',
           headers: {
-            'Authorization': 'Bearer test-api-key',
+            'Authorization': 'Bearer test-llm-api-key',
             'Content-Type': 'application/json',
           },
-          body: expect.stringContaining('хочу пиццу с сыром до 800 рублей') as object,
+          body: expect.stringContaining('хочу пиццу с сыром до 800 рублей') as string,
         }),
       );
     });
@@ -210,6 +204,8 @@ describe('LLMService', () => {
         tags: ['тесто', 'сыр', 'томаты'],
         price: 500,
         orderUrl: 'https://example.com/1',
+        category: EDishCategory.MAIN,
+        image: 'https://example.com/1',
       },
       {
         id: '2',
@@ -219,6 +215,8 @@ describe('LLMService', () => {
         tags: ['тесто', 'сыр', 'пепперони'],
         price: 600,
         orderUrl: 'https://example.com/2',
+        category: EDishCategory.MAIN,
+        image: 'https://example.com/2',
       },
     ];
 
@@ -330,9 +328,39 @@ describe('LLMService', () => {
     };
 
     const mockResults: TSearchResultItem[] = [
-      { id: '1', name: 'Блюдо 1', restaurant: { id: '1', name: 'Ресторан 1' }, description: '', tags: [], price: 100, orderUrl: '' },
-      { id: '2', name: 'Блюдо 2', restaurant: { id: '1', name: 'Ресторан 1' }, description: '', tags: [], price: 200, orderUrl: '' },
-      { id: '3', name: 'Блюдо 3', restaurant: { id: '1', name: 'Ресторан 1' }, description: '', tags: [], price: 300, orderUrl: '' },
+      {
+        id: '1',
+        name: 'Блюдо 1',
+        restaurant: { id: '1', name: 'Ресторан 1' },
+        description: '',
+        tags: [],
+        price: 100,
+        orderUrl: '',
+        category: EDishCategory.MAIN,
+        image: 'https://example.com/1',
+      },
+      {
+        id: '2',
+        name: 'Блюдо 2',
+        restaurant: { id: '1', name: 'Ресторан 1' },
+        description: '',
+        tags: [],
+        price: 200,
+        orderUrl: '',
+        category: EDishCategory.MAIN,
+        image: 'https://example.com/2',
+      },
+      {
+        id: '3',
+        name: 'Блюдо 3',
+        restaurant: { id: '1', name: 'Ресторан 1' },
+        description: '',
+        tags: [],
+        price: 300,
+        orderUrl: '',
+        category: EDishCategory.MAIN,
+        image: 'https://example.com/3',
+      },
     ];
 
     it('должен переупорядочивать результаты по номерам', () => {
@@ -659,6 +687,8 @@ describe('LLMService', () => {
           tags: ['тесто', 'сыр', 'томаты'],
           price: 500,
           orderUrl: 'https://example.com/1',
+          category: EDishCategory.MAIN,
+          image: 'https://example.com/1',
         },
         {
           id: '2',
@@ -668,6 +698,8 @@ describe('LLMService', () => {
           tags: ['тесто', 'сыр', 'пепперони'],
           price: 600,
           orderUrl: 'https://example.com/2',
+          category: EDishCategory.MAIN,
+          image: 'https://example.com/2',
         },
       ];
 
@@ -824,7 +856,7 @@ describe('LLMService', () => {
 
   describe('categorizeDish', () => {
     it('должен успешно категоризировать основное блюдо', async () => {
-      const mockResponse = 'main';
+      const mockResponse = 'основное';
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
@@ -835,7 +867,7 @@ describe('LLMService', () => {
 
       const result = await llmService.categorizeDish('Пицца Маргарита');
 
-      expect(result).toBe('main');
+      expect(result).toBe('основное');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('http://localhost:1234/v1/chat/completions'),
         expect.objectContaining({
@@ -850,11 +882,11 @@ describe('LLMService', () => {
 
     it('должен использовать кэш при повторном запросе', async () => {
       // Мокаем кэш для возврата значения
-      mockCacheService.get = vi.fn().mockResolvedValue('drink');
+      mockCacheService.get = vi.fn().mockResolvedValue('напиток');
 
       const result = await llmService.categorizeDish('Кола');
 
-      expect(result).toBe('drink');
+      expect(result).toBe('напиток');
       expect(mockFetch).not.toHaveBeenCalled(); // Не должно быть вызовов к API
     });
 
@@ -870,11 +902,11 @@ describe('LLMService', () => {
 
       const result = await llmService.categorizeDish('Странное блюдо');
 
-      expect(result).toBe('main'); // Fallback к MAIN при неизвестной категории
+      expect(result).toBe('основное'); // Fallback к MAIN при неизвестной категории
     });
 
     it('должен использовать перманентный кэш (TTL = 0)', async () => {
-      const mockResponse = 'sauce';
+      const mockResponse = 'соус';
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
@@ -887,7 +919,7 @@ describe('LLMService', () => {
 
       expect(mockCacheService.set).toHaveBeenCalledWith(
         expect.any(String),
-        'sauce',
+        'соус',
         0,
       );
     });

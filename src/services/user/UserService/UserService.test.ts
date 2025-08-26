@@ -10,6 +10,7 @@ import type { TSearchResultItem } from '@/types/search';
 import type { TSearchHistoryItem, TUser } from '@/services/user/UserRepository/types';
 
 import { AppError } from '@/utils/AppError';
+import { EDishCategory } from '@/types/menuItem';
 import { ESubscriptionType } from '@/services/user/UserRepository/types';
 import { EAvailableCities } from '@/config/bot/types';
 
@@ -261,6 +262,8 @@ describe('UserService', () => {
         tags: ['Молоко', 'Сыр', 'Помидоры'],
         price: 100,
         orderUrl: 'https://dodo.ru/menu/pizza-margarita',
+        category: EDishCategory.MAIN,
+        image: 'https://dodo.ru/menu/pizza-margarita',
       }];
 
       const existingUser: TUser = {
@@ -278,7 +281,6 @@ describe('UserService', () => {
         query,
         structuredQuery,
         results,
-        resultsCount: results.length,
         timestamp: new Date(),
       };
 
@@ -308,7 +310,6 @@ describe('UserService', () => {
           query: 'пицца',
           structuredQuery: {},
           results: [],
-          resultsCount: 0,
           timestamp: new Date(),
         },
       ];

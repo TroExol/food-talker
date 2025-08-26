@@ -30,7 +30,6 @@ export interface TSearchHistoryItem {
   query: string;
   structuredQuery: TStructuredQuery;
   results: TSearchResultItem[];
-  resultsCount: number;
   timestamp: Date;
 }
 
@@ -39,6 +38,6 @@ export interface TSearchHistoryEntity {
   user_telegram_id: number;
   query: string;
   structured_query: string; // JSON string
-  results_count: number;
+  results: string; // JSON string
   created_at: string; // ISO string
 }

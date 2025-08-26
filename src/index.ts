@@ -1,4 +1,5 @@
 import { ConsoleLogger } from './utils/ConsoleLogger';
+import { AppSchedulerServiceFactory } from './services/scheduler/AppSchedulerService/AppSchedulerServiceFactory';
 import { validateEnvironment } from './config/environment';
 import { BotFactory } from './bot/BotFactory';
 
@@ -10,8 +11,10 @@ async function main(): Promise<void> {
     ConsoleLogger.info('Запускаем Food Talker бота...');
 
     const bot = await BotFactory.getInstance();
+    const appSchedulerService = await AppSchedulerServiceFactory.getInstance();
 
-    // TODO: запуск коллектора данных
+    appSchedulerService.startAllJobs();
+    await appSchedulerService.initialLoad();
 
     void bot.start();
 
@@ -31,12 +34,9 @@ async function main(): Promise<void> {
     });
   } catch (error) {
     ConsoleLogger.error('Ошибка работы приложения:', error as Error);
-    process.exit(1);
+    void main();
   }
 }
 
 // Запускаем приложение
-main().catch(error => {
-  ConsoleLogger.error('Необработанная ошибка:', error as Error);
-  process.exit(1);
-});
+void main();

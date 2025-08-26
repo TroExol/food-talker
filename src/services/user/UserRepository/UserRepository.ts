@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import type {
-  ESubscriptionType,
   TSearchHistoryEntity,
   TSearchHistoryItem,
   TUser,
@@ -11,6 +10,7 @@ import type { TDatabaseConnection } from '@/services/database/types';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
+import { ESubscriptionType } from '@/services/user/UserRepository/types';
 
 interface TUserRepository {
   create: (userData: Omit<TUser, 'createdAt' | 'updatedAt'>) => Promise<TUser>;
@@ -32,7 +32,7 @@ export class UserRepository implements TUserRepository {
 
       await this.db.run(`
         INSERT INTO users (telegram_id, chat_id, city, subscription_type, subscription_expiry, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
       `, [
         userData.telegramId,
         userData.chatId,
@@ -60,7 +60,7 @@ export class UserRepository implements TUserRepository {
   public findByTelegramId = async (telegramId: number): Promise<TUser | null> => {
     try {
       const userEntity = await this.db.get<TUserEntity>(`
-        SELECT * FROM users WHERE telegram_id = ?
+        SELECT * FROM users WHERE telegram_id = $1
       `, [telegramId]);
 
       if (!userEntity) {
@@ -78,17 +78,21 @@ export class UserRepository implements TUserRepository {
     try {
       const setParts: string[] = [];
       const values: unknown[] = [];
+      let paramIndex = 1;
 
       if (updates.city !== undefined) {
-        setParts.push('city = ?');
+        setParts.push(`city = $${paramIndex}`);
+        paramIndex++;
         values.push(updates.city);
       }
       if (updates.subscription !== undefined) {
-        setParts.push('subscription_type = ?');
+        setParts.push(`subscription_type = $${paramIndex}`);
+        paramIndex++;
         values.push(updates.subscription);
       }
       if (updates.subscriptionExpiry !== undefined) {
-        setParts.push('subscription_expiry = ?');
+        setParts.push(`subscription_expiry = $${paramIndex}`);
+        paramIndex++;
         values.push(updates.subscriptionExpiry?.toISOString() ?? null);
       }
 
@@ -96,12 +100,13 @@ export class UserRepository implements TUserRepository {
         throw AppError.validationError('NO_UPDATES', 'Нет данных для обновления');
       }
 
-      setParts.push('updated_at = ?');
+      setParts.push(`updated_at = $${paramIndex}`);
+      paramIndex++;
       values.push(new Date().toISOString());
       values.push(telegramId);
 
       const result = await this.db.run(`
-        UPDATE users SET ${setParts.join(', ')} WHERE telegram_id = ?
+        UPDATE users SET ${setParts.join(', ')} WHERE telegram_id = $${paramIndex}
       `, values);
 
       if (result.changes === 0) {
@@ -127,10 +132,10 @@ export class UserRepository implements TUserRepository {
   public delete = async (telegramId: number): Promise<boolean> => {
     try {
       // Сначала удаляем историю поиска
-      await this.db.run(`DELETE FROM search_history WHERE user_telegram_id = ?`, [telegramId]);
+      await this.db.run(`DELETE FROM search_history WHERE user_telegram_id = $1`, [telegramId]);
 
       // Затем удаляем пользователя
-      const result = await this.db.run(`DELETE FROM users WHERE telegram_id = ?`, [telegramId]);
+      const result = await this.db.run(`DELETE FROM users WHERE telegram_id = $1`, [telegramId]);
 
       const deleted = result.changes > 0;
       if (deleted) {
@@ -146,15 +151,34 @@ export class UserRepository implements TUserRepository {
 
   public findExpiredSubscriptions = async (): Promise<TUser[]> => {
     try {
-      const now = new Date().toISOString();
       const entities = await this.db.query<TUserEntity>(`
-        SELECT * FROM users WHERE subscription_expiry IS NOT NULL AND subscription_expiry < ?
-      `, [now]);
+        SELECT * FROM users WHERE subscription_expiry IS NOT NULL AND subscription_expiry < NOW()
+      `);
 
       return entities.map(entity => this.entityToUser(entity));
     } catch (error) {
       ConsoleLogger.error('Ошибка поиска просроченных подписок', error as Error);
       throw AppError.databaseError('EXPIRED_SUBSCRIPTIONS_FAILED', 'Не удалось найти просроченные подписки');
+    }
+  };
+
+  public cleanupExpiredSubscriptions = async (): Promise<number> => {
+    try {
+      const result = await this.db.run(`
+        UPDATE users 
+        SET subscription_type = ?, subscription_expiry = NULL, updated_at = NOW()
+        WHERE subscription_expiry IS NOT NULL AND subscription_expiry < NOW()
+      `, [ESubscriptionType.BASIC]);
+
+      const updatedCount = result.changes;
+      if (updatedCount > 0) {
+        ConsoleLogger.info('Сброшены просроченные подписки на BASIC', { updatedCount });
+      }
+
+      return updatedCount;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка сброса просроченных подписок', error as Error);
+      throw AppError.databaseError('CLEANUP_EXPIRED_SUBSCRIPTIONS_FAILED', 'Не удалось сбросить просроченные подписки');
     }
   };
 
@@ -164,14 +188,14 @@ export class UserRepository implements TUserRepository {
       const timestamp = new Date();
 
       await this.db.run(`
-        INSERT INTO search_history (id, user_telegram_id, query, structured_query, results_count, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO search_history (id, user_telegram_id, query, structured_query, results, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
       `, [
         id,
         telegramId,
         historyItem.query,
-        JSON.stringify(historyItem.structuredQuery),
-        historyItem.resultsCount,
+        JSON.stringify(historyItem.structuredQuery ? historyItem.structuredQuery : {}),
+        JSON.stringify(historyItem.results ? historyItem.results : []),
         timestamp.toISOString(),
       ]);
 
@@ -193,9 +217,9 @@ export class UserRepository implements TUserRepository {
     try {
       const entities = await this.db.query<TSearchHistoryEntity>(`
         SELECT * FROM search_history
-        WHERE user_telegram_id = ?
+        WHERE user_telegram_id = $1
         ORDER BY created_at DESC
-        LIMIT ?
+        LIMIT $2
       `, [telegramId, limit]);
 
       // Для истории поиска нам нужны полные результаты, но они не хранятся в БД
@@ -204,8 +228,7 @@ export class UserRepository implements TUserRepository {
         id: entity.id,
         query: entity.query,
         structuredQuery: JSON.parse(entity.structured_query) as TSearchHistoryItem['structuredQuery'],
-        results: [], // Результаты не сохраняются в БД
-        resultsCount: entity.results_count,
+        results: entity.results ? JSON.parse(entity.results) as TSearchHistoryItem['results'] : [],
         timestamp: new Date(entity.created_at),
       }));
     } catch (error) {
@@ -216,7 +239,7 @@ export class UserRepository implements TUserRepository {
 
   public clearSearchHistory = async (telegramId: number): Promise<void> => {
     try {
-      await this.db.run(`DELETE FROM search_history WHERE user_telegram_id = ?`, [telegramId]);
+      await this.db.run(`DELETE FROM search_history WHERE user_telegram_id = $1`, [telegramId]);
       ConsoleLogger.info('История поиска очищена', { telegramId });
     } catch (error) {
       ConsoleLogger.error('Ошибка очистки истории поиска', error as Error, { telegramId });

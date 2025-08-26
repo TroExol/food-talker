@@ -6,13 +6,13 @@ import {
   vi,
 } from 'vitest';
 
-import type { TUserService } from '@/services/user/UserService/types';
+import type { UserService } from '@/services/user/UserService/UserService';
 
 import { AuthMiddleware } from './auth';
 
 describe('AuthMiddleware', () => {
   let authMiddleware: AuthMiddleware;
-  let mockUserService: TUserService;
+  let mockUserService: UserService;
 
   beforeEach(() => {
     mockUserService = {
@@ -25,7 +25,7 @@ describe('AuthMiddleware', () => {
       getSearchHistory: vi.fn(),
       clearSearchHistory: vi.fn(),
       deleteUser: vi.fn(),
-    };
+    } as unknown as UserService;
 
     authMiddleware = new AuthMiddleware(mockUserService);
   });

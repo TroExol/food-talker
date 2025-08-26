@@ -1,5 +1,3 @@
-import type { TCacheConfig } from '@/config/bot/types';
-
 export interface TCacheService {
   get<T>(key: string): Promise<T | null>;
   set<T>(key: string, value: T, ttlSeconds?: number): Promise<void>;
@@ -15,6 +13,12 @@ export interface TCacheStats {
   memoryUsage: number; // bytes
   hitRate: number; // 0-1
   missRate: number; // 0-1
+}
+
+export interface TCacheConfig {
+  ttl: number;
+  maxSize: number;
+  redisUrl?: string;
 }
 
 export type TCacheServiceConfig = { type: 'memory' | 'redis' } & TCacheConfig;

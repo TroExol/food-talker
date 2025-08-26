@@ -14,6 +14,7 @@ import type {
   TYERestaurantFromServer,
   TYERestaurantsFromServer,
 } from '@/services/platforms/yandexEda/yeApiService/types';
+import type { MenuService } from '@/services/menu/MenuService/MenuService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { CityValidator } from '@/utils/CityValidator';
@@ -54,7 +55,11 @@ describe('YEApiService', () => {
       transformMenu: vi.fn(),
     } as unknown as YEDataTransformer;
 
-    service = new YEApiService(mockCacheService, mockDataTransformer);
+    const mockMenuService = {
+      createMenu: vi.fn(),
+    } as unknown as MenuService;
+
+    service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService);
     (service as any).config.delayBetweenRequestsMs = 0;
   });
 
@@ -411,7 +416,11 @@ describe('YEApiService', () => {
         transformMenu: vi.fn().mockReturnValue(mockTransformedMenuItems),
       } as unknown as YEDataTransformer;
 
-      service = new YEApiService(mockCacheService, mockDataTransformer);
+      const mockMenuService = {
+        createMenu: vi.fn(),
+      } as unknown as MenuService;
+
+      service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService);
       (service as any).config.delayBetweenRequestsMs = 0;
     });
 
@@ -574,7 +583,11 @@ describe('YEApiService', () => {
         transformMenu: vi.fn(),
       } as unknown as YEDataTransformer;
 
-      const service = new YEApiService(mockCacheService, mockDataTransformer);
+      const mockMenuService = {
+        createMenu: vi.fn(),
+      } as unknown as MenuService;
+
+      const service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService);
 
       await service.clearCache();
       expect(mockCacheService.clear).toHaveBeenCalled();
@@ -603,7 +616,11 @@ describe('YEApiService', () => {
         transformMenu: vi.fn(),
       } as unknown as YEDataTransformer;
 
-      const service = new YEApiService(mockCacheService, mockDataTransformer);
+      const mockMenuService = {
+        createMenu: vi.fn(),
+      } as unknown as MenuService;
+
+      const service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService);
 
       const stats = await service.getCacheStats();
 

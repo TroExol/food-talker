@@ -1,5 +1,5 @@
 import type { TBotContext } from '@/types/telegram';
-import type { TUserService } from '@/services/user/UserService/types';
+import type { UserService } from '@/services/user/UserService/UserService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
@@ -7,7 +7,7 @@ import { EUserState } from '@/types/telegram';
 
 export class AuthMiddleware {
   constructor(
-    private readonly userService: TUserService,
+    private readonly userService: UserService,
   ) {}
 
   public authenticate = async (ctx: TBotContext, next: () => Promise<void>): Promise<void> => {

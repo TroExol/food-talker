@@ -1,4 +1,4 @@
-import { SQLiteFactory } from '@/services/database/SQLite/SQLiteFactory';
+import { PostgreSQLFactory } from '@/services/database/PostgreSQL/PostgreSQLFactory';
 
 import { UserRepository } from './UserRepository';
 
@@ -7,7 +7,7 @@ export class UserRepositoryFactory {
 
   static getInstance = async (): Promise<UserRepository> => {
     if (!UserRepositoryFactory.instance) {
-      UserRepositoryFactory.instance = new UserRepository(await SQLiteFactory.getInstance());
+      UserRepositoryFactory.instance = new UserRepository(await PostgreSQLFactory.getInstance());
     }
     return UserRepositoryFactory.instance;
   };

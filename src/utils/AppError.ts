@@ -6,7 +6,9 @@ export enum EErrorType {
   CITY_NOT_SUPPORTED = 'CITY_NOT_SUPPORTED',
   DATA_COLLECTION_ERROR = 'DATA_COLLECTION_ERROR',
   DATABASE_ERROR = 'DATABASE_ERROR',
+  EMBEDDING_ERROR = 'EMBEDDING_ERROR',
   LLM_ERROR = 'LLM_ERROR',
+  MENU_ITEM_NOT_FOUND = 'MENU_ITEM_NOT_FOUND',
   NETWORK_ERROR = 'NETWORK_ERROR',
   RATE_LIMIT_ERROR = 'RATE_LIMIT_ERROR',
   SYSTEM_ERROR = 'SYSTEM_ERROR',
@@ -89,5 +91,13 @@ export class AppError extends Error {
 
   static dataCollectionError(message: string, details?: unknown): AppError {
     return new AppError(EErrorType.DATA_COLLECTION_ERROR, 'DATA_COLLECTION_FAILED', message, false, details);
+  }
+
+  static embeddingError(message: string, details?: unknown): AppError {
+    return new AppError(EErrorType.EMBEDDING_ERROR, 'EMBEDDING_FAILED', message, false, details);
+  }
+
+  static menuItemNotFound(menuItemId: string): AppError {
+    return new AppError(EErrorType.MENU_ITEM_NOT_FOUND, 'MENU_ITEM_NOT_FOUND', 'Блюдо не найдено', true, { menuItemId });
   }
 }

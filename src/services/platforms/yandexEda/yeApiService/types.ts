@@ -1,8 +1,6 @@
 // Yandex.Eda API Response Types
 
-import type { TCoordinates, TRestaurant } from '@/types/restaurant';
-import type { TMenuItem } from '@/types/menuItem';
-import type { EAvailableCities } from '@/config/bot/types';
+import type { TRestaurant } from '@/types/restaurant';
 
 export interface TYECoordinates {
   latitude: number;
@@ -211,23 +209,4 @@ export interface TYEApiConfig {
   timeout: number;
   retries: number;
   delayBetweenRequestsMs: number; // Задержка между запросами в миллисекундах
-}
-
-export interface TYEService {
-  requestRestaurants: (coordinates: TCoordinates) => Promise<TYERestaurantFromServer[]>;
-  requestRestaurantMenu: (
-    id: string,
-    coordinates: TCoordinates,
-    brandSlug: string,
-  ) => Promise<TYEMenuItemFromServer[]>;
-  checkRateLimit: () => boolean;
-
-  // Cached
-  getRestaurants: (city: EAvailableCities) => Promise<TYERestaurant[]>;
-  getRestaurantMenu: (
-    id: string,
-    city: EAvailableCities,
-  ) => Promise<TMenuItem[]>;
-  clearCache: (pattern?: string) => Promise<void>;
-  getCacheStats: () => Promise<{ restaurants: number; menus: number }>;
 }

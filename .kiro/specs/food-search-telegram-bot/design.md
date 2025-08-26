@@ -4,7 +4,7 @@
 
 The Food Talker system is a Node.js-based Telegram bot application designed for intelligent food search and restaurant recommendations. Built with TypeScript and leveraging modern architectural patterns, the system integrates multiple external services including Yandex.Eda API and LLM services to provide natural language food search capabilities.
 
-**Current Implementation Status**: The project is in active development with core services, data models, and infrastructure components implemented. The bot interface layer is planned but not yet implemented. Recent refactoring has improved code organization, type safety, and service architecture.
+**Current Implementation Status**: The project is in active development with core services, data models, and infrastructure components implemented. Vector search capabilities have been added with PostgreSQL + pgvector integration and local embedding generation. The bot interface layer is planned but not yet implemented. Recent refactoring has improved code organization, type safety, and service architecture.
 
 ## Technology Stack & Dependencies
 
@@ -16,7 +16,8 @@ The Food Talker system is a Node.js-based Telegram bot application designed for 
 
 ### Key Dependencies
 - **Bot Framework**: Telegraf (^4.16.3) - Telegram Bot API wrapper
-- **Databases**: SQLite3 (^5.1.7) for persistence, Redis (^5.8.2) for caching
+- **Databases**: PostgreSQL (^8.16.3) for vector storage and persistence, Redis (^5.8.2) for caching
+- **Vector Database**: pgvector extension for PostgreSQL
 - **Task Scheduling**: node-cron (^4.2.1) for periodic data updates
 - **Testing**: Vitest (^3.2.4) with comprehensive test coverage
 - **Linting**: ESLint (^9.25.1) with stylistic and perfectionist plugins
@@ -36,6 +37,7 @@ graph TB
         LLM[LLM Service]
         USER[User Service]
         SEARCH[Search Orchestration]
+        VECTOR_SEARCH[Vector Search Service]
     end
     
     subgraph "Domain Services Layer"
@@ -43,11 +45,14 @@ graph TB
         TRANS[YE Data Transformer]
         CACHED[Cached YE Service]
         COLLECT[YE Data Collection Service]
+        MENU[Menu Service]
+        EMBED[Embedding Service]
     end
     
     subgraph "Infrastructure Layer"
         CACHE[Cache Service]
-        DB[(SQLite Database)]
+        DB[(PostgreSQL Database)]
+        VECTOR_DB[(PostgreSQL + pgvector)]
         REDIS[(Redis Cache)]
         CONFIG[Configuration Management]
     end
@@ -55,12 +60,16 @@ graph TB
     TG --> LLM
     TG --> USER
     TG --> SEARCH
+    TG --> VECTOR_SEARCH
     
     SEARCH --> CACHED
+    VECTOR_SEARCH --> MENU
     USER --> DB
     
     CACHED --> YE
     CACHED --> CACHE
+    MENU --> EMBED
+    MENU --> VECTOR_DB
     YE --> TRANS
     
     CACHE --> REDIS
@@ -69,8 +78,12 @@ graph TB
     style TG fill:#e1f5fe
     style LLM fill:#f3e5f5
     style USER fill:#f3e5f5
+    style VECTOR_SEARCH fill:#f3e5f5
+    style MENU fill:#e8f5e8
+    style EMBED fill:#e8f5e8
     style YE fill:#e8f5e8
     style CACHE fill:#fff3e0
+    style VECTOR_DB fill:#fff3e0
 ```
 
 ### Architectural Layers
@@ -93,7 +106,7 @@ graph TB
 
 #### 4. Infrastructure Layer
 - **Cache Service**: Multi-provider caching abstraction (Redis/Memory)
-- **Database Management**: SQLite connection pooling and migrations
+- **Database Management**: PostgreSQL connection pooling and migrations
 - **Configuration Management**: Environment-aware configuration system
 - **Logging & Monitoring**: Structured logging and error tracking
 
@@ -131,6 +144,23 @@ classDiagram
         +searchRestaurants(query: TStructuredQuery, city: EAvailableCities) Promise~TYERestaurant[]~
     }
     
+    class VectorSearchService {
+        +searchMenu(naturalQuery: string, options?: TVectorMenuSearchOptions) Promise~TVectorSearchResultItem[]~
+    }
+    
+    class MenuService {
+        +createMenuItem(menuItem: TMenuItem) Promise~TVectorMenuItem~
+        +createMenu(menu: TMenuItem[]) Promise~void~
+        +searchByEmbedding(queryEmbedding: number[], options?: TVectorMenuSearchOptions) Promise~TVectorSearchResultItem[]~
+        +getMenuItem(menuItemId: string) Promise~TVectorSearchResultItem~
+        +deleteMenuItem(menuItemId: string) Promise~boolean~
+    }
+    
+    class EmbeddingService {
+        +generateEmbedding(text: string) Promise~number[]~
+        +generateEmbeddings(texts: string[]) Promise~number[][]~
+    }
+    
     class CacheService {
         +get(key: string) Promise~any~
         +set(key: string, value: any, ttl?: number) Promise~void~
@@ -143,6 +173,9 @@ classDiagram
     UserService --> CacheService
     YEApiService --> CacheService
     YESearchService --> YEApiService
+    VectorSearchService --> MenuService
+    VectorSearchService --> EmbeddingService
+    MenuService --> EmbeddingService
 ```
 
 ### 1. Bot Layer (Planned - Not Yet Implemented)
@@ -192,7 +225,6 @@ interface TUserRepository {
 interface TUserRepositoryFactory {
   createUserRepository(): TUserRepository
 }
-```
 
 interface TUser {
   telegramId: number
@@ -224,11 +256,27 @@ interface TSearchService {
   filterByGeolocation(results: TSearchResult[], city: string): Promise<TSearchResult[]>
   enhanceResultsWithLLM(results: TSearchResult[], originalQuery: string): Promise<TSearchResult[]>
 }
+```
+
+**SchedulerService** - Планировщик задач
+
+Общий сервис для управления запланированными задачами приложения с использованием node-cron. Поддерживает добавление, удаление, запуск и остановку задач, а также отслеживание статистики выполнения.
+
+**AppSchedulerService** - Управление задачами приложения
+
+Сервис для настройки и управления всеми запланированными задачами приложения:
+- Обновление данных ресторанов Яндекс.Еда каждые 40 минут
+- Очистка просроченных блюд каждые 30 минут
+
+**VectorSearchService** - Векторный поиск по меню
+```typescript
+interface TVectorSearchService {
+  searchMenu(naturalQuery: string, options?: TVectorMenuSearchOptions): Promise<TVectorSearchResultItem[]>
+}
 
 interface TSearchServiceFactory {
   createSearchService(): TSearchService
 }
-```
 
 interface TStructuredQuery {
   restaurants?: string[]
@@ -253,12 +301,12 @@ interface TSearchResult {
   description: string
   tags: string[]
   price: number
-  image?: string
+  image: string
   orderUrl: string
 }
 ```
 
-**LLMService** - Интеграция с Llama 3.1 8B
+**LLMService** - Интеграция с LLM
 ```typescript
 interface TLLMService {
   transformQuery(naturalQuery: string): Promise<TStructuredQuery>
@@ -267,9 +315,32 @@ interface TLLMService {
 }
 ```
 
-### 4. Data Aggregation (`src/services/data/`)
+### 4. Menu Management (`src/services/menu/`)
 
-### 4. Data Aggregation (`src/services/platforms/yandexEda/`) - **Implemented**
+**MenuService** - Управление меню с векторным поиском
+```typescript
+interface TMenuService {
+  createMenuItem(menuItem: TMenuItem): Promise<TVectorMenuItem>
+  createMenu(menu: TMenuItem[]): Promise<void>
+  searchByEmbedding(queryEmbedding: number[], options?: TVectorMenuSearchOptions): Promise<TVectorSearchResultItem[]>
+  getMenuItem(menuItemId: string): Promise<TVectorSearchResultItem | null>
+  deleteMenuItem(menuItemId: string): Promise<boolean>
+}
+```
+
+**Фильтрация по городу**: Метод `searchByEmbedding` поддерживает фильтрацию по городу с использованием координат ресторанов. При указании параметра `city` система автоматически фильтрует результаты по радиусу доставки (по умолчанию 50 км) от центра указанного города.
+
+**TTL для записей**: Каждая запись в таблице `dishes` имеет поле `expires_at` с временем истечения срока действия (30 минут). Просроченные записи автоматически удаляются планировщиком задач каждые 30 минут, что обеспечивает синхронизацию с TTL кеша меню в Redis.
+
+**EmbeddingService** - Генерация эмбеддингов
+```typescript
+interface TEmbeddingService {
+  generateEmbedding(text: string): Promise<number[]>
+  generateEmbeddings(texts: string[]): Promise<number[][]>
+}
+```
+
+### 5. Data Aggregation (`src/services/platforms/yandexEda/`)
 
 **YEApiService** - Основной API клиент для Yandex.Eda с кэшированием
 ```typescript
@@ -284,13 +355,11 @@ interface TYEService {
   clearCache(pattern?: string): Promise<void>
   getCacheStats(): Promise<{ restaurants: number; menus: number }>
 }
-```
 
 interface TYERestaurant {
   id: string
   name: string
   coordinates: TCoordinates
-  workingHours: TWorkingHours
   minimumOrderAmount?: number
   lastUpdated: Date
   additionalInfo: {
@@ -304,7 +373,7 @@ interface TMenuItem {
   description: string
   ingredients: string[]
   price: number
-  image?: string
+  image: string
   available: boolean
   restaurant: TYERestaurant
 }
@@ -341,7 +410,6 @@ interface TYERateLimitState {
   requests: number[]
   lastReset: number
 }
-```
 
 interface TYEMenuItemFromServer {
   id: number
@@ -422,7 +490,6 @@ interface TCacheService {
   getStats(): Promise<TCacheStats>
   close(): Promise<void>
 }
-```
 
 interface TCacheStats {
   totalKeys: number
@@ -446,7 +513,7 @@ interface TMemoryCacheItem<T> {
 }
 ```
 
-### 5. Geolocation (`src/services/geo/`)
+### 6. Geolocation (`src/services/geo/`)
 
 **GeolocationService** - Работа с геолокацией
 ```typescript
@@ -462,7 +529,7 @@ interface TCoordinates {
 }
 ```
 
-### 6. Message Formatting (`src/services/message/`)
+### 7. Message Formatting (`src/services/message/`)
 
 **MessageFormatter** - Форматирование сообщений
 ```typescript
@@ -506,7 +573,6 @@ interface TRestaurant {
   id: string
   name: string
   coordinates: TCoordinates
-  workingHours: TWorkingHours
   minimumOrderAmount?: number
   lastUpdated: Date
   additionalInfo?: object
@@ -519,9 +585,32 @@ interface TMenuItem {
   description: string
   ingredients: string[]
   price: number
-  image?: string
+  image: string
   available: boolean
   restaurant: TRestaurant
+  category: string
+}
+
+// Vector Menu Item with Embeddings
+interface TVectorMenuItem extends TMenuItem {
+  embedding: number[]
+}
+
+// Vector Search Result
+interface TVectorSearchResultItem extends TSearchResultItem {
+  similarity: number
+}
+
+// Vector Search Options
+interface TVectorMenuSearchOptions {
+  limit?: number
+  category?: string
+  restaurantNames?: string[]
+  minPrice?: number
+  maxPrice?: number
+  minSimilarity?: number
+  city?: string
+  deliveryRadiusKm?: number
 }
 
 // Yandex.Eda API Response Types
@@ -614,13 +703,6 @@ interface TYENutrientsDetailed {
 }
 ```
 
-interface TWorkingHours {
-  open: string // HH:MM
-  close: string // HH:MM
-  isOpen: boolean
-}
-```
-
 ### Configuration Models
 
 ```typescript
@@ -629,6 +711,7 @@ interface TBotConfig {
   llmApiUrl: string
   llmApiKey: string
   database: TDatabaseConfig
+  vectorDatabase: TVectorDatabaseConfig
   cache: TCacheConfig
   yandexEda: TYandexEdaConfig
   availableCities: EAvailableCities[]
@@ -637,9 +720,21 @@ interface TBotConfig {
 }
 
 interface TDatabaseConfig {
-  url: string // SQLite file path
+  host: string
+  port: number
+  database: string
+  user: string
+  password: string
   maxConnections: number
-  timeout: number
+}
+
+interface TVectorDatabaseConfig {
+  host: string
+  port: number
+  database: string
+  user: string
+  password: string
+  maxConnections: number
 }
 
 interface TCacheConfig {
@@ -671,11 +766,19 @@ interface TEnvironment {
   BOT_TOKEN: string
   LLM_API_URL: string
   LLM_API_KEY: string
-  DATABASE_URL: string
   REDIS_URL?: string
   LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error'
   WEBHOOK_URL?: string
   WEBHOOK_SECRET?: string
+  DB_HOST: string
+  DB_PORT: string
+  DB_NAME: string
+  DB_USER: string
+  DB_PASSWORD: string
+  DB_MAX_CONNECTIONS: string
+  EMBEDDING_API_BASE_URL: string
+  EMBEDDING_API_KEY: string
+  EMBEDDING_MODEL_NAME: string
 }
 ```
 
@@ -874,9 +977,48 @@ class LlamaService implements TLLMClient {
 }
 ```
 
+### Vector Search Integration
+
+```typescript
+interface TVectorSearchFlow {
+  // Генерация эмбеддингов для текста
+  generateEmbedding(text: string): Promise<number[]>
+  
+  // Векторный поиск по меню
+  searchMenu(naturalQuery: string, options?: TVectorMenuSearchOptions): Promise<TVectorSearchResultItem[]>
+  
+  // Создание векторных записей меню
+  createVectorMenuItem(menuItem: TMenuItem): Promise<TVectorMenuItem>
+}
+
+class VectorSearchService {
+  constructor(
+    private readonly embeddingService: EmbeddingService,
+    private readonly menuService: MenuService,
+  ) {}
+
+  async searchMenu(naturalQuery: string, options?: TVectorMenuSearchOptions): Promise<TVectorSearchResultItem[]> {
+    // 1. Генерируем эмбеддинг для запроса
+    const queryEmbedding = await this.embeddingService.generateEmbedding(naturalQuery)
+    
+    // 2. Выполняем векторный поиск
+    const results = await this.menuService.searchByEmbedding(queryEmbedding, options)
+    
+    return results
+  }
+}
+
+class EmbeddingService {
+  async generateEmbedding(text: string): Promise<number[]> {
+    // Использует локальную генерации эмбеддингов
+    // Модель: sentence-transformers/all-MiniLM-L6-v2
+  }
+}
+```
+
 ### Database Schema
 
-Реализована SQLite база данных с системой миграций:
+Реализована PostgreSQL база данных с pgvector расширением для векторного поиска:
 
 ```typescript
 // Users Table
@@ -886,8 +1028,8 @@ interface TUserEntity {
   city: string
   subscription_type: string
   subscription_expiry: string | null // ISO string
-  created_at: string // ISO string DEFAULT (datetime('now'))
-  updated_at: string // ISO string DEFAULT (datetime('now'))
+  created_at: string // ISO string DEFAULT now()
+  updated_at: string // ISO string DEFAULT now()
 }
 
 // Search History Table  
@@ -897,7 +1039,7 @@ interface TSearchHistoryEntity {
   query: string
   structured_query: string // JSON string
   results_count: number
-  created_at: string // ISO string DEFAULT (datetime('now'))
+  created_at: string // ISO string DEFAULT now()
 }
 
 // Restaurants Cache Table
@@ -906,8 +1048,8 @@ interface TRestaurantCacheEntity {
   name: string
   data: string // JSON string
   city: string
-  last_updated: string // ISO string DEFAULT (datetime('now'))
-  is_active: number // INTEGER DEFAULT 1 (SQLite boolean)
+  last_updated: string // ISO string DEFAULT now()
+  is_active: number // INTEGER DEFAULT 1 (boolean)
 }
 
 // Database Connection Management
@@ -929,6 +1071,26 @@ interface TMigration {
   description: string
   up: (db: TDatabaseConnection) => Promise<void>
   down: (db: TDatabaseConnection) => Promise<void>
+}
+
+// Vector Database Schema
+interface TVectorMenuItemEntity {
+  id: string
+  name: string
+  description: string
+  price: number
+  restaurant_id: string
+  restaurant_name: string
+  restaurant_latitude: number
+  restaurant_longitude: number
+  available: boolean
+  order_url: string
+  category: string
+  image: string
+  ingredients: string[]
+  embedding: number[] // pgvector column
+  created_at: string
+  updated_at: string
 }
 ```
 
@@ -973,6 +1135,10 @@ graph TB
 4. **YEDataCollectionService Tests** - Cron job scheduling and statistics
 5. **CacheService Tests** - Provider pattern and TTL behavior
 6. **SearchService Tests** - Search orchestration and LLM integration
+7. **LLMService Tests** - LLM integration with caching and error handling
+8. **MenuService Tests** - Vector menu operations and embedding generation
+9. **EmbeddingService Tests** - Embedding generation and validation
+10. **VectorSearchService Tests** - Vector search orchestration
 
 #### Test Utilities & Mocking
 - **Test Framework**: Vitest (^3.2.4) with TypeScript support
@@ -1030,7 +1196,12 @@ export default defineConfig({
    - Соблюдение ФЗ-152
    - Автоматическое удаление старых данных
 
-3. **Rate Limiting & DDoS Protection**
+3. **Vector Database Security**
+   - Шифрование соединений с PostgreSQL
+   - Ограничение доступа к векторным данным
+   - Валидация входных данных для эмбеддингов
+
+4. **Rate Limiting & DDoS Protection**
    - Лимиты на пользователя
    - Лимиты на IP
    - Graceful degradation
@@ -1124,6 +1295,11 @@ interface TMetricsCollector {
 // Key Metrics:
 // - search.requests.total
 // - search.response_time
+// - vector_search.requests.total
+// - vector_search.response_time
+// - vector_search.similarity_score
+// - embedding.generation_time
+// - embedding.model_usage
 // - llm.requests.total
 // - llm.cost.monthly
 // - users.active.daily
@@ -1168,11 +1344,22 @@ interface TEnvironment {
 
 // Environment validation function
 function validateEnvironment(): void {
-  const required = ['BOT_TOKEN', 'LLM_API_URL', 'LLM_API_KEY']
-  const missing = required.filter(key => !environment[key as keyof TEnvironment])
-  
+  const required = [
+    'BOT_TOKEN',
+    'LLM_API_URL',
+    'LLM_API_KEY',
+    'EMBEDDING_API_BASE_URL',
+    'EMBEDDING_API_KEY',
+    'EMBEDDING_MODEL_NAME',
+    'DB_HOST',
+    'DB_PORT',
+    'DB_NAME',
+    'DB_USER',
+  ];
+  const missing = required.filter(key => !environment[key as keyof TEnvironment]);
+
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
+    throw AppError.validationError('MISSING_ENV_VARIABLES', `Необходимые переменные окружения не установлены: ${missing.join(', ')}`);
   }
 }
 ```
@@ -1183,11 +1370,19 @@ function validateEnvironment(): void {
    - Stateless bot instances
    - Load balancing через webhook
    - Shared cache layer (Redis)
+   - Vector database clustering (PostgreSQL read replicas)
 
 2. **Resource Management**
    - Memory usage monitoring
    - CPU usage optimization
    - Database connection pooling
+   - Vector index optimization (pgvector HNSW indexes)
+
+3. **Vector Search Optimization**
+   - Embedding model caching
+   - Batch embedding generation
+   - Similarity search indexing
+   - Query result caching
 
 ## Current Project Structure
 
@@ -1221,10 +1416,10 @@ src/
 │   │   ├── instances.ts
 │   │   └── types.ts
 │   ├── database/             # Database management
-│   │   ├── SQLite/
-│   │   │   ├── SQLite.ts
-│   │   │   ├── SQLiteFactory.ts
-│   │   │   └── instances.ts
+│   │   ├── PostgreSQL/
+│   │   │   ├── PostgreSQL.ts
+│   │   │   ├── PostgreSQLFactory.ts
+│   │   │   └── types.ts
 │   │   ├── MigrationRunner.ts
 │   │   └── types.ts
 │   ├── platforms/yandexEda/  # Yandex.Eda integration
@@ -1254,12 +1449,15 @@ src/
 │   │   │   ├── LLMService.test.ts
 │   │   │   ├── instances.ts
 │   │   │   └── types.ts
-│   │   └── SearchService/
-│   │       ├── SearchService.ts
-│   │       ├── SearchService.test.ts
-│   │       ├── SearchServiceFactory.ts
-│   │       ├── instances.ts
-│   │       └── types.ts
+│   │   ├── SearchService/
+│   │   │   ├── SearchService.ts
+│   │   │   ├── SearchService.test.ts
+│   │   │   ├── SearchServiceFactory.ts
+│   │   │   ├── instances.ts
+│   │   │   └── types.ts
+│   │   └── VectorSearchService/
+│   │       ├── VectorSearchService.ts
+│   │       └── VectorSearchServiceFactory.ts
 │   ├── user/                 # User management
 │   │   ├── UserRepository/
 │   │   │   ├── UserRepository.ts
@@ -1273,6 +1471,19 @@ src/
 │   │   │   └── types.ts
 │   │   └── data/
 │   │       └── collection/
+│   ├── menu/                 # Menu management with vector search
+│   │   ├── MenuRepository/
+│   │   │   ├── MenuRepository.ts
+│   │   │   ├── MenuRepositoryFactory.ts
+│   │   │   └── types.ts
+│   │   └── MenuService/
+│   │       ├── MenuService.ts
+│   │       ├── MenuServiceFactory.ts
+│   │       └── types.ts
+│   ├── EmbeddingService/     # Embedding generation
+│   │   ├── EmbeddingService.ts
+│   │   ├── EmbeddingServiceFactory.ts
+│   │   └── types.ts
 │   ├── message/              # ⏳ Planned message formatting
 │   └── data/                 # ⏳ Planned data collection
 │       └── collection/
@@ -1303,6 +1514,7 @@ class AppError extends Error {
   static dataCollectionError(message: string, details?: unknown): AppError
 }
 ```
+```
 ├── vitest/                   # ✅ Test Configuration
 │   ├── constants.ts          # Test constants
 │   ├── general.test.ts       # General test utilities
@@ -1331,7 +1543,6 @@ validateEnvironment();
 ```
 
 Приложение теперь включает валидацию окружения при запуске, что обеспечивает корректную работу всех сервисов.
-```
 
 ### Legend
 - ✅ **Fully Implemented**: Complete with tests and documentation
@@ -1382,10 +1593,12 @@ validateEnvironment();
 ### Performance Targets
 - **Bot Response Time**: < 1 second for commands
 - **Search Processing**: < 5 seconds for complex queries
+- **Vector Search**: < 2 seconds for semantic search
 - **LLM Transformation**: < 3 seconds per request
 - **Cache Hit Ratio**: > 80% for frequently accessed data
 - **Concurrent Users**: Support up to 100 simultaneous users
 - **Database Queries**: < 500ms for standard operations
+- **Vector Database Queries**: < 1 second for similarity search
 - **API Response Time**: < 2 seconds for external API calls
 - **Memory Usage**: < 512MB for standard operation
 
@@ -1409,3 +1622,5 @@ npm run lint                # Full lint suite (type + lint + test)
 - **Production Deployment**: Needs build step for TypeScript compilation
 - **Environment Configuration**: Uses dotenv for environment management with validation
 - **Environment Validation**: Application validates required environment variables on startup
+- **Vector Database**: Requires PostgreSQL with pgvector extension installed
+- **Embedding Model**: Uses @xenova/transformers for local embedding generation

@@ -5,6 +5,7 @@ import { Telegraf } from 'telegraf';
 import type { TBotContext, TRateLimitConfig } from '@/types/telegram';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { SearchService } from '@/services/search/SearchService/SearchService';
+import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 
@@ -27,6 +28,7 @@ export class Bot {
     private readonly token: string,
     private readonly userService: UserService,
     private readonly searchService: SearchService,
+    private readonly messageFormatter: MessageFormatterService,
   ) {
     this.telegraf = new Telegraf<TBotContext>(token);
 
@@ -38,9 +40,9 @@ export class Bot {
 
     this.authMiddleware = new AuthMiddleware(userService);
     this.rateLimitMiddleware = new RateLimitMiddleware(this.rateLimitConfig);
-    this.errorHandlerMiddleware = new ErrorHandlerMiddleware();
-    this.commandHandlers = new CommandHandlers(userService);
-    this.messageHandlers = new MessageHandlers(userService, searchService);
+    this.errorHandlerMiddleware = new ErrorHandlerMiddleware(messageFormatter);
+    this.commandHandlers = new CommandHandlers(userService, messageFormatter);
+    this.messageHandlers = new MessageHandlers(userService, searchService, messageFormatter);
 
     this.setupMiddleware();
     this.setupHandlers();
@@ -69,10 +71,10 @@ export class Bot {
     void this.telegraf.telegram.setMyCommands(commandHandlers);
 
     // Регистрируем обработчики callback'ов
-    this.telegraf.on('callback_query', async ctx => {
+    this.telegraf.on('callback_query', ctx => {
       const callbackData = (ctx.callbackQuery as CallbackQuery.DataQuery)?.data;
       if (!callbackData) {
-        await ctx.answerCbQuery('Неверные данные callback');
+        void ctx.answerCbQuery('Неверные данные callback');
         return;
       }
 
@@ -80,20 +82,20 @@ export class Bot {
       for (const handler of messageHandlers) {
         if (typeof handler.pattern === 'string') {
           if (callbackData === handler.pattern) {
-            await handler.handler(ctx);
+            void handler.handler(ctx);
             return;
           }
         } else if (handler.pattern.test(callbackData)) {
-          await handler.handler(ctx);
+          void handler.handler(ctx);
           return;
         }
       }
 
-      await ctx.answerCbQuery('Неизвестный callback');
+      void ctx.answerCbQuery('Неизвестный callback');
     });
 
     // Регистрируем обработчики текстовых сообщений
-    this.telegraf.on('text', async ctx => {
+    this.telegraf.on('text', ctx => {
       const messageText = ctx.message?.text;
       if (!messageText) {
         return;
@@ -103,20 +105,20 @@ export class Bot {
       for (const handler of messageHandlers) {
         if (typeof handler.pattern === 'string') {
           if (messageText === handler.pattern) {
-            await handler.handler(ctx);
+            void handler.handler(ctx);
             return;
           }
         } else if (handler.pattern.test(messageText)) {
-          await handler.handler(ctx);
+          void handler.handler(ctx);
           return;
         }
       }
     });
 
     // Обработчик неизвестных типов сообщений
-    this.telegraf.on('message', async ctx => {
+    this.telegraf.on('message', ctx => {
       if (ctx.message && !('text' in ctx.message)) {
-        await ctx.reply(
+        void ctx.reply(
           'Я понимаю только текстовые сообщения. Используйте команду /help для справки.',
         );
       }

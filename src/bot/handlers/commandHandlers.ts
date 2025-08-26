@@ -1,5 +1,6 @@
 import type { TBotContext, TCommandHandler } from '@/types/telegram';
-import type { TUserService } from '@/services/user/UserService/types';
+import type { UserService } from '@/services/user/UserService/UserService';
+import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
@@ -8,7 +9,8 @@ import { EAvailableCities } from '@/config/bot/types';
 
 export class CommandHandlers {
   constructor(
-    private readonly userService: TUserService,
+    private readonly userService: UserService,
+    private readonly messageFormatter: MessageFormatterService,
   ) {}
 
   public getHandlers = (): TCommandHandler[] => {
@@ -46,62 +48,26 @@ export class CommandHandlers {
       throw AppError.userNotFound(ctx.from?.id ?? 0);
     }
 
-    const welcomeMessage = `
-🍕 Добро пожаловать в Food Talker!
-
-Я помогу вам найти вкусную еду в вашем городе. Просто напишите, что хотите съесть, например:
-• "Хочу пиццу с пепперони"
-• "Ищу суши с лососем"
-• "Покажи бургеры до 500 рублей"
-
-${ctx.user.state === EUserState.WAITING_FOR_CITY
-  ? 'Сначала выберите город для доставки:'
-  : `Ваш город: ${ctx.user.city}`}
-
-Доступные команды:
-/help - Справка
-/address - Изменить город
-/history - История поиска
-/cancel - Отменить действие
-    `.trim();
-
     if (ctx.user.state === EUserState.WAITING_FOR_CITY) {
       await this.showCitySelection(ctx);
     } else {
-      await ctx.reply(welcomeMessage);
+      const userName = ctx.from?.first_name;
+      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName);
+
+      await ctx.reply(formattedMessage.text, {
+        parse_mode: formattedMessage.parseMode,
+        reply_markup: formattedMessage.replyMarkup,
+      });
     }
   };
 
   private handleHelp = async (ctx: TBotContext): Promise<void> => {
-    const helpMessage = `
-📖 Справка по командам Food Talker
+    const formattedMessage = this.messageFormatter.formatHelpMessage();
 
-🔍 Поиск еды:
-Просто напишите, что хотите съесть! Например:
-• "Пицца с грибами"
-• "Суши с лососем до 1000 рублей"
-• "Веганские блюда"
-• "Бургеры из вкусно и точка"
-
-📋 Команды:
-/start - Запустить бота
-/help - Показать эту справку
-/address - Изменить город доставки
-/history - История поиска (последние 5 запросов)
-/cancel - Отменить текущее действие
-
-🏙️ Поддерживаемые города:
-• Пермь
-• Воронеж
-
-💡 Советы:
-• Используйте естественный язык для поиска
-• Указывайте ценовой диапазон: "до 500 рублей"
-• Можете исключить рестораны: "не Макдональдс"
-• Указывайте диету: "веганское", "без глютена"
-    `.trim();
-
-    await ctx.reply(helpMessage);
+    await ctx.reply(formattedMessage.text, {
+      parse_mode: formattedMessage.parseMode,
+      reply_markup: formattedMessage.replyMarkup,
+    });
   };
 
   private handleAddress = async (ctx: TBotContext): Promise<void> => {
@@ -122,26 +88,22 @@ ${ctx.user.state === EUserState.WAITING_FOR_CITY
       const history = await this.userService.getSearchHistory(ctx.user.telegramId, 10);
 
       if (history.length === 0) {
-        await ctx.reply('История поиска пуста. Попробуйте найти что-нибудь вкусное!');
+        const formattedMessage = this.messageFormatter.formatHistoryMessage([]);
+        await ctx.reply(formattedMessage.text, {
+          parse_mode: formattedMessage.parseMode,
+          reply_markup: formattedMessage.replyMarkup,
+        });
         return;
       }
 
-      let historyMessage = '📋 История поиска:\n\n';
+      // Преобразуем историю в формат для MessageFormatter
+      const historyItems = history.flatMap(item => item.results || []);
+      const formattedMessage = this.messageFormatter.formatHistoryMessage(historyItems);
 
-      for (let i = 0; i < history.length; i++) {
-        const item = history[i];
-        const date = new Date(item.timestamp).toLocaleDateString('ru-RU', {
-          day: '2-digit',
-          month: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-
-        historyMessage += `${i + 1}. "${item.query}"\n`;
-        historyMessage += `   📅 ${date} | 🔍 ${item.resultsCount || 0} результатов\n\n`;
-      }
-
-      await ctx.reply(historyMessage);
+      await ctx.reply(formattedMessage.text, {
+        parse_mode: formattedMessage.parseMode,
+        reply_markup: formattedMessage.replyMarkup,
+      });
     } catch (error) {
       ConsoleLogger.error('Ошибка при получении истории поиска', error as Error, {
         telegramId: ctx.from?.id,

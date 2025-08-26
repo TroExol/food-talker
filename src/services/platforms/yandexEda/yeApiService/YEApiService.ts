@@ -1,4 +1,5 @@
 import type { TCoordinates } from '@/types/restaurant';
+import type { MenuService } from '@/services/menu/MenuService/MenuService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 import type { EAvailableCities } from '@/config/bot/types';
 
@@ -17,22 +18,21 @@ import type {
   TYERestaurant,
   TYERestaurantFromServer,
   TYERestaurantsFromServer,
-  TYEService,
 } from './types';
 import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
 
-export class YEApiService implements TYEService {
+export class YEApiService {
   private readonly config: TYEApiConfig;
   private readonly rateLimitState: TYERateLimitState;
   // TTL для разных типов данных (в секундах)
   private readonly cacheTTL = {
     restaurants: 3600, // 1 час
-    menu: 1800, // 30 минут
   };
 
   constructor(
     private readonly cacheService: CacheService,
     private readonly yeDataTransformer: YEDataTransformer,
+    private readonly menuService: MenuService,
   ) {
     this.config = {
       baseUrl: 'https://eda.yandex.ru',
@@ -206,8 +206,10 @@ export class YEApiService implements TYEService {
       const menuItems = (await this.yeDataTransformer.transformMenu(yeMenu, restaurant))
         .filter(item => item.category !== EDishCategory.ACCESSORY);
 
+      void this.menuService.createMenu(menuItems);
+
       // Кэшируем результат
-      await this.cacheService.set(cacheKey, menuItems, this.cacheTTL.menu);
+      await this.cacheService.set(cacheKey, menuItems, botConfig.cache.ttlMenu);
 
       ConsoleLogger.info('Меню Яндекс.Еда загружено и кэшировано', {
         restaurantId,

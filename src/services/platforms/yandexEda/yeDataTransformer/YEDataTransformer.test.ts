@@ -6,12 +6,12 @@ import {
   vi,
 } from 'vitest';
 
-import type { LLMService } from '@/services/search/LLMService/LLMService';
 import type {
   TYEMenuItemFromServer,
   TYERestaurant,
   TYERestaurantFromServer,
 } from '@/services/platforms/yandexEda/yeApiService/types';
+import type { LLMService } from '@/services/LLMService/LLMService';
 
 import { EDishCategory } from '@/types/menuItem';
 

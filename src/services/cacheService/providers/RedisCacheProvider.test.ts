@@ -7,7 +7,9 @@ import {
   vi,
 } from 'vitest';
 
-import type { TCacheConfig } from '@/config/bot/types';
+import { environment } from '@/config/environment';
+
+import type { TCacheConfig } from '../types';
 
 import { RedisCacheProvider } from './RedisCacheProvider';
 
@@ -39,7 +41,6 @@ describe('RedisCacheProvider', () => {
     mockConfig = {
       ttl: 300, // 5 минут
       maxSize: 100,
-      redisUrl: 'redis://localhost:6379',
     };
 
     redisCacheProvider = new RedisCacheProvider(mockConfig);
@@ -47,6 +48,7 @@ describe('RedisCacheProvider', () => {
 
   afterEach(async () => {
     await redisCacheProvider.close();
+    environment.REDIS_URL = 'redis://localhost:6379';
   });
 
   describe('constructor', () => {
@@ -59,7 +61,8 @@ describe('RedisCacheProvider', () => {
     });
 
     it('должен выбросить ошибку если нет Redis URL', () => {
-      const configWithoutUrl = { ...mockConfig, redisUrl: undefined };
+      environment.REDIS_URL = undefined;
+      const configWithoutUrl = { ...mockConfig };
 
       expect(() => new RedisCacheProvider(configWithoutUrl)).toThrow();
     });

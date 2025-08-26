@@ -7,39 +7,15 @@ import type { TCacheService } from '@/services/cacheService/types';
 import { sleep } from '@/utils/sleep';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { EDishCategory, type TMenuItem } from '@/types/menuItem';
-import { botConfig } from '@/config/bot';
+import { environment } from '@/config/environment';
 
-import type { TLLMConfig } from './types';
+import type {
+  TLLMConfig,
+  TLLMRequest,
+  TLLMResponse,
+} from './types';
 
-interface TLLMService {
-  stuctureQuery: (naturalQuery: string, restaurants: string[]) => Promise<TStructuredQuery>;
-  enhanceSearchResults: (results: TSearchResultItem[], query: string) => Promise<TSearchResultItem[]>;
-}
-
-interface TLLMRequest {
-  model: string;
-  messages: Array<{
-    role: 'system' | 'user' | 'assistant';
-    content: string;
-  }>;
-  temperature?: number;
-  max_tokens?: number;
-}
-
-interface TLLMResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-  usage: {
-    total_tokens: number;
-    prompt_tokens: number;
-    completion_tokens: number;
-  };
-}
-
-export class LLMService implements TLLMService {
+export class LLMService {
   private readonly apiUrl: string;
   private readonly apiKey: string;
   private readonly model: string;
@@ -52,8 +28,8 @@ export class LLMService implements TLLMService {
     private readonly cacheService: TCacheService,
     config: TLLMConfig,
   ) {
-    this.apiUrl = botConfig.llmApiUrl;
-    this.apiKey = botConfig.llmApiKey;
+    this.apiUrl = environment.LLM_API_URL;
+    this.apiKey = environment.LLM_API_KEY;
     this.model = config.model;
     this.maxRetries = config?.maxRetries ?? 2;
     this.timeoutMs = config?.timeoutMs ?? 20000;
@@ -142,18 +118,18 @@ export class LLMService implements TLLMService {
 - В priceRange/exclusions.priceRange — только если явно названы числа.
 
 Категории блюд (dishCategories):
-- main: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп, шаурма)
-- side: гарниры (картошка, рис, макароны, салат как гарнир, овощи)
-- drink: напитки (кола, сок, чай, кофе, лимонад, вода)
-- sauce: соусы (кетчуп, майонез, горчица, соус, заправка)
-- accessory: аксессуары (салфетки, палочки, вилка, ложка, контейнер)
+- основное: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп, шаурма)
+- гарнир: гарниры (картошка, рис, макароны, салат как гарнир, овощи)
+- напиток: напитки (кола, сок, чай, кофе, лимонад, вода)
+- соус: соусы (кетчуп, майонез, горчица, соус, заправка)
+- аксессуар: аксессуары (салфетки, палочки, вилка, ложка, контейнер)
 
 Определяй категории по контексту запроса:
-- "хочу поесть" → main
-- "что-нибудь попить" → drink  
-- "гарнир к мясу" → side
-- "соус к блюду" → sauce
-- "салфетки/приборы" → accessory
+- "хочу поесть" → основное
+- "что-нибудь попить" → напиток  
+- "гарнир к мясу" → гарнир
+- "соус к блюду" → соус
+- "салфетки/приборы" → аксессуар
 
 Финальная структура (Только JSON, без лишних данных и пустых массивов):
 
@@ -222,18 +198,18 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
   private buildEnhancementPrompt = (menuItems: TSearchResultItem[], naturalQuery: string): string => {
     const menuList = menuItems.map((menuItem, index) => {
       const category = (menuItem as unknown as TMenuItem).category || 'неизвестно';
-      return `${index + 1}. ${menuItem.name} [${category}] - ${menuItem.description ? `- ${menuItem.description.substring(0, 80)}` : ''} (${menuItem.restaurant.name}) - ${menuItem.price}₽`;
+      return `${index + 1}. ${menuItem.name} [${category}] - ${menuItem.description ? `- ${menuItem.description.substring(0, 80)}` : ''} - ${menuItem.price}₽`;
     }).join('\n');
 
     return `Ты эксперт по гастрономии. Тебе дан пользовательский запрос и список блюд с ресторанами, категориями и ценой.
 Отсортируй список блюд по степени соответствия пользовательскому запросу, учитывая:
 
 1. КАТЕГОРИЮ БЛЮДА - это самый важный фактор:
-   - main: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп)
-   - side: гарниры (картошка, рис, макароны, салат как гарнир, овощи)
-   - drink: напитки (кола, сок, чай, кофе, лимонад, вода)
-   - sauce: соусы (кетчуп, майонез, горчица, соус, заправка)
-   - accessory: аксессуары (салфетки, палочки, вилка, ложка, контейнер)
+   - основное: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп)
+   - гарнир: гарниры (картошка, рис, макароны, салат как гарнир, овощи)
+   - напиток: напитки (кола, сок, чай, кофе, лимонад, вода)
+   - соус: соусы (кетчуп, майонез, горчица, соус, заправка)
+   - аксессуар: аксессуары (салфетки, палочки, вилка, ложка, контейнер)
 
 2. РЕЛЕВАНТНОСТЬ названия блюда к запросу
 3. Цену (только если блюда одинаково релевантны)
@@ -246,7 +222,7 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
 Запрос пользователя:
 "${naturalQuery}"
 
-Список блюд в формате index. Название блюда [категория] - описание блюда (если есть) - (ресторан) - цена:
+Список блюд в формате index. Название блюда [категория] - описание блюда (если есть) - цена:
 ${menuList}
 
 Дай сначала индексы максимально релевантных блюд, затем менее релевантных, внутри каждой группы — по цене.
@@ -376,14 +352,8 @@ ${menuList}
       }
     }
 
-    if (query.dishCategories) {
-      repairedQuery.dishCategories = Array.isArray(query.dishCategories)
-        ? [...new Set(
-            query.dishCategories
-              .filter((c: unknown) => typeof c === 'string' && c !== '')
-              .map(c => c.toLowerCase().trim() as EDishCategory),
-          )]
-        : [];
+    if (query.category) {
+      repairedQuery.category = query.category.toLowerCase().trim() as EDishCategory;
     }
 
     if (query.exclusions) {
@@ -432,14 +402,8 @@ ${menuList}
         }
       }
 
-      if (query.exclusions?.dishCategories) {
-        repairedQuery.exclusions.dishCategories = Array.isArray(query.exclusions.dishCategories)
-          ? [...new Set(
-              query.exclusions.dishCategories
-                .filter((c: unknown) => typeof c === 'string' && c !== '')
-                .map(c => c.toLowerCase().trim()),
-            )]
-          : [];
+      if (query.exclusions?.category) {
+        repairedQuery.exclusions.category = query.exclusions.category.toLowerCase().trim() as EDishCategory;
       }
     }
 
@@ -536,38 +500,38 @@ ${menuList}
     return `Ты эксперт по гастрономии. Определи категорию блюда по названию.
 
 Категории:
-- main: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп)
-- side: гарниры (картошка, рис, макароны, салат как гарнир, овощи)
-- drink: напитки (кола, сок, чай, кофе, лимонад, вода)
-- sauce: соусы (кетчуп, майонез, горчица, соус, заправка)
-- accessory: аксессуары (салфетки, палочки, вилка, ложка, контейнер)
+- основное: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп)
+- гарнир: гарниры (картошка, рис, макароны, салат как гарнир, овощи)
+- напиток: напитки (кола, сок, чай, кофе, лимонад, вода)
+- соус: соусы (кетчуп, майонез, горчица, соус, заправка)
+- аксессуар: аксессуары (салфетки, палочки, вилка, ложка, контейнер)
 
 Правила:
-1. Если блюдо содержит мясо/рыбу/морепродукты - это main
-2. Если это жидкое и пьется - это drink
-3. Если это приправа/заправка - это sauce
-4. Если это столовые приборы/упаковка - это accessory
-5. Если это дополнение к основному блюду - это side
+1. Если блюдо содержит мясо/рыбу/морепродукты - это основное
+2. Если это жидкое и пьется - это напиток
+3. Если это приправа/заправка - это соус
+4. Если это столовые приборы/упаковка - это аксессуар
+5. Если это дополнение к основному блюду - это гарнир
 
 Название блюда: "${dishName}"
 
-Ответь только одной категорией: main/side/drink/sauce/accessory`;
+Ответь только одной категорией: основное/гарнир/напиток/соус/аксессуар`;
   };
 
   private parseCategoryResponse = (response: string): EDishCategory => {
     const cleanResponse = response.trim().toLowerCase();
 
     switch (cleanResponse) {
-      case 'accessory':
+      case 'аксессуар':
         return EDishCategory.ACCESSORY;
-      case 'drink':
-        return EDishCategory.DRINK;
-      case 'main':
-        return EDishCategory.MAIN;
-      case 'sauce':
-        return EDishCategory.SAUCE;
-      case 'side':
+      case 'гарнир':
         return EDishCategory.SIDE;
+      case 'напиток':
+        return EDishCategory.DRINK;
+      case 'основное':
+        return EDishCategory.MAIN;
+      case 'соус':
+        return EDishCategory.SAUCE;
       default:
         ConsoleLogger.warn('Неизвестная категория от LLM, возвращаю MAIN', { response: cleanResponse });
         return EDishCategory.MAIN;
