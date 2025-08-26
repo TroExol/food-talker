@@ -72,7 +72,8 @@ describe('YEDataCollectionService', () => {
 
   describe('updateRestaurants', () => {
     it('должен обновить данные для всех городов', async () => {
-      await dataCollectionService.updateRestaurants();
+      void dataCollectionService.updateRestaurants();
+      await vi.runAllTimersAsync();
 
       expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(2); // Для двух городов
     });
@@ -127,21 +128,6 @@ describe('YEDataCollectionService', () => {
 
       const stats = await dataCollectionService.getCollectionStats();
       expect(stats.errors).toBe(1);
-    });
-  });
-
-  describe('initialDataLoad', () => {
-    it('должен выполнить первоначальную загрузку данных', async () => {
-      void dataCollectionService.initialDataLoad();
-      await vi.runAllTimersAsync();
-
-      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(2); // Для двух городов
-    });
-
-    it('должен обработать ошибку при загрузке', async () => {
-      mockCachedYEService.getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
-
-      await expect(dataCollectionService.initialDataLoad()).rejects.toThrow('Не удалось загрузить первоначальные данные');
     });
   });
 

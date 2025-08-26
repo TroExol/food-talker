@@ -54,7 +54,7 @@ describe('MessageHandlers', () => {
       const handlers = messageHandlers.getHandlers();
 
       expect(handlers).toBeInstanceOf(Array);
-      expect(handlers).toHaveLength(6);
+      expect(handlers).toHaveLength(7);
 
       // Проверяем, что есть обработчик для callback'ов
       const callbackHandler = handlers.find(h => h.pattern.toString().includes('city:'));

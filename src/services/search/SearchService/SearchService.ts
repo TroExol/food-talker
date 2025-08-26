@@ -75,10 +75,7 @@ export class SearchService {
         ? await this.enhanceResultsWithLLM(results, naturalQuery)
         : results;
 
-      // Сохраняем историю поиска асинхронно (не блокируем основной поток)
-      this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, results).catch((error: unknown) => {
-        ConsoleLogger.warn('Не удалось сохранить историю поиска', { error: error as Error, telegramId });
-      });
+      await this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, results);
 
       const duration = Date.now() - startTime;
       ConsoleLogger.info('Векторный поиск еды завершен', {

@@ -15,7 +15,7 @@ export interface TMenuItemEntity {
   similarity: number;
   category: string;
   image: string;
-  ingredients: string[];
+  ingredients: string;
   expires_at: string;
 }
 

@@ -12,18 +12,7 @@ import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
 import { ESubscriptionType } from '@/services/user/UserRepository/types';
 
-interface TUserRepository {
-  create: (userData: Omit<TUser, 'createdAt' | 'updatedAt'>) => Promise<TUser>;
-  findByTelegramId: (telegramId: number) => Promise<TUser | null>;
-  update: (telegramId: number, updates: Partial<Pick<TUser, 'city' | 'subscription' | 'subscriptionExpiry'>>) => Promise<TUser>;
-  delete: (telegramId: number) => Promise<boolean>;
-  findExpiredSubscriptions: () => Promise<TUser[]>;
-  addSearchHistory: (telegramId: number, historyItem: Omit<TSearchHistoryItem, 'id' | 'timestamp'>) => Promise<TSearchHistoryItem>;
-  getSearchHistory: (telegramId: number, limit?: number) => Promise<TSearchHistoryItem[]>;
-  clearSearchHistory: (telegramId: number) => Promise<void>;
-}
-
-export class UserRepository implements TUserRepository {
+export class UserRepository {
   constructor(private readonly db: TDatabaseConnection) {}
 
   public create = async (userData: Omit<TUser, 'createdAt' | 'updatedAt'>): Promise<TUser> => {
@@ -152,7 +141,7 @@ export class UserRepository implements TUserRepository {
   public findExpiredSubscriptions = async (): Promise<TUser[]> => {
     try {
       const entities = await this.db.query<TUserEntity>(`
-        SELECT * FROM users WHERE subscription_expiry IS NOT NULL AND subscription_expiry < NOW()
+        SELECT * FROM users WHERE subscription_expiry IS NOT NULL AND subscription_expiry::timestamp < NOW()
       `);
 
       return entities.map(entity => this.entityToUser(entity));
@@ -166,8 +155,8 @@ export class UserRepository implements TUserRepository {
     try {
       const result = await this.db.run(`
         UPDATE users 
-        SET subscription_type = ?, subscription_expiry = NULL, updated_at = NOW()
-        WHERE subscription_expiry IS NOT NULL AND subscription_expiry < NOW()
+        SET subscription_type = $1, subscription_expiry = NULL, updated_at = now()
+        WHERE subscription_expiry IS NOT NULL AND subscription_expiry::timestamp < now()
       `, [ESubscriptionType.BASIC]);
 
       const updatedCount = result.changes;
@@ -222,19 +211,38 @@ export class UserRepository implements TUserRepository {
         LIMIT $2
       `, [telegramId, limit]);
 
-      // Для истории поиска нам нужны полные результаты, но они не хранятся в БД
-      // Возвращаем упрощенную версию без results
-      return entities.map(entity => ({
-        id: entity.id,
-        query: entity.query,
-        structuredQuery: JSON.parse(entity.structured_query) as TSearchHistoryItem['structuredQuery'],
-        results: entity.results ? JSON.parse(entity.results) as TSearchHistoryItem['results'] : [],
-        timestamp: new Date(entity.created_at),
-      }));
+      return entities.map(entity => this.entityToSearchHistoryItem(entity));
     } catch (error) {
       ConsoleLogger.error('Ошибка получения истории поиска', error as Error, { telegramId });
       throw AppError.databaseError('SEARCH_HISTORY_GET_FAILED', 'Не удалось получить историю поиска');
     }
+  };
+
+  public getSearchHistoryItemById = async (telegramId: number, id: string): Promise<TSearchHistoryItem | null> => {
+    try {
+      const entity = await this.db.get<TSearchHistoryEntity>(`
+        SELECT * FROM search_history WHERE id = $1 AND user_telegram_id = $2
+      `, [id, telegramId]);
+
+      if (!entity) {
+        return null;
+      }
+
+      return this.entityToSearchHistoryItem(entity);
+    } catch (error) {
+      ConsoleLogger.error('Ошибка получения истории поиска', error as Error, { telegramId });
+      throw AppError.databaseError('SEARCH_HISTORY_GET_FAILED', 'Не удалось получить историю поиска');
+    }
+  };
+
+  private entityToSearchHistoryItem = (entity: TSearchHistoryEntity): TSearchHistoryItem => {
+    return {
+      id: entity.id,
+      query: entity.query,
+      structuredQuery: entity.structured_query,
+      results: entity.results,
+      timestamp: new Date(entity.created_at),
+    };
   };
 
   public clearSearchHistory = async (telegramId: number): Promise<void> => {

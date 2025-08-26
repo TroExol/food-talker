@@ -52,7 +52,7 @@ describe('MenuRepository', () => {
           order_url: 'http://example.com',
           category: 'burgers',
           image: 'burger.jpg',
-          ingredients: ['булка', 'мясо'],
+          ingredients: JSON.stringify(['булка', 'мясо']),
           similarity: 0.8,
         },
       ];
@@ -106,7 +106,7 @@ describe('MenuRepository', () => {
           order_url: 'http://example.com',
           category: 'burgers',
           image: 'burger.jpg',
-          ingredients: ['булка', 'мясо'],
+          ingredients: JSON.stringify(['булка', 'мясо']),
           similarity: 0.8,
         },
       ];
@@ -152,7 +152,7 @@ describe('MenuRepository', () => {
           order_url: 'http://example.com',
           category: 'burgers',
           image: 'burger.jpg',
-          ingredients: ['булка', 'мясо'],
+          ingredients: JSON.stringify(['булка', 'мясо']),
           similarity: 0.8,
         },
       ];

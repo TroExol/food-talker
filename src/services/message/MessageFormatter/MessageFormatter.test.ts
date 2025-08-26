@@ -6,8 +6,6 @@ import {
 } from 'vitest';
 
 import type { TSearchResultItem } from '../../../types/search';
-import type { TRestaurant } from '../../../types/restaurant';
-import type { TMenuItem } from '../../../types/menuItem';
 
 import { MessageFormatterService } from './MessageFormatter';
 import { AppError } from '../../../utils/AppError';
@@ -15,35 +13,10 @@ import { EDishCategory } from '../../../types/menuItem';
 
 describe('MessageFormatterService', () => {
   let messageFormatter: MessageFormatterService;
-  let mockRestaurant: TRestaurant;
-  let mockMenuItem: TMenuItem;
   let mockSearchResult: TSearchResultItem;
 
   beforeEach(() => {
     messageFormatter = new MessageFormatterService();
-
-    mockRestaurant = {
-      id: 'restaurant-1',
-      name: 'Тестовый ресторан',
-      coordinates: {
-        latitude: 58.0105,
-        longitude: 56.2502,
-      },
-      lastUpdated: new Date('2024-01-01'),
-    };
-
-    mockMenuItem = {
-      id: 'item-1',
-      name: 'Тестовое блюдо',
-      description: 'Очень вкусное тестовое блюдо с ингредиентами',
-      ingredients: ['ингредиент 1', 'ингредиент 2', 'ингредиент 3'],
-      price: 500,
-      image: 'https://example.com/image.jpg',
-      available: true,
-      restaurant: mockRestaurant,
-      orderUrl: 'https://example.com/order',
-      category: EDishCategory.MAIN,
-    };
 
     mockSearchResult = {
       id: 'search-1',
@@ -130,36 +103,50 @@ describe('MessageFormatterService', () => {
   });
 
   describe('formatMenuItem', () => {
-    it('должен форматировать элемент меню', () => {
-      const result = messageFormatter.formatMenuItem(mockMenuItem);
+    it('должен форматировать элемент меню с изображением', () => {
+      const result = messageFormatter.formatMenuItem(mockSearchResult);
 
-      expect(result.text).toContain('Тестовое блюдо');
+      expect(result.text).toContain('Тестовый результат поиска');
       expect(result.text).toContain('Тестовый ресторан');
-      expect(result.text).toContain('500 ₽');
-      expect(result.text).toContain('Очень вкусное тестовое блюдо');
-      expect(result.text).toContain('✅ Доступно');
+      expect(result.text).toContain('750 ₽');
+      expect(result.text).toContain('Описание тестового результата поиска');
       expect(result.parseMode).toBe('HTML');
       expect(result.replyMarkup).toBeDefined();
+      expect(result.photo).toBe('https://example.com/search-image.jpg');
     });
 
-    it('должен форматировать недоступный элемент меню', () => {
-      const unavailableItem = { ...mockMenuItem, available: false };
-      const result = messageFormatter.formatMenuItem(unavailableItem);
+    it('должен форматировать элемент меню без изображения', () => {
+      const searchResultWithoutImage = { ...mockSearchResult, image: '' };
+      const result = messageFormatter.formatMenuItem(searchResultWithoutImage);
 
-      expect(result.text).toContain('❌ Недоступно');
+      expect(result.text).toContain('Тестовый результат поиска');
+      expect(result.parseMode).toBe('HTML');
+      expect(result.replyMarkup).toBeDefined();
+      expect(result.photo).toBeUndefined();
     });
   });
 
   describe('formatSearchResults', () => {
     it('должен форматировать результаты поиска', () => {
       const results = [mockSearchResult];
-      const result = messageFormatter.formatSearchResults(results);
+      const result = messageFormatter.formatSearchResults(results, 'search-1');
 
       expect(result.text).toContain('Результаты поиска');
       expect(result.text).toContain('Тестовый результат поиска');
       expect(result.text).toContain('750 ₽');
       expect(result.parseMode).toBe('HTML');
       expect(result.replyMarkup).toBeDefined();
+    });
+
+    it('должен форматировать результаты поиска без searchHistoryId', () => {
+      const results = [mockSearchResult];
+      const result = messageFormatter.formatSearchResults(results, undefined);
+
+      expect(result.text).toContain('Результаты поиска');
+      expect(result.text).toContain('Тестовый результат поиска');
+      expect(result.text).toContain('750 ₽');
+      expect(result.parseMode).toBe('HTML');
+      expect(result.replyMarkup).toBeUndefined();
     });
 
     it('должен возвращать сообщение об отсутствии результатов для пустого массива', () => {
@@ -214,14 +201,14 @@ describe('MessageFormatterService', () => {
   });
 
   describe('createOrderKeyboard', () => {
-    it('должен создавать клавиатуру заказа', () => {
+    it('должен создавать клавиатуру заказа с кнопкой удаления', () => {
       const keyboard = messageFormatter.createOrderKeyboard('item-1', 'https://example.com/order');
 
       expect(keyboard.inline_keyboard).toHaveLength(2);
       expect(keyboard.inline_keyboard[0][0].text).toBe('🛒 Заказать');
       expect((keyboard.inline_keyboard[0][0] as any).url).toBe('https://example.com/order');
-      expect(keyboard.inline_keyboard[1][0].text).toBe('🔍 Похожие блюда');
-      expect((keyboard.inline_keyboard[1][0] as any).callback_data).toBe('similar:item-1');
+      expect(keyboard.inline_keyboard[1][0].text).toBe('❌ Скрыть');
+      expect((keyboard.inline_keyboard[1][0] as any).callback_data).toBe('delete_message');
     });
   });
 
@@ -255,11 +242,11 @@ describe('MessageFormatterService', () => {
   describe('createSearchResultsKeyboard', () => {
     it('должен создавать клавиатуру результатов поиска', () => {
       const results = [mockSearchResult];
-      const keyboard = messageFormatter.createSearchResultsKeyboard(results, 1);
+      const keyboard = messageFormatter.createSearchResultsKeyboard('search-history-1', results, 1);
 
       expect(keyboard.inline_keyboard).toHaveLength(1);
       expect(keyboard.inline_keyboard[0][0].text).toBe('1. Тестовый результат поиска');
-      expect((keyboard.inline_keyboard[0][0] as any).callback_data).toBe('item:search-1');
+      expect((keyboard.inline_keyboard[0][0] as any).callback_data).toBe('item:search-history-1:search-1');
     });
 
     it('должен добавлять кнопку "Показать еще" для полной страницы', () => {
@@ -269,7 +256,7 @@ describe('MessageFormatterService', () => {
         name: `Блюдо ${i}`,
       }));
 
-      const keyboard = messageFormatter.createSearchResultsKeyboard(results, 1);
+      const keyboard = messageFormatter.createSearchResultsKeyboard('search-1', results, 1);
 
       expect(keyboard.inline_keyboard).toHaveLength(6); // 5 результатов + кнопка "Показать еще"
       expect(keyboard.inline_keyboard[5][0].text).toBe('📄 Показать еще');

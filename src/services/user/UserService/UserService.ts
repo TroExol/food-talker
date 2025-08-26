@@ -214,6 +214,23 @@ export class UserService {
     }
   };
 
+  public getSearchHistoryItemById = async (telegramId: number, id: string): Promise<TSearchHistoryItem | null> => {
+    const validation = Validator.validateTelegramId(telegramId);
+    if (!validation.isValid) {
+      throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
+    }
+
+    try {
+      return await this.userRepository.getSearchHistoryItemById(telegramId, id);
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      ConsoleLogger.error('Ошибка получения истории поиска', error as Error, { telegramId });
+      throw AppError.systemError('SEARCH_HISTORY_GET_FAILED', 'Не удалось получить историю поиска');
+    }
+  };
+
   public clearSearchHistory = async (telegramId: number): Promise<void> => {
     const validation = Validator.validateTelegramId(telegramId);
     if (!validation.isValid) {

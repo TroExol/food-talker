@@ -21,6 +21,11 @@ export class YEDataCollectionService {
     try {
       for (const cityName of botConfig.availableCities) {
         await this.updateCityRestaurants(cityName);
+
+        // Небольшая пауза между городами чтобы не перегружать API
+        if (botConfig.availableCities.indexOf(cityName) !== botConfig.availableCities.length - 1) {
+          await sleep(2000);
+        }
       }
 
       this.lastUpdateTime = new Date();
@@ -71,26 +76,6 @@ export class YEDataCollectionService {
     }
   };
 
-  public initialDataLoad = async (): Promise<void> => {
-    try {
-      ConsoleLogger.info('Начало первоначальной загрузки данных Яндекс.Еда');
-
-      for (const city of botConfig.availableCities) {
-        await this.updateCityRestaurants(city);
-
-        // Небольшая пауза между городами чтобы не перегружать API
-        if (botConfig.availableCities.indexOf(city) !== botConfig.availableCities.length - 1) {
-          await sleep(2000);
-        }
-      }
-
-      ConsoleLogger.info('Первоначальная загрузка данных Яндекс.Еда завершена');
-    } catch (error) {
-      ConsoleLogger.error('Не удалось загрузить первоначальные данные Яндекс.Еда', error as Error);
-      throw AppError.dataCollectionError('Не удалось загрузить первоначальные данные Яндекс.Еда', error);
-    }
-  };
-
   public updateCityRestaurants = async (city: EAvailableCities): Promise<void> => {
     try {
       const coordinates = CityValidator.getCityCoordinates(city);
@@ -101,7 +86,7 @@ export class YEDataCollectionService {
 
       ConsoleLogger.debug('Обновление данных ресторанов Яндекс.Еда для города', { coordinates });
 
-      const restaurants = await this.yeApiService.getRestaurants(city);
+      const restaurants = (await this.yeApiService.getRestaurants(city)).slice(0, 3);
 
       ConsoleLogger.info('Данные ресторанов Яндекс.Еда для города обновлены', {
         coordinates,

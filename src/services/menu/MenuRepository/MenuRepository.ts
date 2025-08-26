@@ -73,33 +73,28 @@ export class MenuRepository {
     try {
       const expiresAt = new Date(Date.now() + botConfig.cache.ttlMenu * 1000).toISOString();
 
-      await this.db.run(`
-      INSERT INTO dishes (
-        id, name, description, ingredients, price, image, available,
-        restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, order_url, category, embedding, expires_at
-      ) VALUES $1
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        description = EXCLUDED.description,
-        ingredients = EXCLUDED.ingredients,
-        price = EXCLUDED.price,
-        image = EXCLUDED.image,
-        available = EXCLUDED.available,
-        restaurant_name = EXCLUDED.restaurant_name,
-        restaurant_latitude = EXCLUDED.restaurant_latitude,
-        restaurant_longitude = EXCLUDED.restaurant_longitude,
-        order_url = EXCLUDED.order_url,
-        category = EXCLUDED.category,
-        embedding = EXCLUDED.embedding,
-        expires_at = EXCLUDED.expires_at,
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING id
-      `, [
-        menu.map(item => [
+      // Дедуплицируем данные по id, оставляя последнюю версию
+      const uniqueMenu = new Map<string, TVectorMenuItem>();
+      menu.forEach(item => {
+        uniqueMenu.set(`${item.id}-${item.restaurant.id}`, item);
+      });
+
+      const deduplicatedMenu = Array.from(uniqueMenu.values());
+
+      // Используем множественные VALUES для bulk insert
+      const values = deduplicatedMenu.map((item, index) => {
+        const baseIndex = index * 15;
+        return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6}, $${baseIndex + 7}, $${baseIndex + 8}, $${baseIndex + 9}, $${baseIndex + 10}, $${baseIndex + 11}, $${baseIndex + 12}, $${baseIndex + 13}, $${baseIndex + 14}::vector, $${baseIndex + 15})`;
+      }).join(', ');
+
+      // Подготавливаем параметры
+      const params: unknown[] = [];
+      deduplicatedMenu.forEach(item => {
+        params.push(
           item.id,
           item.name,
           item.description,
-          item.ingredients,
+          JSON.stringify(item.ingredients),
           item.price,
           item.image,
           item.available,
@@ -111,10 +106,38 @@ export class MenuRepository {
           item.category,
           `[${item.embedding.join(',')}]`,
           expiresAt,
-        ]),
-      ]);
+        );
+      });
+
+      await this.db.run(`
+        INSERT INTO dishes (
+          id, name, description, ingredients, price, image, available,
+          restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, order_url, category, embedding, expires_at
+        ) VALUES ${values}
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          description = EXCLUDED.description,
+          ingredients = EXCLUDED.ingredients,
+          price = EXCLUDED.price,
+          image = EXCLUDED.image,
+          available = EXCLUDED.available,
+          restaurant_name = EXCLUDED.restaurant_name,
+          restaurant_latitude = EXCLUDED.restaurant_latitude,
+          restaurant_longitude = EXCLUDED.restaurant_longitude,
+          order_url = EXCLUDED.order_url,
+          category = EXCLUDED.category,
+          embedding = EXCLUDED.embedding,
+          expires_at = EXCLUDED.expires_at,
+          updated_at = CURRENT_TIMESTAMP
+      `, params);
+
+      ConsoleLogger.info('Блюда созданы', {
+        menuCount: menu.length,
+        uniqueCount: deduplicatedMenu.length,
+        duplicatesRemoved: menu.length - deduplicatedMenu.length,
+      });
     } catch (error) {
-      ConsoleLogger.error('Ошибка создания блюд', error as Error, { menu });
+      ConsoleLogger.error('Ошибка создания блюд', error as Error, { menuCount: menu.length });
       throw AppError.databaseError('MENU_ITEM_CREATE_BULK_FAILED', 'Не удалось создать блюда');
     }
   };
@@ -233,7 +256,7 @@ export class MenuRepository {
         similarity: row.similarity,
         category: row.category as EDishCategory,
         image: row.image,
-        tags: row.ingredients || [],
+        tags: JSON.parse(row.ingredients) as string[] || [],
       }));
 
       ConsoleLogger.debug('Векторный поиск выполнен', {
@@ -398,7 +421,7 @@ export class MenuRepository {
       id: entity.id,
       name: entity.name,
       description: entity.description,
-      tags: entity.ingredients,
+      tags: JSON.parse(entity.ingredients) as string[] || [],
       price: entity.price,
       image: entity.image,
       restaurant: {

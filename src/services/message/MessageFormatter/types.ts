@@ -6,6 +6,7 @@ export interface TFormattedMessage {
   text: string;
   parseMode?: 'HTML' | 'Markdown';
   replyMarkup?: TInlineKeyboardMarkup;
+  photo?: string; // URL изображения
 }
 
 // Результаты поиска с пагинацией

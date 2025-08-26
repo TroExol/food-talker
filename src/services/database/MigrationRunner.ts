@@ -26,8 +26,8 @@ export class MigrationRunner {
     const currentVersion = await this.getCurrentVersion();
 
     // Запускаем все миграции начиная с текущей версии
-    for (const migration of migrations) {
-      if (migration.version < currentVersion) {
+    for (const migration of migrations.reverse()) {
+      if (migration.version <= currentVersion) {
         await this.runDownMigration(migration);
       }
     }
@@ -112,7 +112,7 @@ const migrations: TMigration[] = [
           id TEXT PRIMARY KEY,
           user_telegram_id INTEGER NOT NULL,
           query TEXT NOT NULL,
-          structured_query TEXT NOT NULL,
+          structured_query JSONB NOT NULL,
           results JSONB NOT NULL,
           created_at TEXT DEFAULT now(),
           FOREIGN KEY (user_telegram_id) REFERENCES users (telegram_id)

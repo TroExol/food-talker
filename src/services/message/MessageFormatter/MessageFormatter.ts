@@ -30,12 +30,12 @@ export class MessageFormatterService {
   };
 
   // Форматирование результатов поиска
-  formatSearchResults(results: TSearchResultItem[], page = 1): TFormattedMessage {
+  formatSearchResults(results: TSearchResultItem[], searchHistoryId?: string, page = 1): TFormattedMessage {
     const paginatedResults = this.paginateResults(results, page, this.paginationConfig.itemsPerPage);
-    return this.formatSearchResultsPage(paginatedResults);
+    return this.formatSearchResultsPage(paginatedResults, searchHistoryId);
   }
 
-  formatSearchResultsPage(page: TSearchResultsPage): TFormattedMessage {
+  formatSearchResultsPage(page: TSearchResultsPage, searchHistoryId?: string): TFormattedMessage {
     if (page.items.length === 0) {
       return this.formatNoResultsMessage();
     }
@@ -47,8 +47,10 @@ export class MessageFormatterService {
     const headerText = this.formatSearchResultsHeader(page);
     const footerText = this.formatSearchResultsFooter(page);
 
-    const text = `${headerText}\n\n${itemsText}\n\n${footerText}`;
-    const replyMarkup = this.createSearchResultsKeyboard(page.items, page.currentPage);
+    const text = `${headerText}\n\n${itemsText}${searchHistoryId ? `\n\n${footerText}` : ''}`;
+    const replyMarkup = searchHistoryId
+      ? this.createSearchResultsKeyboard(searchHistoryId, page.items, page.currentPage)
+      : undefined;
 
     return {
       text,
@@ -58,14 +60,15 @@ export class MessageFormatterService {
   }
 
   // Форматирование отдельных элементов
-  formatMenuItem(item: TMenuItem): TFormattedMessage {
-    const text = this.formatMenuItemText(item);
-    const replyMarkup = this.createOrderKeyboard(item.id, item.orderUrl);
+  formatMenuItem(searchResultItem: TSearchResultItem): TFormattedMessage {
+    const text = this.formatMenuItemText(searchResultItem);
+    const replyMarkup = this.createOrderKeyboard(searchResultItem.id, searchResultItem.orderUrl);
 
     return {
       text,
       parseMode: 'HTML',
       replyMarkup,
+      photo: searchResultItem.image || undefined,
     };
   }
 
@@ -231,10 +234,7 @@ ${itemsText}
           },
         ],
         [
-          {
-            text: '🔍 Похожие блюда',
-            callback_data: `similar:${itemId}`,
-          },
+          this.keyboardRemoveMessage(),
         ],
       ],
     };
@@ -282,7 +282,11 @@ ${itemsText}
     return { inline_keyboard: buttons };
   }
 
-  createSearchResultsKeyboard(results: TSearchResultItem[], currentPage: number): TInlineKeyboardMarkup {
+  createSearchResultsKeyboard(
+    searchHistoryId: string,
+    results: TSearchResultItem[],
+    currentPage: number,
+  ): TInlineKeyboardMarkup {
     const buttons: InlineKeyboardButton[][] = [];
 
     // Кнопки для каждого результата
@@ -290,7 +294,7 @@ ${itemsText}
       buttons.push([
         {
           text: `${index + 1}. ${this.truncateText(item.name, 30)}`,
-          callback_data: `item:${item.id}`,
+          callback_data: `item:${searchHistoryId}:${item.id}`,
         },
       ]);
     });
@@ -324,7 +328,8 @@ ${itemsText}
   }
 
   // Утилиты
-  paginateResults(results: TSearchResultItem[], page: number, itemsPerPage: number): TSearchResultsPage {
+  paginateResults(
+    results: TSearchResultItem[], page: number, itemsPerPage: number): TSearchResultsPage {
     const totalItems = results.length;
     const totalPages = Math.min(
       Math.ceil(totalItems / itemsPerPage),
@@ -372,10 +377,18 @@ ${itemsText}
     return this.truncateText(formattedIngredients, this.formattingConfig.maxIngredientsLength);
   }
 
+  private keyboardRemoveMessage(): InlineKeyboardButton {
+    return {
+      text: '❌ Скрыть',
+      callback_data: `delete_message`,
+    };
+  }
+
   // Приватные методы форматирования
   private formatSearchResultItem(item: TSearchResultItem, index: number): string {
     // const image = item.image;
     const description = this.truncateText(item.description, this.formattingConfig.maxDescriptionLength);
+    const tags = item.tags.join(', ');
 
     return `${index}. <b><a href="${item.orderUrl}" target="_blank">${this.escapeHtml(item.name)}</a></b>
 🏪 <i>${this.escapeHtml(item.restaurant.name)}</i>
@@ -383,23 +396,26 @@ ${itemsText}
 ${description
   ? `
 📝 ${this.escapeHtml(description)}`
-  : ''}${item.tags.length > 0
+  : ''}${!description && tags
   ? `
-📝 ${item.tags.join(', ')}`
-  : ''}`;
+📝 ${tags}`
+  : ''}`.trim();
   }
 
-  private formatMenuItemText(item: TMenuItem): string {
-    // const image = item.image;
+  private formatMenuItemText(item: TSearchResultItem): string {
     const description = this.truncateText(item.description, this.formattingConfig.maxDescriptionLength);
+    const tags = item.tags.join(', ');
 
     return `🍽️ <b>${this.escapeHtml(item.name)}</b>
 🏪 <i>${this.escapeHtml(item.restaurant.name)}</i>
 💰 <b>${this.formatPrice(item.price)}</b>
-
-📝 ${this.escapeHtml(description)}
-
-${item.available ? '✅ Доступно' : '❌ Недоступно'}`;
+${description
+  ? `
+📝 ${this.escapeHtml(description)}`
+  : ''}${!description && tags
+  ? `
+📝 ${tags}`
+  : ''}`.trim();
   }
 
   private formatRestaurantCardText(restaurant: TRestaurant, items: TMenuItem[]): string {

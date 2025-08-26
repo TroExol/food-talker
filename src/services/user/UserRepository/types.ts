@@ -37,7 +37,7 @@ export interface TSearchHistoryEntity {
   id: string;
   user_telegram_id: number;
   query: string;
-  structured_query: string; // JSON string
-  results: string; // JSON string
+  structured_query: TStructuredQuery;
+  results: TSearchResultItem[];
   created_at: string; // ISO string
 }

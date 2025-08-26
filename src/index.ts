@@ -1,7 +1,7 @@
-import { ConsoleLogger } from './utils/ConsoleLogger';
-import { AppSchedulerServiceFactory } from './services/scheduler/AppSchedulerService/AppSchedulerServiceFactory';
-import { validateEnvironment } from './config/environment';
-import { BotFactory } from './bot/BotFactory';
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppSchedulerServiceFactory } from '@/services/scheduler/AppSchedulerService/AppSchedulerServiceFactory';
+import { validateEnvironment } from '@/config/environment';
+import { BotFactory } from '@/bot/BotFactory';
 
 // Валидация окружения
 validateEnvironment();

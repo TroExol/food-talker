@@ -50,7 +50,8 @@ export class AppSchedulerService {
     try {
       await Promise.allSettled([
         this.menuRepository.cleanupExpiredDishes(),
-        this.yeDataCollectionService.initialDataLoad(),
+        this.yeDataCollectionService.updateRestaurants(),
+        this.userRepository.cleanupExpiredSubscriptions(),
       ]);
     } catch (error) {
       ConsoleLogger.error('Ошибка при загрузке данных приложения', error as Error);

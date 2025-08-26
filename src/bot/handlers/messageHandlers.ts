@@ -29,8 +29,12 @@ export class MessageHandlers {
         handler: this.handleCitySelection,
       },
       {
-        pattern: /^item:(.+)$/,
+        pattern: /^item:(.+):(.+)$/,
         handler: this.handleItemSelection,
+      },
+      {
+        pattern: /^delete_message$/,
+        handler: this.handleDeleteMessage,
       },
       {
         pattern: /^history:(.+)$/,
@@ -216,6 +220,7 @@ export class MessageHandlers {
         enableVectorSearch: true,
         maxEnhenceMenu: 60,
       });
+      const searchHistory = await this.userService.getSearchHistory(ctx.user.telegramId, 1);
 
       if (results.length === 0) {
         clearTimeout(timeout);
@@ -233,7 +238,7 @@ export class MessageHandlers {
       clearTimeout(timeout);
       await ctx.telegram.deleteMessage(ctx.chat.id, botMessage.message_id);
 
-      const formattedResults = this.messageFormatter.formatSearchResults(results);
+      const formattedResults = this.messageFormatter.formatSearchResults(results, searchHistory[0]?.id);
       await ctx.reply(formattedResults.text, {
         parse_mode: formattedResults.parseMode,
         reply_markup: formattedResults.replyMarkup,
@@ -264,23 +269,45 @@ export class MessageHandlers {
       return;
     }
 
-    const match = callbackData.match(/^item:(.+)$/);
+    const match = callbackData.match(/^item:(.+):(.+)$/);
     if (!match) {
       await ctx.answerCbQuery('Неверный формат выбора блюда');
       return;
     }
 
-    const itemId = match[1];
+    const searchHistoryId = match[1];
+    const itemId = match[2];
 
     try {
       await ctx.answerCbQuery('Загружаем информацию о блюде...');
 
-      // TODO: Получить детальную информацию о блюде из SearchService
-      // const itemDetails = await this.searchService.getItemDetails(itemId);
+      const searchHistory = await this.userService.getSearchHistoryItemById(ctx.user.telegramId, searchHistoryId);
+      if (!searchHistory) {
+        await ctx.answerCbQuery('История поиска не найдена');
+        return;
+      }
+      const searchResultItem = searchHistory.results.find(result => result.id === itemId);
+      if (!searchResultItem) {
+        await ctx.answerCbQuery('Блюдо не найдено');
+        return;
+      }
 
-      await ctx.reply(`🍽️ <b>Детальная информация о блюде</b>\n\nID: ${itemId}\n\nФункция в разработке...`, {
-        parse_mode: 'HTML',
-      });
+      const formattedMessage = this.messageFormatter.formatMenuItem(searchResultItem);
+
+      if (formattedMessage.photo) {
+        // Отправляем фото с подписью
+        await ctx.replyWithPhoto(formattedMessage.photo, {
+          caption: formattedMessage.text,
+          parse_mode: formattedMessage.parseMode,
+          reply_markup: formattedMessage.replyMarkup,
+        });
+      } else {
+        // Отправляем только текст
+        await ctx.reply(formattedMessage.text, {
+          parse_mode: formattedMessage.parseMode,
+          reply_markup: formattedMessage.replyMarkup,
+        });
+      }
     } catch (error) {
       ConsoleLogger.error('Ошибка при получении информации о блюде', error as Error, {
         telegramId: ctx.from?.id,
@@ -361,6 +388,35 @@ export class MessageHandlers {
         pageNumber,
       });
       await ctx.answerCbQuery('Ошибка при навигации');
+    }
+  };
+
+  private handleDeleteMessage = async (_ctx: TBotContext): Promise<void> => {
+    const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
+
+    if (!ctx.user) {
+      throw AppError.userNotFound(ctx.from?.id ?? 0);
+    }
+
+    const callbackData = ctx.callbackQuery.data;
+    if (!callbackData) {
+      await ctx.answerCbQuery('Неверные данные callback');
+      return;
+    }
+
+    try {
+      await ctx.answerCbQuery('Удаляем сообщение...');
+
+      // Удаляем сообщение с блюдом
+      if (ctx.callbackQuery.message && ctx.chat) {
+        await ctx.telegram.deleteMessage(ctx.chat.id, ctx.callbackQuery.message.message_id);
+      }
+    } catch (error) {
+      ConsoleLogger.error('Ошибка при удалении сообщения', error as Error, {
+        telegramId: ctx.from?.id,
+        messageId: ctx.callbackQuery.message?.message_id,
+      });
+      await ctx.answerCbQuery('Ошибка при удалении сообщения');
     }
   };
 

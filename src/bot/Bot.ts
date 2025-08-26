@@ -82,11 +82,19 @@ export class Bot {
       for (const handler of messageHandlers) {
         if (typeof handler.pattern === 'string') {
           if (callbackData === handler.pattern) {
-            void handler.handler(ctx);
+            void handler.handler(ctx).catch(error => {
+              ConsoleLogger.error('Ошибка при обработке callback', error as Error, {
+                callbackData,
+              });
+            });
             return;
           }
         } else if (handler.pattern.test(callbackData)) {
-          void handler.handler(ctx);
+          void handler.handler(ctx).catch(error => {
+            ConsoleLogger.error('Ошибка при обработке callback', error as Error, {
+              callbackData,
+            });
+          });
           return;
         }
       }
@@ -105,11 +113,19 @@ export class Bot {
       for (const handler of messageHandlers) {
         if (typeof handler.pattern === 'string') {
           if (messageText === handler.pattern) {
-            void handler.handler(ctx);
+            void handler.handler(ctx).catch(error => {
+              ConsoleLogger.error('Ошибка при обработке текстового сообщения', error as Error, {
+                messageText,
+              });
+            });
             return;
           }
         } else if (handler.pattern.test(messageText)) {
-          void handler.handler(ctx);
+          void handler.handler(ctx).catch(error => {
+            ConsoleLogger.error('Ошибка при обработке текстового сообщения', error as Error, {
+              messageText,
+            });
+          });
           return;
         }
       }
