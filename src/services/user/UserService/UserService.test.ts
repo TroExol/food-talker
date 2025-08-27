@@ -8,6 +8,7 @@ import {
 
 import type { TSearchResultItem } from '@/types/search';
 import type { TSearchHistoryItem, TUser } from '@/services/user/UserRepository/types';
+import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { AppError } from '@/utils/AppError';
 import { EDishCategory } from '@/types/menuItem';
@@ -30,11 +31,16 @@ const mockUserRepository = {
   clearSearchHistory: vi.fn(),
 } as unknown as UserRepository;
 
+const mockCacheService = {
+  get: vi.fn(),
+  set: vi.fn(),
+} as unknown as CacheService;
+
 describe('UserService', () => {
   let userService: UserService;
 
   beforeEach(() => {
-    userService = new UserService(mockUserRepository);
+    userService = new UserService(mockUserRepository, mockCacheService);
   });
 
   describe('createUser', () => {

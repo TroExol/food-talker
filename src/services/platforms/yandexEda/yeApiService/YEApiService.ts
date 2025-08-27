@@ -110,6 +110,7 @@ export class YEApiService {
 
       if (cached) {
         ConsoleLogger.debug('Кэш ресторанов Яндекс.Еда найден', { coordinates, cacheKey });
+        // TODO: remove this
         return cached.slice(0, 3);
       }
 
@@ -130,6 +131,7 @@ export class YEApiService {
         cacheKey,
       });
 
+      // TODO: remove this
       return restaurants.slice(0, 3);
     } catch (error) {
       ConsoleLogger.error('Не удалось загрузить рестораны Яндекс.Еда', error as Error, { coordinates });

@@ -1,5 +1,8 @@
+import { createHash } from 'crypto';
+
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
 import type { TSearchHistoryItem, TUser } from '@/services/user/UserRepository/types';
+import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { Validator } from '@/utils/Validator';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
@@ -12,6 +15,7 @@ import type { UserRepository } from '../UserRepository/UserRepository';
 export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
+    private readonly cacheService: CacheService,
   ) {}
 
   public createUser = async (telegramId: number, chatId: number): Promise<TUser> => {
@@ -221,7 +225,14 @@ export class UserService {
     }
 
     try {
-      return await this.userRepository.getSearchHistoryItemById(telegramId, id);
+      const cacheKey = this.generateCacheKey('search_history_item', telegramId, id);
+      const cachedItem = await this.cacheService.get(cacheKey);
+      if (cachedItem) {
+        return cachedItem as TSearchHistoryItem;
+      }
+      const item = await this.userRepository.getSearchHistoryItemById(telegramId, id);
+      await this.cacheService.set(cacheKey, item, 60 * 60 * 0.25); // 15 минут
+      return item;
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
@@ -280,5 +291,10 @@ export class UserService {
       default:
         throw AppError.systemError('INVALID_SUBSCRIPTION', 'Неверный тип подписки');
     }
+  };
+
+  private generateCacheKey = (type: string, ...params: unknown[]): string => {
+    const data = JSON.stringify({ type, params });
+    return `user_service:${createHash('sha256').update(data).digest('hex')}`;
   };
 }
