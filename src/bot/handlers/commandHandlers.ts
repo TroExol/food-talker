@@ -35,11 +35,6 @@ export class CommandHandlers {
         description: 'Показать историю поиска',
         handler: this.handleHistory,
       },
-      {
-        command: EBotCommand.CANCEL,
-        description: 'Отменить текущее действие',
-        handler: this.handleCancel,
-      },
     ];
   };
 
@@ -110,20 +105,8 @@ export class CommandHandlers {
     }
   };
 
-  private handleCancel = async (ctx: TBotContext): Promise<void> => {
-    if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
-    }
-
-    ctx.user.state = EUserState.IDLE;
-
-    await ctx.reply(
-      '✅ Действие отменено. Вы можете начать новый поиск или использовать команды.',
-    );
-  };
-
   private showCitySelection = async (ctx: TBotContext): Promise<void> => {
-    const cities: EAvailableCities[] = [EAvailableCities.PERM, EAvailableCities.VORONEZH];
+    const cities: EAvailableCities[] = Object.values(EAvailableCities);
 
     const keyboard = {
       inline_keyboard: cities.map(city => ([{

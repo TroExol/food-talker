@@ -11,6 +11,7 @@ export class CityValidator {
   private static readonly cityCoordinates: Record<EAvailableCities, TCoordinates> = {
     Пермь: { latitude: 58.010454, longitude: 56.229441 },
     Воронеж: { latitude: 51.661535, longitude: 39.200287 },
+    Москва: { latitude: 55.755826, longitude: 37.617299 },
   };
 
   public static isSupported = (city: EAvailableCities): boolean => {

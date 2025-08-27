@@ -75,7 +75,7 @@ describe('YEDataCollectionService', () => {
       void dataCollectionService.updateRestaurants();
       await vi.runAllTimersAsync();
 
-      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(2); // Для двух городов
+      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(3);
     });
 
     it('должен обработать ошибку API', async () => {

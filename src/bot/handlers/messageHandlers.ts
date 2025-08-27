@@ -91,6 +91,10 @@ export class MessageHandlers {
 
       await ctx.answerCbQuery(`Город изменен на: ${selectedCity}`);
 
+      if (ctx.callbackQuery.message && ctx.chat) {
+        await ctx.telegram.deleteMessage(ctx.chat.id, ctx.callbackQuery.message.message_id);
+      }
+
       // Отправляем приветственное сообщение
       const userName = ctx.from?.first_name;
       const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName);

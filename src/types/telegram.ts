@@ -16,7 +16,6 @@ export interface TBotHandler {
 // Bot command types
 export enum EBotCommand {
   ADDRESS = 'address',
-  CANCEL = 'cancel',
   HELP = 'help',
   HISTORY = 'history',
   START = 'start',

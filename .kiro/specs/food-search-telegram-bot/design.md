@@ -197,7 +197,6 @@ interface TBotHandler {
 - `/help` - Help information
 - `/address` - Change delivery city
 - `/history` - Search history
-- `/cancel` - Cancel current action
 
 ### 2. User Management (`src/services/user/`)
 
@@ -243,6 +242,7 @@ enum ESubscriptionType {
 enum EAvailableCities {
   PERM = 'Пермь',
   VORONEZH = 'Воронеж',
+  MOSCOW = 'Москва',
 }
 ```
 
