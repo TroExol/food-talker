@@ -9,9 +9,11 @@ import { botConfig } from '@/config/bot';
 
 export class CityValidator {
   private static readonly cityCoordinates: Record<EAvailableCities, TCoordinates> = {
-    Пермь: { latitude: 58.010454, longitude: 56.229441 },
-    Воронеж: { latitude: 51.661535, longitude: 39.200287 },
-    Москва: { latitude: 55.755826, longitude: 37.617299 },
+    'Пермь': { latitude: 58.010454, longitude: 56.229441 },
+    'Москва': { latitude: 55.755826, longitude: 37.617299 },
+    'Краснодар': { latitude: 45.038189, longitude: 38.975913 },
+    'Казань': { latitude: 55.796127, longitude: 49.106405 },
+    'Санкт-Петербург': { latitude: 59.9386, longitude: 30.3141 },
   };
 
   public static isSupported = (city: EAvailableCities): boolean => {

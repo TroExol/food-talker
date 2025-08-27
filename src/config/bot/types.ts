@@ -1,7 +1,11 @@
 export enum EAvailableCities {
+  KAZAN = 'Казань',
+  KRASNODAR = 'Краснодар',
   MOSCOW = 'Москва',
+  // NIZHNY_NOVGOROD = 'Нижний Новгород',
   PERM = 'Пермь',
-  VORONEZH = 'Воронеж',
+  ST_PETERSBURG = 'Санкт-Петербург',
+  // VORONEZH = 'Воронеж',
 }
 
 interface TUserSerchPromptSanitizerConfig {

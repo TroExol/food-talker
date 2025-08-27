@@ -10,7 +10,7 @@ export const botConfig: TBotConfig = {
     },
   },
   cache: {
-    ttlMenu: 1800,
+    ttlMenu: 3600,
   },
   availableCities: Object.values(EAvailableCities),
   yandexEda: {

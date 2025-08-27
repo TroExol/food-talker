@@ -561,7 +561,7 @@ describe('YEApiService', () => {
         expect(mockCacheService.set).toHaveBeenCalledWith(
           'menu:58.0105,56.2294:test-restaurant',
           mockTransformedMenuItems,
-          1800,
+          3600,
         );
       });
 

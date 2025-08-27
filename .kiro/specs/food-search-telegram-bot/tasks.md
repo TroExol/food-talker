@@ -105,3 +105,4 @@
   - [ ] 11.3 On Basic subscripton use only vector data base
   - [ ] 11.4 On Premium subscripton use vector data base and LLM
   - [ ] 11.5 Calc used tokens for user
+  - [ ] 11.6 Вместо захардкоженных городов дать возможность пользователю выбирать любой город России
