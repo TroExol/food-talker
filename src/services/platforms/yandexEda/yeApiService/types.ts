@@ -209,4 +209,5 @@ export interface TYEApiConfig {
   timeout: number;
   retries: number;
   delayBetweenRequestsMs: number; // Задержка между запросами в миллисекундах
+  proxyUrl?: string; // URL прокси в формате http://host:port или http://user:pass@host:port
 }

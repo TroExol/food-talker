@@ -100,7 +100,7 @@
     - _Requirements: 7.4, 9.1, 9.5_
 
 - [ ] 11. Other
-  - [ ] 11.1 Add available to setup proxy for parsing API Yandex.Eda
+  - [x] 11.1 Add available to setup proxy for parsing API Yandex.Eda
   - [ ] 11.2 Limit the number of user requests to 10 requests per month on Basic subscription
   - [ ] 11.3 On Basic subscripton use only vector data base
   - [ ] 11.4 On Premium subscripton use vector data base and LLM

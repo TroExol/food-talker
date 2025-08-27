@@ -1,3 +1,15 @@
+import type { Response } from 'node-fetch';
+
+// Mock node-fetch
+vi.mock('node-fetch', () => ({
+  default: vi.fn(),
+}));
+
+// Mock https-proxy-agent
+vi.mock('https-proxy-agent', () => ({
+  HttpsProxyAgent: vi.fn(),
+}));
+
 import {
   beforeEach,
   describe,
@@ -26,9 +38,13 @@ import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
 
 import { YEApiService } from './YEApiService';
 
-// Mock fetch
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// Import mocked modules
+import fetch from 'node-fetch';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+
+// Get mocked functions
+const mockFetch = vi.mocked(fetch);
+const mockHttpsProxyAgent = vi.mocked(HttpsProxyAgent);
 
 describe('YEApiService', () => {
   let service: YEApiService;
@@ -38,6 +54,8 @@ describe('YEApiService', () => {
   };
 
   beforeEach(() => {
+    vi.clearAllMocks();
+
     const mockCacheService = {
       get: vi.fn(),
       set: vi.fn(),
@@ -94,7 +112,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
-      });
+      } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
 
@@ -116,7 +134,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: {} }),
-      });
+      } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
 
@@ -129,7 +147,7 @@ describe('YEApiService', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
-      });
+      } as unknown as Response);
 
       await expect(service.requestRestaurants(mockCoordinates)).rejects.toThrow(AppError);
       expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -142,7 +160,7 @@ describe('YEApiService', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve(mockResponse),
-        });
+        } as unknown as Response);
 
       const sendingRequest = service.requestRestaurants(mockCoordinates);
       await vi.advanceTimersToNextTimerAsync();
@@ -152,6 +170,50 @@ describe('YEApiService', () => {
 
       expect(result).toEqual([mockPlace]);
       expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('должен использовать прокси если настроен', async () => {
+      // Настраиваем прокси в конфигурации
+
+      (service as any).config.proxyUrl = 'http://proxy.example.com:8080';
+      const proxyUrl = new URL('http://proxy.example.com:8080');
+      mockHttpsProxyAgent.mockReturnValue({ proxy: proxyUrl } as unknown as HttpsProxyAgent<string>);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      } as unknown as Response);
+
+      await service.requestRestaurants(mockCoordinates);
+
+      expect(mockHttpsProxyAgent).toHaveBeenCalledWith('http://proxy.example.com:8080');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://eda.yandex.ru/eats/v1/layout-constructor/v1/layout',
+        expect.objectContaining({
+          agent: { proxy: proxyUrl },
+        }),
+      );
+    });
+
+    it('не должен использовать прокси если не настроен', async () => {
+      // Убираем прокси из конфигурации
+
+      (service as any).config.proxyUrl = undefined;
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      } as unknown as Response);
+
+      await service.requestRestaurants(mockCoordinates);
+
+      expect(mockHttpsProxyAgent).not.toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://eda.yandex.ru/eats/v1/layout-constructor/v1/layout',
+        expect.not.objectContaining({
+          agent: expect.anything() as unknown,
+        }),
+      );
     });
   });
 
@@ -190,7 +252,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockMenuResponse),
-      });
+      } as unknown as Response);
 
       const result = await service.requestRestaurantMenu('test-place', mockCoordinates, 'test-brand');
 
@@ -210,7 +272,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockMenuResponse),
-      });
+      } as unknown as Response);
 
       await service.requestRestaurantMenu('test-place', mockCoordinates, '');
 
@@ -231,7 +293,7 @@ describe('YEApiService', () => {
         ok: false,
         status: 404,
         statusText: 'Not Found',
-      });
+      } as unknown as Response);
 
       await expect(service.requestRestaurantMenu('test-place', mockCoordinates, 'test-brand')).rejects.toThrow(AppError);
     });
@@ -265,7 +327,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-      });
+      } as unknown as Response);
 
       const firstRequest = service.requestRestaurants(mockCoordinates);
       await vi.runAllTimersAsync();
@@ -275,7 +337,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-      });
+      } as unknown as Response);
 
       const secondRequest = service.requestRestaurants(mockCoordinates);
 
@@ -294,7 +356,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-      });
+      } as unknown as Response);
 
       const firstRequest = service.requestRestaurants(mockCoordinates);
       await vi.runAllTimersAsync();
@@ -315,7 +377,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-      });
+      } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
 

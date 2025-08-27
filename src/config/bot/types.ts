@@ -34,4 +34,5 @@ export interface TYandexEdaConfig {
   };
   delayBetweenRequestsMs: number;
   retries: number;
+  proxyUrl?: string;
 }

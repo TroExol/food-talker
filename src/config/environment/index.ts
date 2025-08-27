@@ -25,6 +25,7 @@ export const environment: TEnvironment = {
   EMBEDDING_API_KEY: process.env.EMBEDDING_API_KEY || '',
   EMBEDDING_MODEL_NAME: process.env.EMBEDDING_MODEL_NAME || '',
   ADMIN_TELEGRAM_ID: process.env.ADMIN_TELEGRAM_ID,
+  PROXY_URL: process.env.PROXY_URL,
 };
 
 export const validateEnvironment = (): void => {

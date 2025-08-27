@@ -17,4 +17,5 @@ export interface TEnvironment {
   EMBEDDING_API_KEY: string;
   EMBEDDING_MODEL_NAME: string;
   ADMIN_TELEGRAM_ID?: string;
+  PROXY_URL?: string;
 }

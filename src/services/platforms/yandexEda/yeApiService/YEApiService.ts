@@ -1,3 +1,6 @@
+import fetch, { type RequestInit } from 'node-fetch';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+
 import type { TCoordinates } from '@/types/restaurant';
 import type { MenuService } from '@/services/menu/MenuService/MenuService';
 import type { CacheService } from '@/services/cacheService/CacheService';
@@ -7,6 +10,7 @@ import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
 import { EDishCategory, type TMenuItem } from '@/types/menuItem';
+import { environment } from '@/config/environment';
 import { botConfig } from '@/config/bot';
 
 import type {
@@ -48,6 +52,7 @@ export class YEApiService {
       timeout: 10000, // 10 секунд
       retries: botConfig.yandexEda.retries ?? 3,
       delayBetweenRequestsMs: botConfig.yandexEda.delayBetweenRequestsMs ?? 100, // Задержка между запросами
+      proxyUrl: environment.PROXY_URL,
     };
 
     this.rateLimitState = {
@@ -274,10 +279,20 @@ export class YEApiService {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-        const response = await fetch(url, {
+        // Подготовка опций для fetch с поддержкой прокси
+        const fetchOptions: RequestInit = {
           ...options,
           signal: controller.signal,
-        });
+        };
+
+        // Добавляем поддержку прокси если настроен
+        if (this.config.proxyUrl) {
+          const agent = new HttpsProxyAgent(this.config.proxyUrl);
+          fetchOptions.agent = agent;
+          ConsoleLogger.debug('Используется прокси для запроса', { proxyUrl: this.config.proxyUrl });
+        }
+
+        const response = await fetch(url, fetchOptions);
 
         clearTimeout(timeoutId);
 
