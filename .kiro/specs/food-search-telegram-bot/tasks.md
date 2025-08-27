@@ -76,14 +76,14 @@
     - Add user registration flow and city selection
     - _Requirements: 1.2, 2.1, 8.5_
 
-- [ ] 8. Build message formatting and result display
+- [x] 8. Build message formatting and result display
   - [x] 8.1 Create MessageFormatter service
     - Implement search result formatting with photos and details
     - Create inline keyboard generation for "Order" buttons
     - Add pagination support for "Show more" functionality
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-  - [ ] 8.2 Add rich message formatting
+  - [x] 8.2 Add rich message formatting
     - Implement restaurant card formatting with all required fields
     - Create error message templates for user-friendly errors
     - _Requirements: 4.1, 4.5_

@@ -7,6 +7,8 @@ import type { TRestaurant } from '@/types/restaurant';
 import type { TMenuItem } from '@/types/menuItem';
 import type { TSearchHistoryItem } from '@/services/user/UserRepository/types';
 
+import { EAvailableCities } from '@/config/bot/types';
+
 import type {
   TFormattedMessage,
   TFormattingConfig,
@@ -95,8 +97,7 @@ export class MessageFormatterService {
 • Например: "хочу пиццу с грибами", "бургер с картошкой", "суши с лососем"
 
 📍 <b>Доступные города:</b>
-• Пермь
-• Воронеж
+${Object.values(EAvailableCities).map(city => `• ${city}`).join('\n')}
 
 💡 <b>Команды:</b>
 /help - справка
