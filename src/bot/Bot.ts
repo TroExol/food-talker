@@ -44,7 +44,7 @@ export class Bot {
     this.rateLimitMiddleware = new RateLimitMiddleware(this.rateLimitConfig);
 
     this.errorHandlerMiddleware = new ErrorHandlerMiddleware(messageFormatter, adminNotificationService);
-    this.commandHandlers = new CommandHandlers(userService, messageFormatter);
+    this.commandHandlers = new CommandHandlers(userService, searchService, messageFormatter);
     this.messageHandlers = new MessageHandlers(userService, searchService, messageFormatter);
 
     this.setupMiddleware();

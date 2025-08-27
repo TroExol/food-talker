@@ -1,5 +1,6 @@
 import type { TBotContext, TCommandHandler } from '@/types/telegram';
 import type { UserService } from '@/services/user/UserService/UserService';
+import type { SearchService } from '@/services/search/SearchService/SearchService';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
@@ -10,6 +11,7 @@ import { EAvailableCities } from '@/config/bot/types';
 export class CommandHandlers {
   constructor(
     private readonly userService: UserService,
+    private readonly searchService: SearchService,
     private readonly messageFormatter: MessageFormatterService,
   ) {}
 
@@ -34,6 +36,11 @@ export class CommandHandlers {
         command: EBotCommand.HISTORY,
         description: 'Показать историю поиска',
         handler: this.handleHistory,
+      },
+      {
+        command: EBotCommand.SEARCH,
+        description: 'Поиск еды по запросу',
+        handler: this.handleSearch,
       },
       {
         command: EBotCommand.SUPPORT,
@@ -107,6 +114,96 @@ export class CommandHandlers {
         telegramId: ctx.from?.id,
       });
       await ctx.reply('Не удалось загрузить историю поиска. Попробуйте позже.');
+    }
+  };
+
+  private handleSearch = async (ctx: TBotContext): Promise<void> => {
+    if (!ctx.user) {
+      throw AppError.userNotFound(ctx.from?.id ?? 0);
+    }
+
+    if (!ctx.message || !('text' in ctx.message)) {
+      await ctx.reply('Использование: /search <запрос>\n\nПример: /search пицца с грибами');
+      return;
+    }
+
+    const query = ctx.message.text.replace(/^\/search(?:@\w+)?\s*/, '').trim();
+
+    if (!query) {
+      await ctx.reply('Использование: /search <запрос>\n\nПример: /search пицца с грибами');
+      return;
+    }
+
+    // Проверяем длину запроса
+    if (query.length > 500) {
+      await ctx.reply('Запрос слишком длинный. Максимальная длина - 500 символов.');
+      return;
+    }
+
+    if (query.length < 3) {
+      await ctx.reply('Запрос слишком короткий. Опишите, что хотите найти.');
+      return;
+    }
+
+    if (!ctx.user.city) {
+      await ctx.reply('Сначала выберите город для доставки командой /address');
+      return;
+    }
+
+    // Устанавливаем состояние ожидания обработки запроса
+    ctx.user.state = EUserState.WAITING_FOR_SEARCH_QUERY;
+
+    try {
+      const botMessage = await ctx.reply('🔍 Ищу для вас...');
+
+      const timeout = setTimeout(() => {
+        if (ctx.chat) {
+          void ctx.telegram.editMessageText(ctx.chat.id, botMessage.message_id, undefined, '🔍 Перебираю варианты...');
+        }
+      }, 10000);
+
+      // Выполняем поиск через SearchService
+      const results = await this.searchService.searchFood(query, ctx.user.telegramId, {
+        enableLLMEnhancement: true,
+        enableVectorSearch: true,
+        maxEnhenceMenu: 60,
+      });
+      const searchHistory = await this.userService.getSearchHistory(ctx.user.telegramId, 1);
+
+      if (results.length === 0) {
+        clearTimeout(timeout);
+        if (ctx.chat) {
+          await ctx.telegram.deleteMessage(ctx.chat.id, botMessage.message_id);
+        }
+
+        const noResultsMessage = this.messageFormatter.formatNoResultsMessage(query);
+        await ctx.reply(noResultsMessage.text, {
+          parse_mode: noResultsMessage.parseMode,
+          reply_markup: noResultsMessage.replyMarkup,
+        });
+        return;
+      }
+
+      // Форматируем результаты
+      clearTimeout(timeout);
+      if (ctx.chat) {
+        await ctx.telegram.deleteMessage(ctx.chat.id, botMessage.message_id);
+      }
+
+      const formattedResults = this.messageFormatter.formatSearchResults(results, searchHistory[0]?.id);
+      await ctx.reply(formattedResults.text, {
+        parse_mode: formattedResults.parseMode,
+        reply_markup: formattedResults.replyMarkup,
+      });
+    } catch (error) {
+      ConsoleLogger.error('Ошибка при поиске', error as Error, {
+        telegramId: ctx.from?.id,
+        city: ctx.user.city,
+        query,
+      });
+      await ctx.reply('Ошибка при поиске. Попробуйте еще раз.');
+    } finally {
+      ctx.user.state = EUserState.IDLE;
     }
   };
 

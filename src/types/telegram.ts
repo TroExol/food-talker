@@ -18,6 +18,7 @@ export enum EBotCommand {
   ADDRESS = 'address',
   HELP = 'help',
   HISTORY = 'history',
+  SEARCH = 'search',
   START = 'start',
   SUPPORT = 'support',
 }
