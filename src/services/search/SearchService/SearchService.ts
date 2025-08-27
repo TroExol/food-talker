@@ -49,10 +49,7 @@ export class SearchService {
 
       // Параллельно получаем рестораны и структурируем запрос через менеджер
       const restaurants = await this.getRestaurants(user.city);
-      const structuredQuery = await this.llmService.stuctureQuery(
-        naturalQuery,
-        restaurants.map(restaurant => restaurant.name),
-      );
+      const structuredQuery = await this.llmService.stuctureQuery(naturalQuery, restaurants);
 
       // Используем векторный поиск вместо структурированного
       let results = options.enableVectorSearch
@@ -78,7 +75,7 @@ export class SearchService {
       await this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, results);
 
       const duration = Date.now() - startTime;
-      ConsoleLogger.info('Векторный поиск еды завершен', {
+      ConsoleLogger.info('Поиск еды завершен', {
         query: naturalQuery,
         telegramId,
         resultsCount: results.length,

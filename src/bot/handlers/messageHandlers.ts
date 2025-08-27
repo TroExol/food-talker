@@ -41,12 +41,8 @@ export class MessageHandlers {
         handler: this.handleHistoryItemSelection,
       },
       {
-        pattern: /^page:(\d+)$/,
+        pattern: /^page:(.+):(\d+)$/,
         handler: this.handlePageNavigation,
-      },
-      {
-        pattern: /^show_more:(\d+)$/,
-        handler: this.handleShowMore,
       },
       {
         pattern: /.*/,
@@ -367,24 +363,49 @@ export class MessageHandlers {
       return;
     }
 
-    const match = callbackData.match(/^page:(\d+)$/);
+    const match = callbackData.match(/^page:(.+):(\d+)$/);
     if (!match) {
       await ctx.answerCbQuery('Неверный формат навигации');
       return;
     }
 
-    const pageNumber = parseInt(match[1], 10);
+    const searchHistoryId = match[1];
+    const pageNumber = parseInt(match[2], 10);
 
     try {
       await ctx.answerCbQuery(`Переходим на страницу ${pageNumber}...`);
 
-      // TODO: Получить результаты для указанной страницы
-      await ctx.reply(`📄 <b>Навигация по страницам</b>\n\nСтраница: ${pageNumber}\n\nФункция в разработке...`, {
-        parse_mode: 'HTML',
-      });
+      // Получаем историю поиска
+      const searchHistory = await this.userService.getSearchHistoryItemById(ctx.user.telegramId, searchHistoryId);
+      if (!searchHistory) {
+        await ctx.answerCbQuery('История поиска не найдена');
+        return;
+      }
+
+      // Форматируем результаты для указанной страницы
+      const formattedResults = this.messageFormatter.formatSearchResults(
+        searchHistory.results,
+        searchHistoryId,
+        pageNumber,
+      );
+
+      // Обновляем сообщение с новыми результатами
+      if (ctx.callbackQuery.message && ctx.chat) {
+        await ctx.telegram.editMessageText(
+          ctx.chat.id,
+          ctx.callbackQuery.message.message_id,
+          undefined,
+          formattedResults.text,
+          {
+            parse_mode: formattedResults.parseMode,
+            reply_markup: formattedResults.replyMarkup,
+          },
+        );
+      }
     } catch (error) {
       ConsoleLogger.error('Ошибка при навигации по страницам', error as Error, {
         telegramId: ctx.from?.id,
+        searchHistoryId,
         pageNumber,
       });
       await ctx.answerCbQuery('Ошибка при навигации');
@@ -417,43 +438,6 @@ export class MessageHandlers {
         messageId: ctx.callbackQuery.message?.message_id,
       });
       await ctx.answerCbQuery('Ошибка при удалении сообщения');
-    }
-  };
-
-  private handleShowMore = async (_ctx: TBotContext): Promise<void> => {
-    const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
-
-    if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
-    }
-
-    const callbackData = ctx.callbackQuery.data;
-    if (!callbackData) {
-      await ctx.answerCbQuery('Неверные данные callback');
-      return;
-    }
-
-    const match = callbackData.match(/^show_more:(\d+)$/);
-    if (!match) {
-      await ctx.answerCbQuery('Неверный формат показа дополнительных результатов');
-      return;
-    }
-
-    const currentPage = parseInt(match[1], 10);
-
-    try {
-      await ctx.answerCbQuery('Загружаем дополнительные результаты...');
-
-      // TODO: Получить дополнительные результаты
-      await ctx.reply(`📄 <b>Дополнительные результаты</b>\n\nТекущая страница: ${currentPage}\n\nФункция в разработке...`, {
-        parse_mode: 'HTML',
-      });
-    } catch (error) {
-      ConsoleLogger.error('Ошибка при загрузке дополнительных результатов', error as Error, {
-        telegramId: ctx.from?.id,
-        currentPage,
-      });
-      await ctx.answerCbQuery('Ошибка при загрузке результатов');
     }
   };
 }

@@ -102,7 +102,13 @@ describe('LLMService', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await llmService.stuctureQuery('пепперони из Додо или Папа Джонс, но без ананаса и не дороже 300', ['Додо Пицца', 'Папа Джонс']);
+      const result = await llmService.stuctureQuery(
+        'пепперони из Додо или Папа Джонс, но без ананаса и не дороже 300',
+        [
+          { id: '1', name: 'Додо Пицца', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() },
+          { id: '2', name: 'Папа Джонс', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() },
+        ],
+      );
 
       expect(result).toEqual({
         restaurants: ['додо пицца', 'папа джонс'],
@@ -614,7 +620,10 @@ describe('LLMService', () => {
 
         mockCacheService.get = vi.fn().mockResolvedValue(cachedQuery);
 
-        const result = await llmService.stuctureQuery('хочу пиццу с сыром до 800 рублей', ['Додо']);
+        const result = await llmService.stuctureQuery(
+          'хочу пиццу с сыром до 800 рублей',
+          [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+        );
 
         expect(result).toEqual(cachedQuery);
         expect(mockCacheService.get).toHaveBeenCalledWith(expect.stringMatching(/^llm:/));
@@ -639,7 +648,10 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        await llmService.stuctureQuery('хочу пиццу с сыром до 800 рублей', ['Додо']);
+        await llmService.stuctureQuery(
+          'хочу пиццу с сыром до 800 рублей',
+          [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+        );
 
         expect(mockCacheService.set).toHaveBeenCalledWith(
           expect.stringMatching(/^llm:/),
@@ -671,7 +683,10 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        const result = await llmServiceWithoutCache.stuctureQuery('хочу пиццу', ['Додо']);
+        const result = await llmServiceWithoutCache.stuctureQuery(
+          'хочу пиццу',
+          [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+        );
 
         expect(result).toEqual({ tags: ['пицца'] });
       });
@@ -772,7 +787,10 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        const result = await llmService.stuctureQuery('хочу пиццу', ['Додо']);
+        const result = await llmService.stuctureQuery(
+          'хочу пиццу',
+          [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+        );
 
         expect(result).toEqual({ tags: ['пицца'] });
         expect(mockCacheService.get).toHaveBeenCalled();
@@ -796,7 +814,10 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        const result = await llmService.stuctureQuery('хочу пиццу', ['Додо']);
+        const result = await llmService.stuctureQuery(
+          'хочу пиццу',
+          [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+        );
 
         expect(result).toEqual({ tags: ['пицца'] });
         expect(mockCacheService.set).toHaveBeenCalled();
@@ -821,8 +842,14 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        await llmService.stuctureQuery('хочу пиццу', ['Додо']);
-        await llmService.stuctureQuery('хочу суши', ['Додо']);
+        await llmService.stuctureQuery(
+          'хочу пиццу',
+          [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+        );
+        await llmService.stuctureQuery(
+          'хочу суши',
+          [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+        );
 
         const calls = (mockCacheService.get as Mock).mock.calls;
         expect(calls[0][0]).not.toBe(calls[1][0]);
@@ -845,8 +872,14 @@ describe('LLMService', () => {
           json: () => Promise.resolve(mockResponse),
         });
 
-        await llmService.stuctureQuery('хочу пиццу', ['Додо']);
-        await llmService.stuctureQuery('хочу пиццу', ['Додо']);
+        await llmService.stuctureQuery(
+          'хочу пиццу',
+          [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+        );
+        await llmService.stuctureQuery(
+          'хочу пиццу',
+          [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+        );
 
         const calls = (mockCacheService.get as Mock).mock.calls;
         expect(calls[0][0]).toBe(calls[1][0]);

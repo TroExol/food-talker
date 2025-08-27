@@ -16,7 +16,6 @@ import type {
 export class MessageFormatterService {
   private readonly paginationConfig: TPaginationConfig = {
     itemsPerPage: 5, // Максимум 5 результатов на страницу
-    maxPages: 4, // Максимум 4 страницы (20 результатов)
   };
 
   private readonly formattingConfig: TFormattingConfig = {
@@ -40,8 +39,9 @@ export class MessageFormatterService {
       return this.formatNoResultsMessage();
     }
 
+    const startIndex = (page.currentPage - 1) * this.paginationConfig.itemsPerPage;
     const itemsText = page.items.map((item, index) =>
-      this.formatSearchResultItem(item, index + 1),
+      this.formatSearchResultItem(item, startIndex + index + 1),
     ).join('\n\n');
 
     const headerText = this.formatSearchResultsHeader(page);
@@ -49,7 +49,7 @@ export class MessageFormatterService {
 
     const text = `${headerText}\n\n${itemsText}${searchHistoryId ? `\n\n${footerText}` : ''}`;
     const replyMarkup = searchHistoryId
-      ? this.createSearchResultsKeyboard(searchHistoryId, page.items, page.currentPage)
+      ? this.createSearchResultsKeyboard(searchHistoryId, page.items, page)
       : undefined;
 
     return {
@@ -240,43 +240,28 @@ ${itemsText}
     };
   }
 
-  createPaginationKeyboard(currentPage: number, totalPages: number, hasMore: boolean): TInlineKeyboardMarkup {
+  createPaginationKeyboard(page: TSearchResultsPage, searchHistoryId?: string): TInlineKeyboardMarkup {
     const buttons: InlineKeyboardButton[][] = [];
 
     // Кнопки навигации
     const navButtons: InlineKeyboardButton[] = [];
 
-    if (currentPage > 1) {
+    if (page.currentPage > 1) {
       navButtons.push({
         text: '◀️ Назад',
-        callback_data: `page:${currentPage - 1}`,
+        callback_data: `page:${searchHistoryId}:${page.currentPage - 1}`,
       });
     }
 
-    navButtons.push({
-      text: `${currentPage}/${totalPages}`,
-      callback_data: 'page_info',
-    });
-
-    if (hasMore) {
+    if (page.currentPage < page.totalPages) {
       navButtons.push({
         text: 'Вперед ▶️',
-        callback_data: `page:${currentPage + 1}`,
+        callback_data: `page:${searchHistoryId}:${page.currentPage + 1}`,
       });
     }
 
     if (navButtons.length > 0) {
       buttons.push(navButtons);
-    }
-
-    // Кнопка "Показать еще" если есть дополнительные результаты
-    if (hasMore) {
-      buttons.push([
-        {
-          text: '📄 Показать еще',
-          callback_data: `show_more:${currentPage}`,
-        },
-      ]);
     }
 
     return { inline_keyboard: buttons };
@@ -285,28 +270,28 @@ ${itemsText}
   createSearchResultsKeyboard(
     searchHistoryId: string,
     results: TSearchResultItem[],
-    currentPage: number,
+    page: TSearchResultsPage,
   ): TInlineKeyboardMarkup {
     const buttons: InlineKeyboardButton[][] = [];
 
     // Кнопки для каждого результата
+    const startIndex = (page.currentPage - 1) * this.paginationConfig.itemsPerPage;
     results.forEach((item, index) => {
       buttons.push([
         {
-          text: `${index + 1}. ${this.truncateText(item.name, 30)}`,
+          text: `${startIndex + index + 1}. ${this.truncateText(item.name, 30)}`,
           callback_data: `item:${searchHistoryId}:${item.id}`,
         },
       ]);
     });
 
-    // Кнопки навигации
-    if (results.length >= this.paginationConfig.itemsPerPage) {
-      buttons.push([
-        {
-          text: '📄 Показать еще',
-          callback_data: `show_more:${currentPage}`,
-        },
-      ]);
+    const paginationButtons = this.createPaginationKeyboard(
+      page,
+      searchHistoryId,
+    ).inline_keyboard[0];
+
+    if (paginationButtons) {
+      buttons.push(paginationButtons);
     }
 
     return { inline_keyboard: buttons };
@@ -331,24 +316,18 @@ ${itemsText}
   paginateResults(
     results: TSearchResultItem[], page: number, itemsPerPage: number): TSearchResultsPage {
     const totalItems = results.length;
-    const totalPages = Math.min(
-      Math.ceil(totalItems / itemsPerPage),
-      this.paginationConfig.maxPages,
-    );
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
     const currentPage = Math.max(1, Math.min(page, totalPages));
 
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const items = results.slice(startIndex, endIndex);
 
-    const hasMore = endIndex < totalItems && currentPage < this.paginationConfig.maxPages;
-
     return {
       items,
       currentPage,
       totalPages,
       totalItems,
-      hasMore,
     };
   }
 
@@ -440,8 +419,8 @@ ${description
   }
 
   private formatSearchResultsFooter(page: TSearchResultsPage): string {
-    if (page.hasMore) {
-      return `💡 Используйте кнопки ниже для навигации или нажмите "Показать еще" для дополнительных результатов.`;
+    if (page.totalPages > 1) {
+      return `💡 Используйте кнопки ниже для навигации.`;
     }
 
     return `✅ Показаны все доступные результаты.`;

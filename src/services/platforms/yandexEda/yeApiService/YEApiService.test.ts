@@ -417,7 +417,7 @@ describe('YEApiService', () => {
       } as unknown as YEDataTransformer;
 
       const mockMenuService = {
-        createMenu: vi.fn(),
+        createMenu: vi.fn().mockResolvedValue(undefined),
       } as unknown as MenuService;
 
       service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService);

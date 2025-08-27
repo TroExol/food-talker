@@ -178,7 +178,7 @@ describe('SearchService', () => {
       expect(result[0]).toEqual(mockSearchResult);
       expect(mockVectorSearchService.searchMenu).toHaveBeenCalled();
       expect(mockYEApiService.getRestaurants).toHaveBeenCalledWith(EAvailableCities.PERM);
-      expect(mockLLMService.stuctureQuery).toHaveBeenCalledWith('хочу пиццу', ['Test Restaurant']);
+      expect(mockLLMService.stuctureQuery).toHaveBeenCalledWith('хочу пиццу', [mockRestaurant]);
       expect(mockUserService.addToSearchHistory).toHaveBeenCalled();
     });
 

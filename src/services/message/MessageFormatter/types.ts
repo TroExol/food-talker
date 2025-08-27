@@ -15,13 +15,11 @@ export interface TSearchResultsPage {
   currentPage: number;
   totalPages: number;
   totalItems: number;
-  hasMore: boolean;
 }
 
 // Настройки пагинации
 export interface TPaginationConfig {
   itemsPerPage: number;
-  maxPages: number;
 }
 
 // Настройки форматирования
@@ -41,7 +39,6 @@ export enum EInlineButtonType {
   ORDER = 'order',
   PREV_PAGE = 'prev_page',
   RESTAURANT_INFO = 'restaurant_info',
-  SHOW_MORE = 'show_more',
 }
 
 // Данные для inline кнопок

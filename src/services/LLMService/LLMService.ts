@@ -2,6 +2,7 @@ import { jsonrepair } from 'jsonrepair';
 import { createHash } from 'crypto';
 
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { TRestaurant } from '@/types/restaurant';
 import type { TCacheService } from '@/services/cacheService/types';
 
 import { sleep } from '@/utils/sleep';
@@ -36,11 +37,15 @@ export class LLMService {
     this.systemPrompt = config?.systemPrompt ?? 'Ты - помощник для поиска еды. Reasoning: low';
   }
 
-  public stuctureQuery = async (naturalQuery: string, restaurants: string[]): Promise<TStructuredQuery> => {
+  public stuctureQuery = async (naturalQuery: string, restaurants: TRestaurant[]): Promise<TStructuredQuery> => {
     try {
       ConsoleLogger.info('Начинаю структуризацию запроса через LLM', { query: naturalQuery });
 
-      const cacheKey = this.generateCacheKey('transform', naturalQuery, restaurants);
+      const cacheKey = this.generateCacheKey(
+        'transform',
+        naturalQuery,
+        restaurants.map(r => r.id).join(','),
+      );
       const cached = await this.cacheService.get<TStructuredQuery>(cacheKey);
 
       if (cached) {
@@ -48,7 +53,7 @@ export class LLMService {
         return cached;
       }
 
-      const prompt = this.buildStructureQueryPrompt(naturalQuery, restaurants);
+      const prompt = this.buildStructureQueryPrompt(naturalQuery, restaurants.map(r => r.name));
       const response = await this.callLLM(prompt);
       const structuredQuery = this.parseStructuredQuery(response);
 
@@ -75,7 +80,11 @@ export class LLMService {
         query,
       });
 
-      const cacheKey = this.generateCacheKey('enhance', query, results.length);
+      const cacheKey = this.generateCacheKey(
+        'enhance',
+        query,
+        results.map(r => `${r.restaurant.id}:${r.id}`),
+      );
       const cached = await this.cacheService.get<TSearchResultItem[]>(cacheKey);
 
       if (cached) {

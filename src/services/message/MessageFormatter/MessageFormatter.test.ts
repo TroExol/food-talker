@@ -170,7 +170,6 @@ describe('MessageFormatterService', () => {
       expect(page.currentPage).toBe(1);
       expect(page.totalPages).toBe(3);
       expect(page.totalItems).toBe(15);
-      expect(page.hasMore).toBe(true);
     });
 
     it('должен обрабатывать последнюю страницу', () => {
@@ -183,7 +182,6 @@ describe('MessageFormatterService', () => {
       const page = messageFormatter.paginateResults(results, 3, 5);
 
       expect(page.currentPage).toBe(3);
-      expect(page.hasMore).toBe(false);
     });
 
     it('должен ограничивать максимальное количество страниц', () => {
@@ -195,7 +193,7 @@ describe('MessageFormatterService', () => {
 
       const page = messageFormatter.paginateResults(results, 1, 5);
 
-      expect(page.totalPages).toBe(4); // Максимум 4 страницы
+      expect(page.totalPages).toBe(20);
       expect(page.totalItems).toBe(100);
     });
   });
@@ -214,52 +212,77 @@ describe('MessageFormatterService', () => {
 
   describe('createPaginationKeyboard', () => {
     it('должен создавать клавиатуру пагинации для первой страницы', () => {
-      const keyboard = messageFormatter.createPaginationKeyboard(1, 3, true);
+      const keyboard = messageFormatter.createPaginationKeyboard({
+        currentPage: 1,
+        totalPages: 3,
+        totalItems: 15,
+        items: [],
+      }, 'search-history-1');
 
-      expect(keyboard.inline_keyboard).toHaveLength(2);
-      expect(keyboard.inline_keyboard[0][0].text).toBe('1/3');
-      expect(keyboard.inline_keyboard[0][1].text).toBe('Вперед ▶️');
-      expect(keyboard.inline_keyboard[1][0].text).toBe('📄 Показать еще');
+      expect(keyboard.inline_keyboard).toHaveLength(1);
+      expect(keyboard.inline_keyboard[0][0].text).toBe('Вперед ▶️');
+      expect((keyboard.inline_keyboard[0][0] as any).callback_data).toBe('page:search-history-1:2');
     });
 
     it('должен создавать клавиатуру пагинации для средней страницы', () => {
-      const keyboard = messageFormatter.createPaginationKeyboard(2, 3, true);
+      const keyboard = messageFormatter.createPaginationKeyboard({
+        currentPage: 2,
+        totalPages: 3,
+        totalItems: 15,
+        items: [],
+      }, 'search-history-1');
 
       expect(keyboard.inline_keyboard[0][0].text).toBe('◀️ Назад');
-      expect(keyboard.inline_keyboard[0][1].text).toBe('2/3');
-      expect(keyboard.inline_keyboard[0][2].text).toBe('Вперед ▶️');
+      expect(keyboard.inline_keyboard[0][1].text).toBe('Вперед ▶️');
+      expect((keyboard.inline_keyboard[0][0] as any).callback_data).toBe('page:search-history-1:1');
+      expect((keyboard.inline_keyboard[0][1] as any).callback_data).toBe('page:search-history-1:3');
     });
 
     it('должен создавать клавиатуру пагинации для последней страницы', () => {
-      const keyboard = messageFormatter.createPaginationKeyboard(3, 3, false);
+      const keyboard = messageFormatter.createPaginationKeyboard({
+        currentPage: 3,
+        totalPages: 3,
+        totalItems: 15,
+        items: [],
+      }, 'search-history-1');
 
       expect(keyboard.inline_keyboard).toHaveLength(1);
       expect(keyboard.inline_keyboard[0][0].text).toBe('◀️ Назад');
-      expect(keyboard.inline_keyboard[0][1].text).toBe('3/3');
+      expect((keyboard.inline_keyboard[0][0] as any).callback_data).toBe('page:search-history-1:2');
     });
   });
 
   describe('createSearchResultsKeyboard', () => {
     it('должен создавать клавиатуру результатов поиска', () => {
       const results = [mockSearchResult];
-      const keyboard = messageFormatter.createSearchResultsKeyboard('search-history-1', results, 1);
+      const keyboard = messageFormatter.createSearchResultsKeyboard('search-history-1', results, {
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 1,
+        items: results,
+      });
 
       expect(keyboard.inline_keyboard).toHaveLength(1);
       expect(keyboard.inline_keyboard[0][0].text).toBe('1. Тестовый результат поиска');
       expect((keyboard.inline_keyboard[0][0] as any).callback_data).toBe('item:search-history-1:search-1');
     });
 
-    it('должен добавлять кнопку "Показать еще" для полной страницы', () => {
+    it('должен добавлять кнопки пагинации для полной страницы', () => {
       const results = Array.from({ length: 5 }, (_, i) => ({
         ...mockSearchResult,
         id: `item-${i}`,
         name: `Блюдо ${i}`,
       }));
 
-      const keyboard = messageFormatter.createSearchResultsKeyboard('search-1', results, 1);
+      const keyboard = messageFormatter.createSearchResultsKeyboard('search-1', results, {
+        currentPage: 1,
+        totalPages: 2,
+        totalItems: 5,
+        items: results,
+      });
 
-      expect(keyboard.inline_keyboard).toHaveLength(6); // 5 результатов + кнопка "Показать еще"
-      expect(keyboard.inline_keyboard[5][0].text).toBe('📄 Показать еще');
+      expect(keyboard.inline_keyboard).toHaveLength(6); // 5 результатов + кнопки пагинации
+      expect(keyboard.inline_keyboard[5][0].text).toBe('Вперед ▶️');
     });
   });
 

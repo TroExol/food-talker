@@ -86,7 +86,7 @@ export class YEDataCollectionService {
 
       ConsoleLogger.debug('Обновление данных ресторанов Яндекс.Еда для города', { coordinates });
 
-      const restaurants = (await this.yeApiService.getRestaurants(city)).slice(0, 3);
+      const restaurants = await this.yeApiService.getRestaurants(city);
 
       ConsoleLogger.info('Данные ресторанов Яндекс.Еда для города обновлены', {
         coordinates,

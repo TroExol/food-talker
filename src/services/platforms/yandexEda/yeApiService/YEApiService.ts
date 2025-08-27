@@ -110,7 +110,7 @@ export class YEApiService {
 
       if (cached) {
         ConsoleLogger.debug('Кэш ресторанов Яндекс.Еда найден', { coordinates, cacheKey });
-        return cached;
+        return cached.slice(0, 3);
       }
 
       // Загружаем из API
@@ -130,7 +130,7 @@ export class YEApiService {
         cacheKey,
       });
 
-      return restaurants;
+      return restaurants.slice(0, 3);
     } catch (error) {
       ConsoleLogger.error('Не удалось загрузить рестораны Яндекс.Еда', error as Error, { coordinates });
       throw AppError.apiError(`Не удалось загрузить рестораны Яндекс.Еда для ${city}`, error);
@@ -206,7 +206,9 @@ export class YEApiService {
       const menuItems = (await this.yeDataTransformer.transformMenu(yeMenu, restaurant))
         .filter(item => item.category !== EDishCategory.ACCESSORY);
 
-      void this.menuService.createMenu(menuItems);
+      void this.menuService.createMenu(menuItems).catch(error => {
+        ConsoleLogger.error('Не удалось сохранить меню в базу данных', error as Error, { restaurantId, coordinates });
+      });
 
       // Кэшируем результат
       await this.cacheService.set(cacheKey, menuItems, botConfig.cache.ttlMenu);
