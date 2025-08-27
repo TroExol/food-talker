@@ -1,3 +1,4 @@
+import type { InlineKeyboardMarkup } from 'telegraf/types';
 import type { Telegraf } from 'telegraf';
 
 import {
@@ -9,6 +10,7 @@ import {
 } from 'vitest';
 
 import { AppError } from '@/utils/AppError';
+import { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
 import { environment } from '@/config/environment';
 
 import { AdminNotificationService } from './AdminNotificationService';
@@ -32,7 +34,9 @@ describe('AdminNotificationService', () => {
       },
     } as unknown as Telegraf;
 
-    service = new AdminNotificationService(mockBot);
+    const messageFormatter = new MessageFormatterService();
+
+    service = new AdminNotificationService(mockBot, messageFormatter);
   });
 
   describe('notifyAdmin', () => {
@@ -46,7 +50,7 @@ describe('AdminNotificationService', () => {
       expect(mockBot.telegram.sendMessage).toHaveBeenCalledWith(
         '123456789',
         expect.stringContaining('🚨'),
-        { parse_mode: 'HTML' },
+        { parse_mode: 'HTML', reply_markup: expect.any(Object) as InlineKeyboardMarkup },
       );
     });
 
@@ -87,8 +91,8 @@ describe('AdminNotificationService', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockBot.telegram.sendMessage).toHaveBeenCalledWith(
         '123456789',
-        expect.stringContaining('⚠️'),
-        { parse_mode: 'HTML' },
+        expect.stringContaining('⚠️ <b>Системная ошибка</b>'),
+        { parse_mode: 'HTML', reply_markup: expect.any(Object) as InlineKeyboardMarkup },
       );
     });
 

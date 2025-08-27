@@ -110,33 +110,29 @@
     - Add resource usage tracking and optimization
     - _Requirements: 9.2, 9.5, 11.2_
 
-- [ ] 11. Connect collectors to CollectionService
-  - [ ] 11.1 Implement CollectionService with other collectors
-  - [ ] 11.2 Start collections wuth bot starting
-
-- [ ] 12. Add configuration and deployment setup
-  - [ ] 12.2 Add production readiness features
+- [ ] 11. Add configuration and deployment setup
+  - [ ] 11.2 Add production readiness features
     - Implement graceful shutdown handling
     - Create health check endpoints
     - Add monitoring and alerting configuration
     - _Requirements: 9.3, 9.4, 11.1, 11.2_
 
-- [ ] 13. Final integration and optimization
-  - [ ] 13.1 Connect all components and test full system
+- [ ] 12. Final integration and optimization
+  - [ ] 12.1 Connect all components and test full system
     - Wire together all services in main application
     - Test complete user journeys from registration to search
     - Verify all requirements are met through automated tests
     - _Requirements: All requirements integration_
 
-  - [ ] 13.2 Performance tuning and final validation
+  - [ ] 12.2 Performance tuning and final validation
     - Optimize database queries and caching strategies
     - Validate response times meet performance requirements
     - Test system under load with concurrent users
     - _Requirements: 9.1, 9.2, 9.5_
 
-- [ ] 14. Other
-  - [ ] 14.1 Add available to setup proxy for parsing API Yandex.Eda
-  - [ ] 14.2 Limit the number of user requests to 10 requests per month on Basic subscription
-  - [ ] 14.3 On Basic subscripton use only vector data base
-  - [ ] 14.4 On Premium subscripton use vector data base and LLM
-  - [ ] 14.5 Calc used tokens for user
+- [ ] 13. Other
+  - [ ] 13.1 Add available to setup proxy for parsing API Yandex.Eda
+  - [ ] 13.2 Limit the number of user requests to 10 requests per month on Basic subscription
+  - [ ] 13.3 On Basic subscripton use only vector data base
+  - [ ] 13.4 On Premium subscripton use vector data base and LLM
+  - [ ] 13.5 Calc used tokens for user

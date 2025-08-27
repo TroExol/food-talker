@@ -167,7 +167,17 @@ ${userMessage}
 • Попробуйте переформулировать поиск
 • Обратитесь в поддержку, если проблема повторяется`;
 
-    return { text, parseMode: 'HTML' };
+    const replyMarkup = {
+      inline_keyboard: [
+        [this.keyboardRemoveMessage()],
+      ],
+    };
+
+    return {
+      text,
+      parseMode: 'HTML',
+      replyMarkup,
+    };
   };
 
   public formatNoResultsMessage = (query?: string): TFormattedMessage => {
@@ -235,6 +245,34 @@ ${itemsText}
     return {
       text,
       parseMode: 'HTML',
+      replyMarkup,
+    };
+  };
+
+  public formatAdminError = (error: AppError, context?: Record<string, unknown>): TFormattedMessage => {
+    const text = this.formatAdminErrorMessage(error, context);
+    const replyMarkup = {
+      inline_keyboard: [
+        [this.keyboardRemoveMessage()],
+      ],
+    };
+    return {
+      text,
+      parseMode: 'HTML' as const,
+      replyMarkup,
+    };
+  };
+
+  public formatAdminSystemError = (error: Error, context?: Record<string, unknown>): TFormattedMessage => {
+    const text = this.formatAdminSystemErrorMessage(error, context);
+    const replyMarkup = {
+      inline_keyboard: [
+        [this.keyboardRemoveMessage()],
+      ],
+    };
+    return {
+      text,
+      parseMode: 'HTML' as const,
       replyMarkup,
     };
   };
@@ -372,7 +410,7 @@ ${itemsText}
     return this.truncateText(formattedIngredients, this.formattingConfig.maxIngredientsLength);
   };
 
-  private keyboardRemoveMessage = (): InlineKeyboardButton => {
+  public keyboardRemoveMessage = (): InlineKeyboardButton => {
     return {
       text: '🗑️ Скрыть',
       callback_data: `delete_message`,
@@ -380,6 +418,34 @@ ${itemsText}
   };
 
   // Приватные методы форматирования
+  private formatAdminErrorMessage = (error: AppError, context?: Record<string, unknown>): string => {
+    const timestamp = new Date().toISOString();
+    const contextStr = context ? `\n<b>Контекст:</b> <code>${JSON.stringify(context, null, 2)}</code>` : '';
+
+    return `🚨 <b>Критическая ошибка</b>
+
+<b>Тип:</b> ${error.type}
+<b>Код:</b> ${error.code}
+<b>Сообщение:</b> ${error.message}
+<b>Время:</b> ${timestamp}${contextStr}
+
+<b>Стек:</b>
+<code>${error.stack || 'Недоступен'}</code>`;
+  };
+
+  private formatAdminSystemErrorMessage = (error: Error, context?: Record<string, unknown>): string => {
+    const timestamp = new Date().toISOString();
+    const contextStr = context ? `\n<b>Контекст:</b> <code>${JSON.stringify(context, null, 2)}</code>` : '';
+
+    return `⚠️ <b>Системная ошибка</b>
+
+<b>Сообщение:</b> ${error.message}
+<b>Время:</b> ${timestamp}${contextStr}
+
+<b>Стек:</b>
+<code>${error.stack || 'Недоступен'}</code>`;
+  };
+
   private formatSearchResultItem = (item: TSearchResultItem, index: number): string => {
     // const image = item.image;
     const description = this.truncateText(item.description, this.formattingConfig.maxDescriptionLength);

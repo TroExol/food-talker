@@ -1,3 +1,4 @@
+import { sleep } from '@/utils/sleep';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppSchedulerServiceFactory } from '@/services/scheduler/AppSchedulerService/AppSchedulerServiceFactory';
 import { validateEnvironment } from '@/config/environment';
@@ -42,6 +43,8 @@ async function main(): Promise<void> {
     ConsoleLogger.error('Ошибка работы приложения:', error as Error);
 
     await adminNotificationService.notifySystemError(error as Error);
+
+    await sleep(1000);
 
     void main();
   }

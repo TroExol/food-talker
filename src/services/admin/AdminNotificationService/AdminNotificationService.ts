@@ -1,6 +1,7 @@
 import type { Telegraf } from 'telegraf';
 
 import type { AppError } from '@/utils/AppError';
+import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { environment } from '@/config/environment';
@@ -8,6 +9,7 @@ import { environment } from '@/config/environment';
 export class AdminNotificationService {
   constructor(
     private readonly bot: Telegraf,
+    private readonly messageFormatter: MessageFormatterService,
   ) {}
 
   public notifyAdmin = async (error: AppError, context?: Record<string, unknown>): Promise<void> => {
@@ -17,9 +19,10 @@ export class AdminNotificationService {
     }
 
     try {
-      const message = this.formatErrorMessage(error, context);
-      await this.bot.telegram.sendMessage(environment.ADMIN_TELEGRAM_ID, message, {
-        parse_mode: 'HTML',
+      const message = this.messageFormatter.formatAdminError(error, context);
+      await this.bot.telegram.sendMessage(environment.ADMIN_TELEGRAM_ID, message.text, {
+        parse_mode: message.parseMode,
+        reply_markup: message.replyMarkup,
       });
     } catch (notificationError) {
       ConsoleLogger.error('Не удалось отправить уведомление админу:', notificationError as Error);
@@ -33,40 +36,14 @@ export class AdminNotificationService {
     }
 
     try {
-      const message = this.formatSystemErrorMessage(error, context);
-      await this.bot.telegram.sendMessage(environment.ADMIN_TELEGRAM_ID, message, {
-        parse_mode: 'HTML',
+      const message = this.messageFormatter.formatAdminSystemError(error, context);
+      console.log(environment.ADMIN_TELEGRAM_ID, message);
+      await this.bot.telegram.sendMessage(environment.ADMIN_TELEGRAM_ID, message.text, {
+        parse_mode: message.parseMode,
+        reply_markup: message.replyMarkup,
       });
     } catch (notificationError) {
       ConsoleLogger.error('Не удалось отправить уведомление админу:', notificationError as Error);
     }
   };
-
-  private formatErrorMessage = (error: AppError, context?: Record<string, unknown>): string => {
-    const timestamp = new Date().toISOString();
-    const contextStr = context ? `\n<b>Контекст:</b> <code>${JSON.stringify(context, null, 2)}</code>` : '';
-
-    return `🚨 <b>Критическая ошибка</b>
-
-<b>Тип:</b> ${error.type}
-<b>Код:</b> ${error.code}
-<b>Сообщение:</b> ${error.message}
-<b>Время:</b> ${timestamp}${contextStr}
-
-<b>Стек:</b>
-<code>${error.stack || 'Недоступен'}</code>`;
-  };
-
-  private formatSystemErrorMessage(error: Error, context?: Record<string, unknown>): string {
-    const timestamp = new Date().toISOString();
-    const contextStr = context ? `\n<b>Контекст:</b> <code>${JSON.stringify(context, null, 2)}</code>` : '';
-
-    return `⚠️ <b>Системная ошибка</b>
-
-<b>Сообщение:</b> ${error.message}
-<b>Время:</b> ${timestamp}${contextStr}
-
-<b>Стек:</b>
-<code>${error.stack || 'Недоступен'}</code>`;
-  }
 }

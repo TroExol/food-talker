@@ -1,5 +1,6 @@
 import { Telegraf } from 'telegraf';
 
+import { MessageFormatterFactory } from '@/services/message/MessageFormatter/MessageFormatterFactory';
 import { environment } from '@/config/environment';
 
 import { AdminNotificationService } from './AdminNotificationService';
@@ -9,8 +10,10 @@ export class AdminNotificationServiceFactory {
 
   public static getInstance(): AdminNotificationService {
     if (!AdminNotificationServiceFactory.instance) {
-      const bot = new Telegraf(environment.BOT_TOKEN);
-      AdminNotificationServiceFactory.instance = new AdminNotificationService(bot);
+      AdminNotificationServiceFactory.instance = new AdminNotificationService(
+        new Telegraf(environment.BOT_TOKEN),
+        MessageFormatterFactory.getInstance(),
+      );
     }
     return AdminNotificationServiceFactory.instance;
   }
