@@ -332,19 +332,26 @@ export class MessageHandlers {
       return;
     }
 
-    const itemId = match[1];
+    const historyItemId = match[1];
 
     try {
       await ctx.answerCbQuery('Повторяем поиск...');
 
-      // TODO: Получить информацию о блюде из истории и повторить поиск
-      await ctx.reply(`📋 <b>Повторный поиск</b>\n\nID: ${itemId}\n\nФункция в разработке...`, {
-        parse_mode: 'HTML',
-      });
+      // Получаем элемент истории
+      const historyItem = await this.userService.getSearchHistoryItemById(ctx.user.telegramId, historyItemId);
+      if (!historyItem) {
+        await ctx.answerCbQuery('Запрос из истории не найден');
+        return;
+      }
+
+      await this.handleSearchQuery(
+        ctx as unknown as TBotContext<Update.MessageUpdate<Message.TextMessage>>,
+        historyItem.query,
+      );
     } catch (error) {
       ConsoleLogger.error('Ошибка при повторном поиске', error as Error, {
         telegramId: ctx.from?.id,
-        itemId,
+        historyItemId,
       });
       await ctx.answerCbQuery('Ошибка при повторном поиске');
     }

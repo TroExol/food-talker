@@ -6,6 +6,7 @@ import {
 } from 'vitest';
 
 import type { TSearchResultItem } from '../../../types/search';
+import type { TSearchHistoryItem } from '../../../services/user/UserRepository/types';
 
 import { MessageFormatterService } from './MessageFormatter';
 import { AppError } from '../../../utils/AppError';
@@ -205,7 +206,7 @@ describe('MessageFormatterService', () => {
       expect(keyboard.inline_keyboard).toHaveLength(2);
       expect(keyboard.inline_keyboard[0][0].text).toBe('🛒 Заказать');
       expect((keyboard.inline_keyboard[0][0] as any).url).toBe('https://example.com/order');
-      expect(keyboard.inline_keyboard[1][0].text).toBe('❌ Скрыть');
+      expect(keyboard.inline_keyboard[1][0].text).toBe('🗑️ Скрыть');
       expect((keyboard.inline_keyboard[1][0] as any).callback_data).toBe('delete_message');
     });
   });
@@ -287,13 +288,21 @@ describe('MessageFormatterService', () => {
   });
 
   describe('formatHistoryMessage', () => {
-    it('должен форматировать историю поиска с результатами', () => {
-      const history = [mockSearchResult];
+    it('должен форматировать историю поиска с запросами', () => {
+      const mockHistoryItem: TSearchHistoryItem = {
+        id: 'history-1',
+        query: 'пицца с грибами',
+        structuredQuery: {},
+        results: [mockSearchResult],
+        timestamp: new Date('2024-01-01T12:00:00Z'),
+      };
+
+      const history = [mockHistoryItem];
       const result = messageFormatter.formatHistoryMessage(history);
 
       expect(result.text).toContain('История поиска');
-      expect(result.text).toContain('Тестовый результат поиска');
-      expect(result.text).toContain('750 ₽');
+      expect(result.text).toContain('пицца с грибами');
+      expect(result.text).toContain('1 результат');
       expect(result.parseMode).toBe('HTML');
       expect(result.replyMarkup).toBeDefined();
     });
@@ -308,14 +317,48 @@ describe('MessageFormatterService', () => {
 
     it('должен ограничивать историю до 5 элементов', () => {
       const history = Array.from({ length: 10 }, (_, i) => ({
-        ...mockSearchResult,
-        id: `item-${i}`,
-        name: `Блюдо ${i}`,
+        id: `history-${i}`,
+        query: `Запрос ${i}`,
+        structuredQuery: {},
+        results: [],
+        timestamp: new Date('2024-01-01T12:00:00Z'),
       }));
 
       const result = messageFormatter.formatHistoryMessage(history);
 
       expect(result.text).toContain('Последние 5 запросов');
+    });
+
+    it('должен правильно отображать количество результатов', () => {
+      const history = [
+        {
+          id: 'history-1',
+          query: 'пицца',
+          structuredQuery: {},
+          results: [mockSearchResult, mockSearchResult, mockSearchResult], // 3 результата
+          timestamp: new Date('2024-01-01T12:00:00Z'),
+        },
+        {
+          id: 'history-2',
+          query: 'бургер',
+          structuredQuery: {},
+          results: [mockSearchResult], // 1 результат
+          timestamp: new Date('2024-01-01T13:00:00Z'),
+        },
+        {
+          id: 'history-3',
+          query: 'суши',
+          structuredQuery: {},
+          results: [], // нет результатов
+          timestamp: new Date('2024-01-01T14:00:00Z'),
+        },
+      ];
+
+      const result = messageFormatter.formatHistoryMessage(history);
+
+      expect(result.text).toContain('3 результата');
+      expect(result.text).toContain('1 результат');
+      expect(result.text).toContain('нет результатов');
     });
   });
 

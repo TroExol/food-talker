@@ -5,6 +5,7 @@ import type { TInlineKeyboardMarkup } from '@/types/telegram';
 import type { TSearchResultItem } from '@/types/search';
 import type { TRestaurant } from '@/types/restaurant';
 import type { TMenuItem } from '@/types/menuItem';
+import type { TSearchHistoryItem } from '@/services/user/UserRepository/types';
 
 import type {
   TFormattedMessage,
@@ -191,7 +192,7 @@ ${userMessage}
     return { text, parseMode: 'HTML' };
   }
 
-  formatHistoryMessage(history: TSearchResultItem[]): TFormattedMessage {
+  formatHistoryMessage(history: TSearchHistoryItem[]): TFormattedMessage {
     if (history.length === 0) {
       const text = `📋 <b>История поиска</b>
 
@@ -202,9 +203,23 @@ ${userMessage}
       return { text, parseMode: 'HTML' };
     }
 
-    const itemsText = history.slice(0, 5).map((item, index) =>
-      `${index + 1}. <b>${this.escapeHtml(item.name)}</b> - ${this.formatPrice(item.price)}`,
-    ).join('\n');
+    const itemsText = history.slice(0, 5).map((item, index) => {
+      const date = new Date(item.timestamp).toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const resultsCount = item.results?.length || 0;
+      const resultsText = resultsCount === 0
+        ? 'нет результатов'
+        : resultsCount === 1
+          ? '1 результат'
+          : resultsCount < 5
+            ? `${resultsCount} результата`
+            : `${resultsCount} результатов`;
+      return `${index + 1}. <b>${this.escapeHtml(item.query)}</b> (${date}) - ${resultsText}`;
+    }).join('\n');
 
     const text = `📋 <b>История поиска</b>
 
@@ -212,7 +227,7 @@ ${userMessage}
 
 ${itemsText}
 
-💡 Нажмите на любой результат, чтобы повторить поиск`;
+💡 Нажмите на любой запрос, чтобы повторить поиск`;
 
     const replyMarkup = this.createHistoryKeyboard(history.slice(0, 5));
 
@@ -297,13 +312,13 @@ ${itemsText}
     return { inline_keyboard: buttons };
   }
 
-  createHistoryKeyboard(history: TSearchResultItem[]): TInlineKeyboardMarkup {
+  createHistoryKeyboard(history: TSearchHistoryItem[]): TInlineKeyboardMarkup {
     const buttons: InlineKeyboardButton[][] = [];
 
     history.forEach((item, index) => {
       buttons.push([
         {
-          text: `${index + 1}. ${this.truncateText(item.name, 30)}`,
+          text: `${index + 1}. ${this.truncateText(item.query, 30)}`,
           callback_data: `history:${item.id}`,
         },
       ]);
@@ -358,7 +373,7 @@ ${itemsText}
 
   private keyboardRemoveMessage(): InlineKeyboardButton {
     return {
-      text: '❌ Скрыть',
+      text: '🗑️ Скрыть',
       callback_data: `delete_message`,
     };
   }

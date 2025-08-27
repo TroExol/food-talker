@@ -96,9 +96,7 @@ export class CommandHandlers {
         return;
       }
 
-      // Преобразуем историю в формат для MessageFormatter
-      const historyItems = history.flatMap(item => item.results || []);
-      const formattedMessage = this.messageFormatter.formatHistoryMessage(historyItems);
+      const formattedMessage = this.messageFormatter.formatHistoryMessage(history);
 
       await ctx.reply(formattedMessage.text, {
         parse_mode: formattedMessage.parseMode,
