@@ -31,6 +31,7 @@ vi.mock('@/config/environment', () => ({
     EMBEDDING_API_BASE_URL: 'test-embedding-api-base-url',
     EMBEDDING_API_KEY: 'test-embedding-api-key',
     EMBEDDING_MODEL_NAME: 'test-embedding-model-name',
+    ADMIN_TELEGRAM_ID: '123456789',
   },
 }) satisfies { environment: TEnvironment });
 

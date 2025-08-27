@@ -16,4 +16,5 @@ export interface TEnvironment {
   EMBEDDING_API_BASE_URL: string;
   EMBEDDING_API_KEY: string;
   EMBEDDING_MODEL_NAME: string;
+  ADMIN_TELEGRAM_ID?: string;
 }

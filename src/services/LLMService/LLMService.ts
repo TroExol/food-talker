@@ -474,7 +474,11 @@ ${menuList}
     return `llm:${createHash('sha256').update(data).digest('hex')}`;
   };
 
-  public categorizeDish = async (dishName: string): Promise<EDishCategory> => {
+  public categorizeDish = async (
+    dishName: string,
+    description?: string,
+    ingredients?: string[],
+  ): Promise<EDishCategory> => {
     try {
       ConsoleLogger.debug('Начинаю категоризацию блюда', { dishName });
 
@@ -486,7 +490,7 @@ ${menuList}
         return cached;
       }
 
-      const prompt = this.buildCategorizationPrompt(dishName);
+      const prompt = this.buildCategorizationPrompt(dishName, description, ingredients);
       const response = await this.callLLM(prompt, 'qwen/qwen3-4b-2507', 'http://localhost:1234/v1/chat/completions');
       const category = this.parseCategoryResponse(response);
 
@@ -505,7 +509,7 @@ ${menuList}
     }
   };
 
-  private buildCategorizationPrompt = (dishName: string): string => {
+  private buildCategorizationPrompt = (dishName: string, description?: string, ingredients?: string[]): string => {
     return `Ты эксперт по гастрономии. Определи категорию блюда по названию.
 
 Категории:
@@ -523,6 +527,8 @@ ${menuList}
 5. Если это дополнение к основному блюду - это гарнир
 
 Название блюда: "${dishName}"
+Описание блюда: "${description}"
+Ингредиенты блюда: "${ingredients?.join(', ')}"
 
 Ответь только одной категорией: основное/гарнир/напиток/соус/аксессуар`;
   };

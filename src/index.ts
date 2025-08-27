@@ -3,10 +3,16 @@ import { AppSchedulerServiceFactory } from '@/services/scheduler/AppSchedulerSer
 import { validateEnvironment } from '@/config/environment';
 import { BotFactory } from '@/bot/BotFactory';
 
+import {
+  AdminNotificationServiceFactory,
+} from './services/admin/AdminNotificationService/AdminNotificationServiceFactory';
+
 // Валидация окружения
 validateEnvironment();
 
 async function main(): Promise<void> {
+  const adminNotificationService = AdminNotificationServiceFactory.getInstance();
+
   try {
     ConsoleLogger.info('Запускаем Food Talker бота...');
 
@@ -34,6 +40,9 @@ async function main(): Promise<void> {
     });
   } catch (error) {
     ConsoleLogger.error('Ошибка работы приложения:', error as Error);
+
+    await adminNotificationService.notifySystemError(error as Error);
+
     void main();
   }
 }

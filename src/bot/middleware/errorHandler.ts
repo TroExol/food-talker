@@ -1,18 +1,41 @@
 import type { TBotContext } from '@/types/telegram';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
+import type { AdminNotificationService } from '@/services/admin/AdminNotificationService/AdminNotificationService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError, EErrorType } from '@/utils/AppError';
 import { EAvailableCities } from '@/config/bot/types';
 
 export class ErrorHandlerMiddleware {
-  constructor(private readonly messageFormatter: MessageFormatterService) {}
+  constructor(
+    private readonly messageFormatter: MessageFormatterService,
+    private readonly adminNotificationService: AdminNotificationService,
+  ) {}
 
   public handleError = async (ctx: TBotContext, next: () => Promise<void>): Promise<void> => {
     try {
       await next();
     } catch (error) {
       ConsoleLogger.error('Bot error:', error as Error);
+
+      // Отправляем уведомление админу для критических ошибок
+      if (error instanceof AppError) {
+        // Отправляем уведомление для всех критических ошибок, кроме пользовательских
+        if (this.isCriticalError(error)) {
+          await this.adminNotificationService.notifyAdmin(error, {
+            userId: ctx.from?.id,
+            chatId: ctx.chat?.id,
+            username: ctx.from?.username,
+          });
+        }
+      } else if (error instanceof Error) {
+        // Отправляем уведомление для всех системных ошибок
+        await this.adminNotificationService.notifySystemError(error, {
+          userId: ctx.from?.id,
+          chatId: ctx.chat?.id,
+          username: ctx.from?.username,
+        });
+      }
 
       let message = 'Произошла ошибка. Попробуйте позже.';
 
@@ -58,4 +81,19 @@ export class ErrorHandlerMiddleware {
       }
     }
   };
+
+  private isCriticalError(error: AppError): boolean {
+    // Критические ошибки, которые требуют внимания админа
+    const criticalErrorTypes = [
+      EErrorType.API_ERROR,
+      EErrorType.DATABASE_ERROR,
+      EErrorType.LLM_ERROR,
+      EErrorType.EMBEDDING_ERROR,
+      EErrorType.CACHE_ERROR,
+      EErrorType.DATA_COLLECTION_ERROR,
+      EErrorType.SYSTEM_ERROR,
+    ];
+
+    return criticalErrorTypes.includes(error.type);
+  }
 }

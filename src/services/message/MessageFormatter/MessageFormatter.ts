@@ -32,12 +32,16 @@ export class MessageFormatterService {
   };
 
   // Форматирование результатов поиска
-  formatSearchResults(results: TSearchResultItem[], searchHistoryId?: string, page = 1): TFormattedMessage {
+  public formatSearchResults = (
+    results: TSearchResultItem[],
+    searchHistoryId?: string,
+    page = 1,
+  ): TFormattedMessage => {
     const paginatedResults = this.paginateResults(results, page, this.paginationConfig.itemsPerPage);
     return this.formatSearchResultsPage(paginatedResults, searchHistoryId);
-  }
+  };
 
-  formatSearchResultsPage(page: TSearchResultsPage, searchHistoryId?: string): TFormattedMessage {
+  public formatSearchResultsPage = (page: TSearchResultsPage, searchHistoryId?: string): TFormattedMessage => {
     if (page.items.length === 0) {
       return this.formatNoResultsMessage();
     }
@@ -60,10 +64,10 @@ export class MessageFormatterService {
       parseMode: 'HTML',
       replyMarkup,
     };
-  }
+  };
 
   // Форматирование отдельных элементов
-  formatMenuItem(searchResultItem: TSearchResultItem): TFormattedMessage {
+  public formatMenuItem = (searchResultItem: TSearchResultItem): TFormattedMessage => {
     const text = this.formatMenuItemText(searchResultItem);
     const replyMarkup = this.createOrderKeyboard(searchResultItem.id, searchResultItem.orderUrl);
 
@@ -73,19 +77,19 @@ export class MessageFormatterService {
       replyMarkup,
       photo: searchResultItem.image || undefined,
     };
-  }
+  };
 
-  formatRestaurantCard(restaurant: TRestaurant, items: TMenuItem[]): TFormattedMessage {
+  public formatRestaurantCard = (restaurant: TRestaurant, items: TMenuItem[]): TFormattedMessage => {
     const text = this.formatRestaurantCardText(restaurant, items);
 
     return {
       text,
       parseMode: 'HTML',
     };
-  }
+  };
 
   // Форматирование системных сообщений
-  formatWelcomeMessage(userName?: string): TFormattedMessage {
+  public formatWelcomeMessage = (userName?: string): TFormattedMessage => {
     const greeting = userName ? `Привет, ${userName}! 👋` : 'Привет! 👋';
 
     const text = `${greeting}
@@ -107,9 +111,9 @@ ${Object.values(EAvailableCities).map(city => `• ${city}`).join('\n')}
 Начните поиск прямо сейчас! 🚀`;
 
     return { text, parseMode: 'HTML' };
-  }
+  };
 
-  formatHelpMessage(): TFormattedMessage {
+  public formatHelpMessage = (): TFormattedMessage => {
     const text = `📚 <b>Справка по использованию бота</b>
 
 🔍 <b>Поиск еды:</b>
@@ -143,9 +147,9 @@ ${Object.values(EAvailableCities).map(city => `• ${city}`).join('\n')}
 • Используйте "История" для повторения поиска`;
 
     return { text, parseMode: 'HTML' };
-  }
+  };
 
-  formatErrorMessage(error: AppError): TFormattedMessage {
+  public formatErrorMessage = (error: AppError): TFormattedMessage => {
     let userMessage: string;
 
     if (error.isUserFacing) {
@@ -164,9 +168,9 @@ ${userMessage}
 • Обратитесь в поддержку, если проблема повторяется`;
 
     return { text, parseMode: 'HTML' };
-  }
+  };
 
-  formatNoResultsMessage(query?: string): TFormattedMessage {
+  public formatNoResultsMessage = (query?: string): TFormattedMessage => {
     const queryText = query ? `по запросу "<i>${this.escapeHtml(query)}</i>"` : '';
 
     const text = `🔍 <b>Результаты не найдены</b> ${queryText}
@@ -187,9 +191,9 @@ ${userMessage}
 • "напитки"`;
 
     return { text, parseMode: 'HTML' };
-  }
+  };
 
-  formatHistoryMessage(history: TSearchHistoryItem[]): TFormattedMessage {
+  public formatHistoryMessage = (history: TSearchHistoryItem[]): TFormattedMessage => {
     if (history.length === 0) {
       const text = `📋 <b>История поиска</b>
 
@@ -233,10 +237,10 @@ ${itemsText}
       parseMode: 'HTML',
       replyMarkup,
     };
-  }
+  };
 
   // Создание inline клавиатур
-  createOrderKeyboard(itemId: string, orderUrl: string): TInlineKeyboardMarkup {
+  public createOrderKeyboard = (itemId: string, orderUrl: string): TInlineKeyboardMarkup => {
     return {
       inline_keyboard: [
         [
@@ -250,9 +254,9 @@ ${itemsText}
         ],
       ],
     };
-  }
+  };
 
-  createPaginationKeyboard(page: TSearchResultsPage, searchHistoryId?: string): TInlineKeyboardMarkup {
+  public createPaginationKeyboard = (page: TSearchResultsPage, searchHistoryId?: string): TInlineKeyboardMarkup => {
     const buttons: InlineKeyboardButton[][] = [];
 
     // Кнопки навигации
@@ -277,13 +281,13 @@ ${itemsText}
     }
 
     return { inline_keyboard: buttons };
-  }
+  };
 
-  createSearchResultsKeyboard(
+  public createSearchResultsKeyboard = (
     searchHistoryId: string,
     results: TSearchResultItem[],
     page: TSearchResultsPage,
-  ): TInlineKeyboardMarkup {
+  ): TInlineKeyboardMarkup => {
     const buttons: InlineKeyboardButton[][] = [];
 
     // Кнопки для каждого результата
@@ -307,9 +311,9 @@ ${itemsText}
     }
 
     return { inline_keyboard: buttons };
-  }
+  };
 
-  createHistoryKeyboard(history: TSearchHistoryItem[]): TInlineKeyboardMarkup {
+  public createHistoryKeyboard = (history: TSearchHistoryItem[]): TInlineKeyboardMarkup => {
     const buttons: InlineKeyboardButton[][] = [];
 
     history.forEach((item, index) => {
@@ -322,11 +326,11 @@ ${itemsText}
     });
 
     return { inline_keyboard: buttons };
-  }
+  };
 
   // Утилиты
-  paginateResults(
-    results: TSearchResultItem[], page: number, itemsPerPage: number): TSearchResultsPage {
+  public paginateResults = (
+    results: TSearchResultItem[], page: number, itemsPerPage: number): TSearchResultsPage => {
     const totalItems = results.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
     const currentPage = Math.max(1, Math.min(page, totalPages));
@@ -341,22 +345,22 @@ ${itemsText}
       totalPages,
       totalItems,
     };
-  }
+  };
 
-  truncateText(text: string, maxLength: number): string {
+  public truncateText = (text: string, maxLength: number): string => {
     text = text.trim();
     if (text.length <= maxLength) {
       return text;
     }
 
     return text.substring(0, maxLength - 3) + '...';
-  }
+  };
 
-  formatPrice(price: number): string {
+  public formatPrice = (price: number): string => {
     return `${price} ₽`;
-  }
+  };
 
-  formatIngredients(ingredients: string[]): string {
+  public formatIngredients = (ingredients: string[]): string => {
     if (!ingredients || ingredients.length === 0) {
       return 'Состав не указан';
     }
@@ -366,17 +370,17 @@ ${itemsText}
       .join('\n');
 
     return this.truncateText(formattedIngredients, this.formattingConfig.maxIngredientsLength);
-  }
+  };
 
-  private keyboardRemoveMessage(): InlineKeyboardButton {
+  private keyboardRemoveMessage = (): InlineKeyboardButton => {
     return {
       text: '🗑️ Скрыть',
       callback_data: `delete_message`,
     };
-  }
+  };
 
   // Приватные методы форматирования
-  private formatSearchResultItem(item: TSearchResultItem, index: number): string {
+  private formatSearchResultItem = (item: TSearchResultItem, index: number): string => {
     // const image = item.image;
     const description = this.truncateText(item.description, this.formattingConfig.maxDescriptionLength);
     const tags = item.tags.join(', ');
@@ -391,9 +395,9 @@ ${description
   ? `
 📝 ${tags}`
   : ''}`.trim();
-  }
+  };
 
-  private formatMenuItemText(item: TSearchResultItem): string {
+  private formatMenuItemText = (item: TSearchResultItem): string => {
     const description = this.truncateText(item.description, this.formattingConfig.maxDescriptionLength);
     const tags = item.tags.join(', ');
 
@@ -407,9 +411,9 @@ ${description
   ? `
 📝 ${tags}`
   : ''}`.trim();
-  }
+  };
 
-  private formatRestaurantCardText(restaurant: TRestaurant, items: TMenuItem[]): string {
+  private formatRestaurantCardText = (restaurant: TRestaurant, items: TMenuItem[]): string => {
     const totalItems = items.length;
     const avgPrice = items.length > 0
       ? Math.round(items.reduce((sum, item) => sum + item.price, 0) / items.length)
@@ -421,29 +425,29 @@ ${description
 • Блюд в меню: ${totalItems}
 • Средняя цена: ${this.formatPrice(avgPrice)}
 • Последнее обновление: ${restaurant.lastUpdated.toLocaleDateString('ru-RU')}`;
-  }
+  };
 
-  private formatSearchResultsHeader(page: TSearchResultsPage): string {
+  private formatSearchResultsHeader = (page: TSearchResultsPage): string => {
     return `🔍 <b>Результаты поиска</b>
 
 Найдено: <b>${page.totalItems}</b> блюд
 Страница: <b>${page.currentPage}</b> из <b>${page.totalPages}</b>`;
-  }
+  };
 
-  private formatSearchResultsFooter(page: TSearchResultsPage): string {
+  private formatSearchResultsFooter = (page: TSearchResultsPage): string => {
     if (page.totalPages > 1) {
       return `💡 Используйте кнопки ниже для навигации.`;
     }
 
     return `✅ Показаны все доступные результаты.`;
-  }
+  };
 
-  private escapeHtml(text: string): string {
+  private escapeHtml = (text: string): string => {
     return text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
-  }
+  };
 }
