@@ -35,6 +35,11 @@ export class CommandHandlers {
         description: 'Показать историю поиска',
         handler: this.handleHistory,
       },
+      {
+        command: EBotCommand.SUPPORT,
+        description: 'Связаться с поддержкой',
+        handler: this.handleSupport,
+      },
     ];
   };
 
@@ -103,6 +108,20 @@ export class CommandHandlers {
       });
       await ctx.reply('Не удалось загрузить историю поиска. Попробуйте позже.');
     }
+  };
+
+  private handleSupport = async (ctx: TBotContext): Promise<void> => {
+    const text = `🆘 <b>Поддержка</b>
+
+Если у вас есть вопросы или проблемы, обращайтесь в наш канал поддержки:
+
+📱 <a href="https://t.me/foodtalker_support">@foodtalker_support</a>
+
+Наши специалисты помогут вам решить любые вопросы!`;
+
+    await ctx.reply(text, {
+      parse_mode: 'HTML',
+    });
   };
 
   private showCitySelection = async (ctx: TBotContext): Promise<void> => {

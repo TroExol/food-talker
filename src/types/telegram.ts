@@ -19,6 +19,7 @@ export enum EBotCommand {
   HELP = 'help',
   HISTORY = 'history',
   START = 'start',
+  SUPPORT = 'support',
 }
 
 // User session states

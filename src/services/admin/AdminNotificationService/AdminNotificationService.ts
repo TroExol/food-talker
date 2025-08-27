@@ -37,7 +37,6 @@ export class AdminNotificationService {
 
     try {
       const message = this.messageFormatter.formatAdminSystemError(error, context);
-      console.log(environment.ADMIN_TELEGRAM_ID, message);
       await this.bot.telegram.sendMessage(environment.ADMIN_TELEGRAM_ID, message.text, {
         parse_mode: message.parseMode,
         reply_markup: message.replyMarkup,

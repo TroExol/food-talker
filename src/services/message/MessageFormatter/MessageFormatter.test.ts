@@ -61,6 +61,7 @@ describe('MessageFormatterService', () => {
       expect(result.text).toContain('Поиск еды');
       expect(result.text).toContain('Геолокация');
       expect(result.text).toContain('Команды');
+      expect(result.text).toContain('/support - связаться с поддержкой');
       expect(result.parseMode).toBe('HTML');
     });
   });

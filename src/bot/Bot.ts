@@ -139,7 +139,11 @@ export class Bot {
       if (ctx.message && !('text' in ctx.message)) {
         void ctx.reply(
           'Я понимаю только текстовые сообщения. Используйте команду /help для справки.',
-        );
+        ).catch(error => {
+          ConsoleLogger.error('Ошибка при отправке сообщения', error as Error, {
+            message: ctx.message,
+          });
+        });
       }
     });
   };

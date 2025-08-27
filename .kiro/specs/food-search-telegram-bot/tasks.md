@@ -93,46 +93,15 @@
     - Add admin notification system for critical errors
     - _Requirements: 7.5, 10.4, 11.5_
 
-  - [ ] 9.2 Add logging and metrics collection
-    - Create metrics collection for performance monitoring
-    - Add health check endpoints for system monitoring
-    - _Requirements: 11.1, 11.2, 11.3, 11.4_
-
-- [ ] 10. Create caching and performance optimization
+- [x] 10. Create caching and performance optimization
   - [x] 10.1 Implement multi-level caching strategy
     - Implement Redis integration for distributed caching
     - Create cache invalidation strategies
     - _Requirements: 7.4, 9.1, 9.5_
 
-  - [ ] 10.2 Add rate limiting and performance monitoring
-    - Implement user and API rate limiting
-    - Create performance monitoring and alerting
-    - Add resource usage tracking and optimization
-    - _Requirements: 9.2, 9.5, 11.2_
-
-- [ ] 11. Add configuration and deployment setup
-  - [ ] 11.2 Add production readiness features
-    - Implement graceful shutdown handling
-    - Create health check endpoints
-    - Add monitoring and alerting configuration
-    - _Requirements: 9.3, 9.4, 11.1, 11.2_
-
-- [ ] 12. Final integration and optimization
-  - [ ] 12.1 Connect all components and test full system
-    - Wire together all services in main application
-    - Test complete user journeys from registration to search
-    - Verify all requirements are met through automated tests
-    - _Requirements: All requirements integration_
-
-  - [ ] 12.2 Performance tuning and final validation
-    - Optimize database queries and caching strategies
-    - Validate response times meet performance requirements
-    - Test system under load with concurrent users
-    - _Requirements: 9.1, 9.2, 9.5_
-
-- [ ] 13. Other
-  - [ ] 13.1 Add available to setup proxy for parsing API Yandex.Eda
-  - [ ] 13.2 Limit the number of user requests to 10 requests per month on Basic subscription
-  - [ ] 13.3 On Basic subscripton use only vector data base
-  - [ ] 13.4 On Premium subscripton use vector data base and LLM
-  - [ ] 13.5 Calc used tokens for user
+- [ ] 11. Other
+  - [ ] 11.1 Add available to setup proxy for parsing API Yandex.Eda
+  - [ ] 11.2 Limit the number of user requests to 10 requests per month on Basic subscription
+  - [ ] 11.3 On Basic subscripton use only vector data base
+  - [ ] 11.4 On Premium subscripton use vector data base and LLM
+  - [ ] 11.5 Calc used tokens for user
