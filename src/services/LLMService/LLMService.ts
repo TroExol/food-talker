@@ -482,11 +482,11 @@ ${menuList}
     try {
       ConsoleLogger.debug('Начинаю категоризацию блюда', { dishName });
 
-      const cacheKey = this.generateCacheKey('categorize', dishName);
+      const cacheKey = this.generateCacheKey('categorize', dishName, description, ingredients);
       const cached = await this.cacheService.get<EDishCategory>(cacheKey);
 
       if (cached) {
-        ConsoleLogger.debug('Найдена кэшированная категория блюда', { dishName, category: cached });
+        ConsoleLogger.debug('Найдена кэшированная категория блюда', { dishName, description, ingredients, category: cached });
         return cached;
       }
 
@@ -499,12 +499,14 @@ ${menuList}
 
       ConsoleLogger.debug('Блюдо успешно категоризировано', {
         dishName,
+        description,
+        ingredients,
         category,
       });
 
       return category;
     } catch (error) {
-      ConsoleLogger.error('Ошибка категоризации блюда, возвращаю MAIN', error as Error, { dishName });
+      ConsoleLogger.error('Ошибка категоризации блюда, возвращаю MAIN', error as Error, { dishName, description, ingredients });
       return EDishCategory.MAIN; // Fallback к основной категории
     }
   };
