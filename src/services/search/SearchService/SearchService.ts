@@ -66,7 +66,7 @@ export class SearchService {
       }
 
       // Ограничиваем количество результатов для LLM-обработки
-      results = this.limitResults(results, options.maxEnhenceMenu || 40);
+      results = this.limitResults(results, options.maxEnhenceMenu || 200);
 
       results = options.enableLLMEnhancement
         ? await this.enhanceResultsWithLLM(results, naturalQuery)

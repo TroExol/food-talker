@@ -125,7 +125,7 @@ export class LLMService {
         model,
         {
           temperature: 0.1,
-          max_tokens: 10000,
+          max_tokens: 20000,
         },
       );
       const enhancedResults = this.parseEnhancedResults(response, results);
