@@ -13,7 +13,7 @@ export class SearchServiceFactory {
   static getInstance = async (): Promise<SearchService> => {
     if (!SearchServiceFactory.instance) {
       return new SearchService(
-        LLMServiceFactory.getInstance(),
+        await LLMServiceFactory.getInstance(),
         await YEApiServiceFactory.getInstance(),
         await YESearchServiceFactory.getInstance(),
         await UserServiceFactory.getInstance(),

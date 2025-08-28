@@ -5,10 +5,10 @@ import { YEDataTransformer } from './YEDataTransformer';
 export class YEDataTransformerFactory {
   private static instance: YEDataTransformer | null = null;
 
-  static getInstance = (): YEDataTransformer => {
+  static getInstance = async (): Promise<YEDataTransformer> => {
     if (!YEDataTransformerFactory.instance) {
       YEDataTransformerFactory.instance = new YEDataTransformer(
-        LLMServiceFactory.getInstance(),
+        await LLMServiceFactory.getInstance(),
       );
     }
     return YEDataTransformerFactory.instance;

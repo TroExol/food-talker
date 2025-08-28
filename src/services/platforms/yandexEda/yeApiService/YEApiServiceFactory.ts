@@ -11,7 +11,7 @@ export class YEApiServiceFactory {
     if (!YEApiServiceFactory.instance) {
       YEApiServiceFactory.instance = new YEApiService(
         CacheServiceFactory.getRedisInstance(),
-        YEDataTransformerFactory.getInstance(),
+        await YEDataTransformerFactory.getInstance(),
         await MenuServiceFactory.getInstance(),
       );
     }

@@ -214,4 +214,43 @@ const migrations: TMigration[] = [
       await db.run('DROP INDEX IF EXISTS dishes_expires_at_idx');
     },
   },
+  {
+    version: 4,
+    description: 'Создание таблицы для логирования запросов к нейронным моделям',
+    up: async db => {
+      // Создаем таблицу для логов запросов к нейронным моделям
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS neural_request_logs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_telegram_id INTEGER,
+          request_type TEXT NOT NULL,
+          model TEXT NOT NULL,
+          input_tokens INTEGER NOT NULL,
+          output_tokens INTEGER NOT NULL,
+          total_tokens INTEGER NOT NULL,
+          request_data JSONB,
+          response_data JSONB,
+          processing_time_ms INTEGER,
+          created_at TIMESTAMP DEFAULT now(),
+          FOREIGN KEY (user_telegram_id) REFERENCES users (telegram_id)
+        )
+      `);
+
+      // Создаем индексы для производительности
+      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_user_idx ON neural_request_logs(user_telegram_id)');
+      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_type_idx ON neural_request_logs(request_type)');
+      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_created_at_idx ON neural_request_logs(created_at)');
+      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_user_type_idx ON neural_request_logs(user_telegram_id, request_type)');
+    },
+    down: async db => {
+      // Удаляем индексы
+      await db.run('DROP INDEX IF EXISTS neural_logs_user_type_idx');
+      await db.run('DROP INDEX IF EXISTS neural_logs_created_at_idx');
+      await db.run('DROP INDEX IF EXISTS neural_logs_type_idx');
+      await db.run('DROP INDEX IF EXISTS neural_logs_user_idx');
+
+      // Удаляем таблицу
+      await db.run('DROP TABLE IF EXISTS neural_request_logs');
+    },
+  },
 ];

@@ -9,6 +9,7 @@ import {
 } from 'vitest';
 
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { NeuralRequestLoggingService } from '@/services/NeuralRequestLoggingService/NeuralRequestLoggingService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { EDishCategory } from '@/types/menuItem';
@@ -22,6 +23,7 @@ global.fetch = mockFetch;
 describe('LLMService', () => {
   let llmService: LLMService;
   let mockCacheService: CacheService;
+  let mockNeuralRequestLoggingService: NeuralRequestLoggingService;
 
   beforeEach(() => {
     mockCacheService = {
@@ -34,7 +36,14 @@ describe('LLMService', () => {
       close: vi.fn(),
     } as unknown as CacheService;
 
-    llmService = new LLMService(mockCacheService, {
+    mockNeuralRequestLoggingService = {
+      logRequest: vi.fn().mockResolvedValue({}),
+      getUserTokenStats: vi.fn(),
+      getUserTokenStatsByType: vi.fn(),
+      getRecentLogs: vi.fn(),
+    } as unknown as NeuralRequestLoggingService;
+
+    llmService = new LLMService(mockCacheService, mockNeuralRequestLoggingService, {
       model: 'gpt-4o-mini',
       cacheTTL: 1800,
     });
@@ -175,7 +184,7 @@ describe('LLMService', () => {
     });
 
     it('должен обрабатывать таймауты', async () => {
-      const llmService = new LLMService(mockCacheService, {
+      const llmService = new LLMService(mockCacheService, mockNeuralRequestLoggingService, {
         model: 'gpt-4o-mini',
         maxRetries: 0,
         timeoutMs: 10000,
@@ -247,7 +256,7 @@ describe('LLMService', () => {
     });
 
     it('должен возвращать оригинальные результаты при ошибке', async () => {
-      const llmService = new LLMService(mockCacheService, {
+      const llmService = new LLMService(mockCacheService, mockNeuralRequestLoggingService, {
         model: 'gpt-4o-mini',
         maxRetries: 0,
       });
@@ -664,7 +673,7 @@ describe('LLMService', () => {
       });
 
       it('должен работать без кэша если cacheService не передан', async () => {
-        const llmServiceWithoutCache = new LLMService(mockCacheService, {
+        const llmServiceWithoutCache = new LLMService(mockCacheService, mockNeuralRequestLoggingService, {
           model: 'gpt-4o-mini',
           cacheTTL: 1800, // 30 минут
         });
@@ -898,7 +907,7 @@ describe('LLMService', () => {
         }),
       });
 
-      const result = await llmService.categorizeDish('Пицца Маргарита');
+      const result = await llmService.categorizeDish('Пицца Маргарита', undefined, undefined, 123);
 
       expect(result).toBe('основное');
       expect(mockFetch).toHaveBeenCalledWith(
@@ -917,7 +926,7 @@ describe('LLMService', () => {
       // Мокаем кэш для возврата значения
       mockCacheService.get = vi.fn().mockResolvedValue('напиток');
 
-      const result = await llmService.categorizeDish('Кола');
+      const result = await llmService.categorizeDish('Кола', undefined, undefined, 123);
 
       expect(result).toBe('напиток');
       expect(mockFetch).not.toHaveBeenCalled(); // Не должно быть вызовов к API
@@ -933,7 +942,7 @@ describe('LLMService', () => {
         }),
       });
 
-      const result = await llmService.categorizeDish('Странное блюдо');
+      const result = await llmService.categorizeDish('Странное блюдо', undefined, undefined, 123);
 
       expect(result).toBe('основное'); // Fallback к MAIN при неизвестной категории
     });
@@ -948,7 +957,7 @@ describe('LLMService', () => {
         }),
       });
 
-      await llmService.categorizeDish('Кетчуп');
+      await llmService.categorizeDish('Кетчуп', undefined, undefined, 123);
 
       expect(mockCacheService.set).toHaveBeenCalledWith(
         expect.any(String),

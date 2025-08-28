@@ -3,10 +3,12 @@ import { createHash } from 'crypto';
 
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
 import type { TRestaurant } from '@/types/restaurant';
+import type { NeuralRequestLoggingService } from '@/services/NeuralRequestLoggingService/NeuralRequestLoggingService';
 import type { TCacheService } from '@/services/cacheService/types';
 
 import { sleep } from '@/utils/sleep';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { ENeuralRequestType } from '@/types/neuralRequestLogging';
 import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 import { environment } from '@/config/environment';
 
@@ -28,6 +30,7 @@ export class LLMService {
 
   constructor(
     private readonly cacheService: TCacheService,
+    private readonly neuralRequestLoggingService: NeuralRequestLoggingService,
     config: TLLMConfig,
   ) {
     this.apiBaseUrl = environment.LLM_API_BASE_URL;
@@ -38,7 +41,11 @@ export class LLMService {
     this.systemPrompt = config?.systemPrompt ?? 'Ты - помощник для поиска еды. Reasoning: low';
   }
 
-  public stuctureQuery = async (naturalQuery: string, restaurants: TRestaurant[]): Promise<TStructuredQuery> => {
+  public stuctureQuery = async (
+    naturalQuery: string,
+    restaurants: TRestaurant[],
+    userTelegramId?: number,
+  ): Promise<TStructuredQuery> => {
     try {
       ConsoleLogger.info('Начинаю структуризацию запроса через LLM', { query: naturalQuery });
 
@@ -55,10 +62,17 @@ export class LLMService {
       }
 
       const prompt = this.buildStructureQueryPrompt(naturalQuery, restaurants.map(r => r.name));
-      const response = await this.callLLM(prompt, '/v1/chat/completions', undefined, {
-        temperature: 0.6,
-        max_tokens: 5000,
-      });
+      const response = await this.callLLMWithLogging(
+        prompt,
+        '/v1/chat/completions',
+        ENeuralRequestType.LLM_STRUCTURE_QUERY,
+        userTelegramId,
+        undefined,
+        {
+          temperature: 0.6,
+          max_tokens: 5000,
+        },
+      );
       const structuredQuery = this.parseStructuredQuery(response);
 
       await this.cacheService.set(cacheKey, structuredQuery, this.cacheTTL);
@@ -78,6 +92,7 @@ export class LLMService {
   public enhanceSearchResults = async (
     results: TSearchResultItem[],
     query: string,
+    userTelegramId?: number,
     model?: string,
   ): Promise<TSearchResultItem[]> => {
     try {
@@ -102,10 +117,17 @@ export class LLMService {
 
       const prompt = this.buildEnhancementPrompt(results, query);
 
-      const response = await this.callLLM(prompt, '/v1/chat/completions', model, {
-        temperature: 0.1,
-        max_tokens: 10000,
-      });
+      const response = await this.callLLMWithLogging(
+        prompt,
+        '/v1/chat/completions',
+        ENeuralRequestType.LLM_ENHANCE_RESULTS,
+        userTelegramId,
+        model,
+        {
+          temperature: 0.1,
+          max_tokens: 10000,
+        },
+      );
       const enhancedResults = this.parseEnhancedResults(response, results);
 
       await this.cacheService.set(cacheKey, enhancedResults, this.cacheTTL);
@@ -251,6 +273,157 @@ ${menuList}
 Если нет релевантных блюд, отвечай пустым массивом: []`;
   };
 
+  private callLLMWithLogging = async (
+    prompt: string,
+    url: string,
+    requestType: ENeuralRequestType,
+    userTelegramId?: number,
+    model?: string,
+    params?: TLLMParams,
+  ): Promise<string> => {
+    const startTime = Date.now();
+
+    const request: TLLMRequest = {
+      model: model ?? this.model,
+      messages: [
+        {
+          role: 'system',
+          content: this.systemPrompt,
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      params: {
+        temperature: 0.1,
+        max_tokens: 11000,
+        ...params,
+      },
+    };
+
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, this.timeoutMs);
+
+        const response = await fetch(`${this.apiBaseUrl}${url}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(request),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json() as TLLMResponse;
+
+        // Логируем случай с пустым ответом
+        const processingTime = Date.now() - startTime;
+
+        if (!data.choices?.[0]?.message?.content) {
+          await this.neuralRequestLoggingService.logRequest({
+            userTelegramId,
+            requestType,
+            model: request.model,
+            inputTokens: data.usage?.prompt_tokens || 0,
+            outputTokens: data.usage?.completion_tokens || 0,
+            totalTokens: data.usage?.total_tokens || 0,
+            requestData: {
+              prompt,
+              model: request.model,
+              temperature: request.params?.temperature,
+              max_tokens: request.params?.max_tokens,
+              system_prompt: this.systemPrompt,
+              attempt: attempt + 1,
+            },
+            responseData: {
+              reasoning: data.choices[0].message.reasoning,
+              error: 'Пустой ответ от LLM',
+              usage: data.usage,
+              attempt: attempt + 1,
+            },
+            processingTimeMs: processingTime,
+          });
+
+          throw new Error('Пустой ответ от LLM');
+        }
+
+        await this.neuralRequestLoggingService.logRequest({
+          userTelegramId,
+          requestType,
+          model: request.model,
+          inputTokens: data.usage.prompt_tokens,
+          outputTokens: data.usage.completion_tokens,
+          totalTokens: data.usage.total_tokens,
+          requestData: {
+            prompt,
+            model: request.model,
+            temperature: request.params?.temperature,
+            max_tokens: request.params?.max_tokens,
+            system_prompt: this.systemPrompt,
+          },
+          responseData: {
+            content: data.choices[0].message.content,
+            reasoning: data.choices[0].message.reasoning,
+            usage: data.usage,
+          },
+          processingTimeMs: processingTime,
+        });
+
+        ConsoleLogger.debug('LLM ответ получен', {
+          tokens: data.usage.total_tokens,
+          attempt,
+        });
+
+        return data.choices[0].message.content.trim();
+      } catch (error) {
+        // Логируем неудачную попытку
+        const processingTime = Date.now() - startTime;
+
+        await this.neuralRequestLoggingService.logRequest({
+          userTelegramId,
+          requestType,
+          model: request.model,
+          inputTokens: 0, // Не можем определить без успешного ответа
+          outputTokens: 0,
+          totalTokens: 0,
+          requestData: {
+            prompt,
+            model: request.model,
+            temperature: request.params?.temperature,
+            max_tokens: request.params?.max_tokens,
+            system_prompt: this.systemPrompt,
+            attempt: attempt + 1,
+          },
+          responseData: {
+            error: error instanceof Error ? error.message : String(error),
+            attempt: attempt + 1,
+          },
+          processingTimeMs: processingTime,
+        });
+
+        if (attempt === this.maxRetries) {
+          throw error;
+        }
+
+        ConsoleLogger.warn(`Попытка ${attempt + 1} не удалась, повторяю...`, error as Error);
+        await sleep(1000 * attempt);
+      }
+    }
+
+    throw new Error('Все попытки вызова LLM не удались');
+  };
+
   private callLLM = async (
     prompt: string,
     url: string,
@@ -300,6 +473,10 @@ ${menuList}
         const data = await response.json() as TLLMResponse;
 
         if (!data.choices?.[0]?.message?.content) {
+          ConsoleLogger.warn('Получен пустой ответ от LLM', {
+            usage: data.usage,
+            attempt,
+          });
           throw new Error('Пустой ответ от LLM');
         }
 
@@ -495,6 +672,7 @@ ${menuList}
     dishName: string,
     description?: string,
     ingredients?: string[],
+    userTelegramId?: number,
   ): Promise<EDishCategory> => {
     try {
       ConsoleLogger.debug('Начинаю категоризацию блюда', { dishName });
@@ -508,10 +686,17 @@ ${menuList}
       }
 
       const prompt = this.buildCategorizationPrompt(dishName, description, ingredients);
-      const response = await this.callLLM(prompt, '/v1/chat/completions', 'liquid/lfm2-1.2b', {
-        temperature: 0.2,
-        max_tokens: 1000,
-      });
+      const response = await this.callLLMWithLogging(
+        prompt,
+        '/v1/chat/completions',
+        ENeuralRequestType.LLM_CATEGORIZE_DISHES,
+        userTelegramId,
+        'liquid/lfm2-1.2b',
+        {
+          temperature: 0.2,
+          max_tokens: 1200,
+        },
+      );
       const category = this.parseCategoryResponse(response);
 
       // Перманентный кэш (TTL = 0 означает "без истечения")

@@ -9,7 +9,7 @@ export class VectorSearchServiceFactory {
   static getInstance = async (): Promise<VectorSearchService> => {
     if (!VectorSearchServiceFactory.instance) {
       VectorSearchServiceFactory.instance = new VectorSearchService(
-        EmbeddingServiceFactory.getInstance(),
+        await EmbeddingServiceFactory.getInstance(),
         await MenuServiceFactory.getInstance(),
       );
     }

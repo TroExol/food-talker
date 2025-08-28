@@ -10,7 +10,7 @@ export class MenuServiceFactory {
     if (!MenuServiceFactory.instance) {
       MenuServiceFactory.instance = new MenuService(
         await MenuRepositoryFactory.getInstance(),
-        EmbeddingServiceFactory.getInstance(),
+        await EmbeddingServiceFactory.getInstance(),
       );
     }
     return MenuServiceFactory.instance;

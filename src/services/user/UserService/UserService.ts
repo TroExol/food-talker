@@ -1,11 +1,13 @@
 import { createHash } from 'crypto';
 
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
+import type { TTokenUsageStats } from '@/types/neuralRequestLogging';
 import type {
   TSearchHistoryItem,
   TSearchStats,
   TUser,
 } from '@/services/user/UserRepository/types';
+import type { NeuralRequestLoggingService } from '@/services/NeuralRequestLoggingService/NeuralRequestLoggingService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { Validator } from '@/utils/Validator';
@@ -20,6 +22,7 @@ export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly cacheService: CacheService,
+    private readonly neuralRequestLoggingService: NeuralRequestLoggingService,
   ) {}
 
   public createUser = async (telegramId: number, chatId: number): Promise<TUser> => {
@@ -432,6 +435,28 @@ export class UserService {
     } catch (error) {
       ConsoleLogger.error('Ошибка получения даты последнего поиска', error as Error, { telegramId });
       return null;
+    }
+  };
+
+  public getTokenUsageStats = async (telegramId: number, days = 30): Promise<TTokenUsageStats | null> => {
+    const validation = Validator.validateTelegramId(telegramId);
+    if (!validation.isValid) {
+      throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
+    }
+
+    try {
+      const user = await this.getUser(telegramId);
+      if (!user) {
+        throw AppError.userNotFound(telegramId);
+      }
+
+      return await this.neuralRequestLoggingService.getUserTokenStats(telegramId, days);
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      ConsoleLogger.error('Ошибка получения статистики токенов', error as Error, { telegramId });
+      throw AppError.systemError('TOKEN_STATS_GET_FAILED', 'Не удалось получить статистику токенов');
     }
   };
 }

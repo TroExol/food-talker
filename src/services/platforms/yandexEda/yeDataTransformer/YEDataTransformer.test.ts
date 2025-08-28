@@ -258,7 +258,7 @@ describe('DataTransformer', () => {
 
       const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
-      expect(mockLLMService.categorizeDish).toHaveBeenCalledWith('Пицца Маргарита', 'Классическая пицца', []);
+      expect(mockLLMService.categorizeDish).toHaveBeenCalledWith('Пицца Маргарита', 'Классическая пицца', [], undefined);
       expect(result.category).toBe(EDishCategory.MAIN);
     });
 

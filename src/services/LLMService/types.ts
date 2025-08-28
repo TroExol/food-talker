@@ -24,6 +24,7 @@ export interface TLLMResponse {
   choices: Array<{
     message: {
       content: string;
+      reasoning?: string;
     };
   }>;
   usage: {

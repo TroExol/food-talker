@@ -8,6 +8,7 @@ import {
 
 import type { TSearchResultItem } from '@/types/search';
 import type { TSearchHistoryItem, TUser } from '@/services/user/UserRepository/types';
+import type { NeuralRequestLoggingService } from '@/services/NeuralRequestLoggingService/NeuralRequestLoggingService';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { AppError } from '@/utils/AppError';
@@ -36,11 +37,18 @@ const mockCacheService = {
   set: vi.fn(),
 } as unknown as CacheService;
 
+const mockNeuralRequestLoggingService = {
+  logRequest: vi.fn().mockResolvedValue({}),
+  getUserTokenStats: vi.fn(),
+  getUserTokenStatsByType: vi.fn(),
+  getRecentLogs: vi.fn(),
+} as unknown as NeuralRequestLoggingService;
+
 describe('UserService', () => {
   let userService: UserService;
 
   beforeEach(() => {
-    userService = new UserService(mockUserRepository, mockCacheService);
+    userService = new UserService(mockUserRepository, mockCacheService, mockNeuralRequestLoggingService);
   });
 
   describe('createUser', () => {

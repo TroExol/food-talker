@@ -54,7 +54,12 @@ export class YEDataTransformer implements TYEDataTransformer {
       // Определяем категорию блюда через LLM
       let category: EDishCategory;
       try {
-        category = await this.llmService.categorizeDish(yeMenuItem.name, yeMenuItem.description, ingredients);
+        category = await this.llmService.categorizeDish(
+          yeMenuItem.name,
+          yeMenuItem.description,
+          ingredients,
+          undefined,
+        );
       } catch (error) {
         ConsoleLogger.error('Ошибка категоризации блюда, используем MAIN', error as Error, { dishName: yeMenuItem.name });
         category = EDishCategory.MAIN; // Fallback к основной категории
