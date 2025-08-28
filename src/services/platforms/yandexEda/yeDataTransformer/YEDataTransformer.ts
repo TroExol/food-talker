@@ -21,7 +21,7 @@ export class YEDataTransformer implements TYEDataTransformer {
   public transformRestaurant = (yeRestaurant: TYERestaurantFromServer, coordinates: TCoordinates): TYERestaurant => {
     try {
       const restaurant: TYERestaurant = {
-        id: yeRestaurant.slug,
+        id: `ye_${yeRestaurant.slug}`,
         name: yeRestaurant.name.value,
         coordinates: {
           latitude: coordinates.latitude,

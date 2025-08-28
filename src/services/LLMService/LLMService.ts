@@ -67,7 +67,7 @@ export class LLMService {
         '/v1/chat/completions',
         ENeuralRequestType.LLM_STRUCTURE_QUERY,
         userTelegramId,
-        undefined,
+        'qwen/qwen3-4b-2507',
         {
           temperature: 0.6,
           max_tokens: 5000,
@@ -691,10 +691,10 @@ ${menuList}
         '/v1/chat/completions',
         ENeuralRequestType.LLM_CATEGORIZE_DISHES,
         userTelegramId,
-        'liquid/lfm2-1.2b',
+        'qwen/qwen3-4b-2507',
         {
           temperature: 0.2,
-          max_tokens: 1200,
+          max_tokens: 2000,
         },
       );
       const category = this.parseCategoryResponse(response);

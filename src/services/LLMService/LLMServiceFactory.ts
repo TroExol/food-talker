@@ -14,7 +14,7 @@ export class LLMServiceFactory {
         CacheServiceFactory.getRedisInstance(),
         await NeuralRequestLoggingServiceFactory.getInstance(),
         {
-          model: 'unsloth/gpt-oss-20b-GGUF',
+          model: 'qwen/qwen3-4b-2507',
           systemPrompt: 'Ты - помощник для поиска еды. Reasoning: low',
           timeoutMs: 40000,
         },

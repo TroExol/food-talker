@@ -289,7 +289,9 @@ export class YEApiService {
         if (this.config.proxyUrl) {
           const agent = new HttpsProxyAgent(this.config.proxyUrl);
           fetchOptions.agent = agent;
-          ConsoleLogger.debug('Используется прокси для запроса', { proxyUrl: this.config.proxyUrl });
+          const proxyUrl = new URL(this.config.proxyUrl);
+          proxyUrl.password = '***';
+          ConsoleLogger.debug('Используется прокси для запроса', { proxyUrl: proxyUrl.toString() });
         }
 
         const response = await fetch(url, fetchOptions);

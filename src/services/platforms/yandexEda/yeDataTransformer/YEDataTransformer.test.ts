@@ -369,7 +369,7 @@ describe('DataTransformer', () => {
       const result = transformer.transformRestaurant(yePlace, coordinates);
 
       expect(result).toEqual({
-        id: 'test-restaurant',
+        id: 'ye_test-restaurant',
         name: 'Тест Ресторан',
         coordinates,
         lastUpdated: expect.any(Date) as Date,

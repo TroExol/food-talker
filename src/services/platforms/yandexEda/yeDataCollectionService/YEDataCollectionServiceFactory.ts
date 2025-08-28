@@ -1,4 +1,5 @@
 import { YEDataCollectionService } from './YEDataCollectionService';
+import { YEDataTransformerFactory } from '../yeDataTransformer/YEDataTransformerFactory';
 import { YEApiServiceFactory } from '../yeApiService/YEApiServiceFactory';
 
 export class YEDataCollectionServiceFactory {
@@ -8,6 +9,7 @@ export class YEDataCollectionServiceFactory {
     if (!YEDataCollectionServiceFactory.instance) {
       YEDataCollectionServiceFactory.instance = new YEDataCollectionService(
         await YEApiServiceFactory.getInstance(),
+        await YEDataTransformerFactory.getInstance(),
       );
     }
     return YEDataCollectionServiceFactory.instance;

@@ -173,7 +173,7 @@ export class SearchService {
       return searchResults;
       // TODO: Uncomment this when we have a better model
       // try {
-      //   return await this.llmService.enhanceSearchResults(searchResults, originalQuery, 'liquid/lfm2-1.2b');
+      //   return await this.llmService.enhanceSearchResults(searchResults, originalQuery, 'qwen/qwen3-4b-2507');
       // } catch (errorFallback) {
       //   ConsoleLogger.warn('Не удалось улучшить результаты через LLM', errorFallback as Error);
       //   return searchResults; // Fallback к оригинальным результатам

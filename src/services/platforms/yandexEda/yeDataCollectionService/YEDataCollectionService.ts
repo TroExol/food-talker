@@ -7,6 +7,7 @@ import { AppError } from '@/utils/AppError';
 import { botConfig } from '@/config/bot';
 
 import type { TCollectionStats } from './types';
+import type { YEDataTransformer } from '../yeDataTransformer/YEDataTransformer';
 import type { YEApiService } from '../yeApiService/YEApiService';
 
 export class YEDataCollectionService {
@@ -15,6 +16,7 @@ export class YEDataCollectionService {
 
   constructor(
     private readonly yeApiService: YEApiService,
+    private readonly yeDataTransformer: YEDataTransformer,
   ) { }
 
   public updateRestaurants = async (): Promise<void> => {
@@ -41,13 +43,19 @@ export class YEDataCollectionService {
 
   public updateRestaurantMenu = async (restaurantId: string, city: EAvailableCities): Promise<void> => {
     try {
+      const coordinates = CityValidator.getCityCoordinates(city);
+
+      if (!coordinates) {
+        throw AppError.dataCollectionError(`Не удалось получить координаты для города ${city} Яндекс.Еда`);
+      }
+
       const restaurant = await this.yeApiService.getRestaurantById(restaurantId, city);
 
       if (!restaurant) {
         throw AppError.dataCollectionError(`Не удалось найти ресторан Яндекс.Еда по id ${restaurantId} в городе ${city}`);
       }
 
-      await this.yeApiService.getRestaurantMenu(restaurantId, city);
+      await this.yeApiService.requestRestaurantMenu(restaurantId, coordinates, restaurant.additionalInfo.brandSlug);
 
       ConsoleLogger.debug('Меню Яндекс.Еда обновлено', {
         restaurantId,
@@ -86,7 +94,7 @@ export class YEDataCollectionService {
 
       ConsoleLogger.debug('Обновление данных ресторанов Яндекс.Еда для города', { coordinates });
 
-      const restaurants = await this.yeApiService.getRestaurants(city);
+      const restaurants = await this.yeApiService.requestRestaurants(coordinates);
 
       ConsoleLogger.info('Данные ресторанов Яндекс.Еда для города обновлены', {
         coordinates,
@@ -94,7 +102,8 @@ export class YEDataCollectionService {
       });
 
       for (const restaurant of restaurants) {
-        await this.updateRestaurantMenu(restaurant.id, city);
+        const restaurantFormat = this.yeDataTransformer.transformRestaurant(restaurant, coordinates);
+        await this.updateRestaurantMenu(restaurantFormat.id, city);
       }
 
       ConsoleLogger.info('Меню для всех ресторанов Яндекс.Еда для города обновлено', {
