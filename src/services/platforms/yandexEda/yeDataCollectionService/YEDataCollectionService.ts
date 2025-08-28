@@ -55,7 +55,7 @@ export class YEDataCollectionService {
         throw AppError.dataCollectionError(`Не удалось найти ресторан Яндекс.Еда по id ${restaurantId} в городе ${city}`);
       }
 
-      await this.yeApiService.requestRestaurantMenu(restaurantId, coordinates, restaurant.additionalInfo.brandSlug);
+      await this.yeApiService.getRestaurantMenu(restaurantId, city, false);
 
       ConsoleLogger.debug('Меню Яндекс.Еда обновлено', {
         restaurantId,
@@ -94,7 +94,7 @@ export class YEDataCollectionService {
 
       ConsoleLogger.debug('Обновление данных ресторанов Яндекс.Еда для города', { coordinates });
 
-      const restaurants = await this.yeApiService.requestRestaurants(coordinates);
+      const restaurants = await this.yeApiService.getRestaurants(city, false);
 
       ConsoleLogger.info('Данные ресторанов Яндекс.Еда для города обновлены', {
         coordinates,
@@ -102,8 +102,7 @@ export class YEDataCollectionService {
       });
 
       for (const restaurant of restaurants) {
-        const restaurantFormat = this.yeDataTransformer.transformRestaurant(restaurant, coordinates);
-        await this.updateRestaurantMenu(restaurantFormat.id, city);
+        await this.updateRestaurantMenu(restaurant.id, city);
       }
 
       ConsoleLogger.info('Меню для всех ресторанов Яндекс.Еда для города обновлено', {

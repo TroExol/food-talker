@@ -3,25 +3,24 @@
 ## Общие принципы
 
 Все события отправляются в Yandex Metrica с обязательными параметрами:
-- `user_id` - Telegram ID пользователя
+- `user_id` - Telegram ID пользователя (если событие происходит вследствии действия пользователя, а не системы)
 - `timestamp` - время события
-- `session_id` - уникальный идентификатор сессии
+- `session_id` - уникальный идентификатор сессии (если событие происходит вследствии действия пользователя, а не системы)
 
 ## 1. Команды бота
 
 ### 1.1 `bot_command_executed`
 **Описание:** Выполнение команды бота
 **Параметры:**
-- `command` - название команды (`/start`, `/help`, `/address`, `/history`)
-- `user_state` - текущее состояние пользователя
-- `user_city` - город пользователя
-- `is_new_user` - новый ли пользователь (boolean)
+- `command` - название команды ('/address', '/help', '/history', '/search', '/start', '/stats', '/support')
+- `user_state` - текущее состояние пользователя ('idle', 'waiting_for_city', 'waiting_for_search_query')
+- `user_city` - город пользователя (если установлен)
 
 ### 1.2 `bot_command_error`
 **Описание:** Ошибка при выполнении команды
 **Параметры:**
 - `command` - название команды
-- `error_type` - тип ошибки
+- `error_type` - тип ошибки ('user_not_found', 'validation_error', 'service_error')
 - `error_message` - сообщение об ошибке
 - `user_state` - состояние пользователя
 
@@ -33,85 +32,97 @@
 - `message_length` - длина сообщения
 - `user_state` - состояние пользователя
 - `user_city` - город пользователя
-- `has_attachments` - есть ли вложения (boolean)
+- `message_type` - тип сообщения ('text', 'callback_query')
 
 ### 2.2 `search_query_started`
 **Описание:** Начало обработки поискового запроса
 **Параметры:**
-- `query` - запрос
+- `id` - id запроса
+- `query` - запрос пользователя
 - `query_length` - длина запроса
 - `user_city` - город пользователя
-- `search_options` - опции поиска (JSON)
+- `search_options` - опции поиска (JSON с enableLLMEnhancement, enableVectorSearch, maxEnhenceMenu)
 
 ### 2.3 `search_query_completed`
 **Описание:** Завершение обработки поискового запроса
 **Параметры:**
+- `id` - id запроса
 - `query_length` - длина запроса
 - `results_count` - количество найденных результатов
-- `results_names` - названия результатов 
 - `processing_time_ms` - время обработки в миллисекундах
-- `search_method` - метод поиска (`vector`, `traditional`, `hybrid`)
-- `has_llm_enhancement` - использовалось ли LLM улучшение
+- `search_method` - метод поиска ('vector', 'traditional', 'hybrid')
+- `has_llm_enhancement` - использовалось ли LLM улучшение (boolean)
+- `has_vector_search` - использовался ли векторный поиск (boolean)
 
 ### 2.4 `search_query_error`
 **Описание:** Ошибка при обработке поискового запроса
 **Параметры:**
+- `id` - id запроса
+- `query_length` - длина запроса
 - `error_type` - тип ошибки
 - `error_message` - сообщение об ошибке
 - `processing_time_ms` - время до ошибки
 - `search_method` - метод поиска
 
-## 3. Использование токенов
-
-### 3.1 `llm_request_started`
-**Описание:** Начало запроса к LLM
+### 2.5 `search_limit_exceeded`
+**Описание:** Превышение лимита поиска пользователем
 **Параметры:**
-- `request_type` - тип запроса (`structure_query`, `enhance_results`, `other`)
-- `model` - модель LLM
-- `prompt_length` - длина промпта
+- `user_subscription` - тип подписки ('basic', 'premium')
+- `searches_today` - количество поисков сегодня
+- `search_limit` - лимит поисков
+- `remaining_searches` - оставшиеся поиски
 
-### 3.2 `llm_request_completed`
-**Описание:** Завершение запроса к LLM
+## 3. Обработка callback'ов
+
+### 3.1 `callback_button_clicked`
+**Описание:** Нажатие на inline кнопку
 **Параметры:**
-- `request_type` - тип запроса
-- `model` - модель LLM
-- `total_tokens` - общее количество токенов
-- `prompt_tokens` - токены промпта
-- `completion_tokens` - токены ответа
-- `processing_time_ms` - время обработки
-- `response_length` - длина ответа
-- `response` - ответ
+- `button_type` - тип кнопки ('city_selection', 'item_selection', 'page_navigation', 'delete_message', 'history_item')
+- `button_data` - данные кнопки (callback_data)
+- `user_state` - состояние пользователя
 
-### 3.3 `llm_request_error`
-**Описание:** Ошибка при запросе к LLM
+### 3.2 `city_selection_completed`
+**Описание:** Успешный выбор города
 **Параметры:**
-- `request_type` - тип запроса
-- `model` - модель LLM
-- `error_type` - тип ошибки
-- `error_message` - сообщение об ошибке
-- `attempt_number` - номер попытки
-- `processing_time_ms` - время до ошибки
+- `selected_city` - выбранный город
+- `selection_method` - способ выбора ('callback', 'text_input')
+- `old_city` - предыдущий город (если был)
 
-### 3.4 `tokens_consumed`
-**Описание:** Общее потребление токенов за сессию
+### 3.3 `item_selection_completed`
+**Описание:** Выбор блюда из результатов поиска
 **Параметры:**
-- `session_total_tokens` - общее количество токенов за сессию
-- `session_prompt_tokens` - токены промптов за сессию
-- `session_completion_tokens` - токены ответов за сессию
-- `session_duration_minutes` - длительность сессии в минутах
+- `search_history_id` - ID истории поиска
+- `item_id` - ID выбранного блюда
+- `has_photo` - есть ли фото у блюда (boolean)
 
-## 4. Время обработки
+### 3.4 `page_navigation_completed`
+**Описание:** Навигация по страницам результатов
+**Параметры:**
+- `search_history_id` - ID истории поиска
+- `page_number` - номер страницы
+- `total_pages` - общее количество страниц
+
+### 3.5 `history_item_repeated`
+**Описание:** Повторный поиск из истории
+**Параметры:**
+- `history_item_id` - ID элемента истории
+- `original_query` - оригинальный запрос
+- `query_length` - длина запроса
+
+## 4. API запросы
 
 ### 4.1 `api_request_started`
 **Описание:** Начало запроса к внешнему API
 **Параметры:**
-- `api_name` - название API (`yandex_eda`, `embedding_service`)
+- `id` - id запроса
+- `api_name` - название API ('yandex_eda')
 - `endpoint` - эндпоинт
-- `request_type` - тип запроса
+- `request_type` - тип запроса ('GET', 'POST')
 
 ### 4.2 `api_request_completed`
 **Описание:** Завершение запроса к внешнему API
 **Параметры:**
+- `id` - id запроса
 - `api_name` - название API
 - `endpoint` - эндпоинт
 - `processing_time_ms` - время обработки
@@ -121,124 +132,108 @@
 ### 4.3 `api_request_error`
 **Описание:** Ошибка при запросе к внешнему API
 **Параметры:**
+- `id` - id запроса
 - `api_name` - название API
 - `endpoint` - эндпоинт
 - `error_type` - тип ошибки
 - `status_code` - HTTP статус код
 - `processing_time_ms` - время до ошибки
 
-## 5. Ошибки и исключения
+## 5. LLM и Embedding запросы
 
-### 5.1 `error_occurred`
+**Примечание:** Детальное логирование LLM и embedding запросов ведется в отдельной таблице БД. В Yandex Metrica отправляются только агрегированные метрики для мониторинга производительности.
+
+### 5.1 `llm_requests_summary`
+**Описание:** Сводка по LLM запросам за период
+**Параметры:**
+- `period_minutes` - период в минутах
+- `total_requests` - общее количество запросов
+- `successful_requests` - успешных запросов
+- `failed_requests` - неудачных запросов
+- `average_response_time_ms` - среднее время ответа
+- `total_tokens_used` - общее количество токенов
+
+### 5.2 `embedding_requests_summary`
+**Описание:** Сводка по embedding запросам за период
+**Параметры:**
+- `period_minutes` - период в минутах
+- `total_requests` - общее количество запросов
+- `successful_requests` - успешных запросов
+- `failed_requests` - неудачных запросов
+- `average_response_time_ms` - среднее время ответа
+- `total_vectors_processed` - общее количество векторов
+
+### 5.3 `neural_service_error`
+**Описание:** Критическая ошибка в LLM или embedding сервисе
+**Параметры:**
+- `service_type` - тип сервиса ('llm', 'embedding')
+- `error_type` - тип ошибки
+- `error_message` - сообщение об ошибке
+- `retry_count` - количество попыток повтора
+
+## 6. Ошибки и исключения
+
+### 6.1 `error_occurred`
 **Описание:** Любая ошибка в системе
 **Параметры:**
 - `error_type` - тип ошибки
 - `error_message` - сообщение об ошибке
 - `stack_trace` - стек вызовов (опционально)
-- `component` - компонент системы
+- `component` - компонент системы ('bot', 'search', 'api', 'database')
 - `user_action` - действие пользователя
 
-### 5.2 `rate_limit_exceeded`
+### 6.2 `rate_limit_exceeded`
 **Описание:** Превышение лимита запросов
 **Параметры:**
-- `limit_type` - тип лимита (`per_minute`, `per_hour`)
+- `limit_type` - тип лимита ('per_minute', 'per_hour', 'search_limit')
 - `current_requests` - текущее количество запросов
 - `limit_value` - значение лимита
 
-### 5.3 `cache_miss`
+### 6.3 `cache_miss`
 **Описание:** Промах кэша
 **Параметры:**
-- `cache_type` - тип кэша (`redis`, `memory`)
+- `cache_type` - тип кэша ('redis', 'memory')
 - `cache_key` - ключ кэша
-- `data_type` - тип данных
+- `data_type` - тип данных ('menu', 'search_results')
 
-## 6. Пользовательские действия
+## 7. Пользовательские действия
 
-### 6.1 `callback_button_clicked`
-**Описание:** Нажатие на inline кнопку
+### 7.1 `user_state_changed`
+**Описание:** Изменение состояния пользователя
 **Параметры:**
-- `button_type` - тип кнопки (`city_selection`, `item_selection`, `page_navigation`, `order`)
-- `button_data` - данные кнопки
-- `user_state` - состояние пользователя
+- `old_state` - предыдущее состояние
+- `new_state` - новое состояние
+- `trigger` - причина изменения ('command', 'callback', 'message')
 
-### 6.2 `city_changed`
-**Описание:** Изменение города пользователя
-**Параметры:**
-- `old_city` - предыдущий город
-- `new_city` - новый город
-- `change_method` - способ изменения (`command`, `callback`)
-
-### 6.3 `search_history_viewed`
+### 7.2 `search_history_viewed`
 **Описание:** Просмотр истории поиска
 **Параметры:**
 - `history_items_count` - количество элементов в истории
 - `viewed_items_count` - количество просмотренных элементов
 
-### 6.4 `restaurant_selected`
-**Описание:** Выбор ресторана
+### 7.3 `user_stats_viewed`
+**Описание:** Просмотр статистики пользователя
 **Параметры:**
-- `restaurant_id` - ID ресторана
-- `restaurant_name` - название ресторана
-- `selection_method` - способ выбора (`search_result`, `history`)
+- `user_subscription` - тип подписки
+- `searches_today` - поисков сегодня
+- `searches_this_month` - поисков за месяц
+- `total_searches` - всего поисков
 
-## 7. Производительность
+## 8. Технические события
 
-### 7.1 `memory_usage`
-**Описание:** Использование памяти
-**Параметры:**
-- `memory_usage_mb` - использование памяти в МБ
-- `memory_limit_mb` - лимит памяти в МБ
-- `heap_used_mb` - использованная куча в МБ
-
-### 7.2 `cache_performance`
-**Описание:** Производительность кэша
-**Параметры:**
-- `cache_hit_rate` - процент попаданий в кэш
-- `cache_size` - размер кэша
-- `cache_evictions` - количество вытеснений
-
-## 8. Бизнес-метрики
-
-### 8.1 `search_conversion`
-**Описание:** Конверсия поиска в заказ
-**Параметры:**
-- `search_query` - поисковый запрос
-- `results_count` - количество результатов
-- `order_clicked` - был ли клик на заказ (boolean)
-- `conversion_time_ms` - время до конверсии
-
-### 8.2 `user_engagement`
-**Описание:** Вовлеченность пользователя
-**Параметры:**
-- `session_duration_minutes` - длительность сессии
-- `messages_count` - количество сообщений
-- `searches_count` - количество поисков
-- `commands_count` - количество команд
-
-## 9. Технические события
-
-### 9.1 `bot_started`
+### 8.1 `bot_started`
 **Описание:** Запуск бота
 **Параметры:**
 - `bot_version` - версия бота
-- `environment` - окружение (`production`, `development`)
+- `environment` - окружение ('production', 'development')
 - `startup_time_ms` - время запуска
 
-### 9.2 `bot_stopped`
+### 8.2 `bot_stopped`
 **Описание:** Остановка бота
 **Параметры:**
 - `uptime_minutes` - время работы
 - `total_requests` - общее количество запросов
 - `total_errors` - общее количество ошибок
-
-### 9.3 `health_check`
-**Описание:** Проверка здоровья системы
-**Параметры:**
-- `database_status` - статус базы данных
-- `cache_status` - статус кэша
-- `llm_status` - статус LLM
-- `api_status` - статус внешних API
-- `response_time_ms` - время ответа
 
 ## Реализация
 
@@ -248,14 +243,15 @@ interface AnalyticsEvent {
   name: string;
   parameters: Record<string, any>;
   timestamp: number;
-  user_id: number;
-  session_id: string;
+  user_id?: number;
+  session_id?: string;
 }
 
 class AnalyticsService {
   trackEvent(event: AnalyticsEvent): void;
   trackError(error: Error, context: Record<string, any>): void;
   trackPerformance(operation: string, duration: number): void;
+  trackNeuralSummary(serviceType: 'llm' | 'embedding', summary: NeuralSummary): void;
 }
 ```
 
@@ -264,3 +260,9 @@ class AnalyticsService {
 - Настроить очередь событий для batch отправки
 - Добавить retry логику для надежности
 - Реализовать фильтрацию чувствительных данных
+- Настроить агрегацию для LLM/embedding метрик
+
+### Приоритеты логирования
+1. **Высокий приоритет**: Ошибки, превышение лимитов, критические сбои
+2. **Средний приоритет**: Пользовательские действия, команды, поисковые запросы
+3. **Низкий приоритет**: Агрегированные метрики производительности, технические события

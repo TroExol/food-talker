@@ -89,11 +89,11 @@ describe('YEDataCollectionService', () => {
       void dataCollectionService.updateRestaurants();
       await vi.runAllTimersAsync();
 
-      expect(mockCachedYEService.requestRestaurants).toHaveBeenCalledTimes(5);
+      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(5);
     });
 
     it('должен обработать ошибку API', async () => {
-      mockCachedYEService.requestRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
+      mockCachedYEService.getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
 
       // Проверяем, что функция не выбрасывает ошибку
       await expect(dataCollectionService.updateRestaurants()).resolves.toBeUndefined();
@@ -104,15 +104,11 @@ describe('YEDataCollectionService', () => {
     it('должен обновить меню ресторана', async () => {
       await dataCollectionService.updateRestaurantMenu('restaurant-1', EAvailableCities.PERM);
 
-      expect(mockCachedYEService.requestRestaurantMenu).toHaveBeenCalledWith(
-        'restaurant-1',
-        { latitude: 58.01, longitude: 56.23 },
-        'brand-restaurant-1',
-      );
+      expect(mockCachedYEService.getRestaurantMenu).toHaveBeenCalledWith('restaurant-1', EAvailableCities.PERM, false);
     });
 
     it('должен обработать ошибку загрузки меню', async () => {
-      mockCachedYEService.requestRestaurantMenu = vi.fn().mockRejectedValue(new Error('Menu API Error'));
+      mockCachedYEService.getRestaurantMenu = vi.fn().mockRejectedValue(new Error('Menu API Error'));
 
       await expect(dataCollectionService.updateRestaurantMenu('restaurant-1', 'Пермь' as EAvailableCities))
         .rejects.toThrow('Не удалось обновить меню для restaurant-1 Яндекс.Еда');
@@ -133,7 +129,7 @@ describe('YEDataCollectionService', () => {
 
     it('должен учитывать ошибки в статистике', async () => {
       // Вызываем ошибку
-      mockCachedYEService.requestRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
+      mockCachedYEService.getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
 
       try {
         await dataCollectionService.updateRestaurants();
@@ -150,11 +146,11 @@ describe('YEDataCollectionService', () => {
     it('должен обновить данные ресторанов для города', async () => {
       await dataCollectionService.updateCityRestaurants(EAvailableCities.PERM);
 
-      expect(mockCachedYEService.requestRestaurants).toHaveBeenCalledWith({ latitude: 58.01, longitude: 56.23 });
+      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledWith(EAvailableCities.PERM, false);
     });
 
     it('должен обработать ошибку при обновлении города', async () => {
-      mockCachedYEService.requestRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
+      mockCachedYEService.getRestaurants = vi.fn().mockRejectedValue(new Error('API Error'));
 
       await expect(dataCollectionService.updateCityRestaurants(EAvailableCities.PERM)).rejects.toThrow();
     });

@@ -100,7 +100,10 @@ export class YEApiService {
     }
   };
 
-  public getRestaurants = async (city: EAvailableCities): Promise<TYERestaurant[]> => {
+  public getRestaurants = async (
+    city: EAvailableCities,
+    searchInCache = true,
+  ): Promise<TYERestaurant[]> => {
     const coordinates = CityValidator.getCityCoordinates(city);
 
     if (!coordinates) {
@@ -113,7 +116,7 @@ export class YEApiService {
       // Проверяем кэш
       const cached = await this.cacheService.get<TYERestaurant[]>(cacheKey);
 
-      if (cached) {
+      if (cached && searchInCache) {
         ConsoleLogger.debug('Кэш ресторанов Яндекс.Еда найден', { coordinates, cacheKey });
         // TODO: remove this
         return cached.slice(0, 3);
@@ -183,6 +186,7 @@ export class YEApiService {
   public getRestaurantMenu = async (
     restaurantId: string,
     city: EAvailableCities,
+    searchInCache = true,
   ): Promise<TMenuItem[]> => {
     const coordinates = CityValidator.getCityCoordinates(city);
     if (!coordinates) {
@@ -194,7 +198,7 @@ export class YEApiService {
     try {
       // Проверяем кэш
       const cached = await this.cacheService.get<TMenuItem[]>(cacheKey);
-      if (cached) {
+      if (cached && searchInCache) {
         ConsoleLogger.debug('Кэш меню Яндекс.Еда найден', { restaurantId, coordinates, cacheKey });
         return cached;
       }

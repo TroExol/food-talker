@@ -67,7 +67,7 @@ export class LLMService {
         '/v1/chat/completions',
         ENeuralRequestType.LLM_STRUCTURE_QUERY,
         userTelegramId,
-        'qwen/qwen3-4b-2507',
+        'yandex/YandexGPT-5-Lite-8B-instruct-GGUF',
         {
           temperature: 0.6,
           max_tokens: 5000,
@@ -691,7 +691,7 @@ ${menuList}
         '/v1/chat/completions',
         ENeuralRequestType.LLM_CATEGORIZE_DISHES,
         userTelegramId,
-        'qwen/qwen3-4b-2507',
+        'yandex/YandexGPT-5-Lite-8B-instruct-GGUF',
         {
           temperature: 0.2,
           max_tokens: 2000,
