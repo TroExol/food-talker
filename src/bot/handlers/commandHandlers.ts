@@ -6,6 +6,7 @@ import type { MessageFormatterService } from '@/services/message/MessageFormatte
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
 import { EBotCommand, EUserState } from '@/types/telegram';
+import { ESubscriptionType } from '@/services/user/UserRepository/types';
 import { EAvailableCities } from '@/config/bot/types';
 
 export class CommandHandlers {
@@ -46,6 +47,11 @@ export class CommandHandlers {
         command: EBotCommand.SUPPORT,
         description: 'Связаться с поддержкой',
         handler: this.handleSupport,
+      },
+      {
+        command: EBotCommand.STATS,
+        description: 'Показать статистику поиска',
+        handler: this.handleStats,
       },
     ];
   };
@@ -150,6 +156,12 @@ export class CommandHandlers {
       return;
     }
 
+    const canSearch = await this.userService.checkSearchLimit(ctx.user.telegramId);
+    if (!canSearch) {
+      await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.');
+      return;
+    }
+
     // Устанавливаем состояние ожидания обработки запроса
     ctx.user.state = EUserState.WAITING_FOR_SEARCH_QUERY;
 
@@ -219,6 +231,48 @@ export class CommandHandlers {
     await ctx.reply(text, {
       parse_mode: 'HTML',
     });
+  };
+
+  private handleStats = async (ctx: TBotContext): Promise<void> => {
+    if (!ctx.user) {
+      throw AppError.userNotFound(ctx.from?.id ?? 0);
+    }
+
+    try {
+      const stats = await this.userService.getSearchStats(ctx.user.telegramId);
+      const user = await this.userService.getUser(ctx.user.telegramId);
+
+      if (!user) {
+        throw AppError.userNotFound(ctx.user.telegramId);
+      }
+
+      const subscriptionText = user.subscription === ESubscriptionType.BASIC ? 'Базовая' : 'Премиум';
+      const lastSearchText = stats.lastSearchDate
+        ? new Date(stats.lastSearchDate).toLocaleDateString('ru-RU')
+        : 'Нет';
+
+      const text = `📊 <b>Статистика поиска</b>
+
+👤 <b>Подписка:</b> ${subscriptionText}
+🔍 <b>Поисков сегодня:</b> ${stats.searchesToday}/${stats.searchLimit}
+📈 <b>Поисков за месяц:</b> ${stats.searchesThisMonth}
+📊 <b>Всего поисков:</b> ${stats.totalSearches}
+📅 <b>Последний поиск:</b> ${lastSearchText}
+
+${stats.remainingSearches > 0
+    ? `✅ Осталось поисков сегодня: ${stats.remainingSearches}`
+    : '❌ Достигнут дневной лимит поиска'
+}`;
+
+      await ctx.reply(text, {
+        parse_mode: 'HTML',
+      });
+    } catch (error) {
+      ConsoleLogger.error('Ошибка при получении статистики', error as Error, {
+        telegramId: ctx.from?.id,
+      });
+      await ctx.reply('Не удалось загрузить статистику. Попробуйте позже.');
+    }
   };
 
   private showCitySelection = async (ctx: TBotContext): Promise<void> => {

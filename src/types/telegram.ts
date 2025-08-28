@@ -20,6 +20,7 @@ export enum EBotCommand {
   HISTORY = 'history',
   SEARCH = 'search',
   START = 'start',
+  STATS = 'stats',
   SUPPORT = 'support',
 }
 

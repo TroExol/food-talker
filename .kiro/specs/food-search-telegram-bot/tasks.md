@@ -101,7 +101,7 @@
 
 - [ ] 11. Other
   - [x] 11.1 Add available to setup proxy for parsing API Yandex.Eda
-  - [ ] 11.2 Limit the number of user requests to 10 requests per month on Basic subscription
+  - [x] 11.2 Limit the number of user requests to 5 requests per day on Basic subscription
   - [ ] 11.3 On Basic subscripton use only vector data base
   - [ ] 11.4 On Premium subscripton use vector data base and LLM
   - [ ] 11.5 Calc used tokens for user

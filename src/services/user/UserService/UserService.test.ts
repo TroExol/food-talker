@@ -341,4 +341,126 @@ describe('UserService', () => {
       expect(mockUserRepository.delete).toHaveBeenCalledWith(telegramId);
     });
   });
+
+  describe('checkSearchLimit', () => {
+    it('должен вернуть true если лимит не превышен', async () => {
+      const telegramId = 123456789;
+      const user: TUser = {
+        telegramId,
+        chatId: 987654321,
+        city: EAvailableCities.PERM,
+        subscription: ESubscriptionType.BASIC,
+        subscriptionExpiry: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const history: TSearchHistoryItem[] = [
+        {
+          id: 'uuid1',
+          query: 'пицца',
+          structuredQuery: {},
+          results: [],
+          timestamp: new Date(),
+        },
+        {
+          id: 'uuid2',
+          query: 'суши',
+          structuredQuery: {},
+          results: [],
+          timestamp: new Date(),
+        },
+      ];
+
+      vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(user);
+      vi.mocked(mockUserRepository.getSearchHistory).mockResolvedValue(history);
+
+      const result = await userService.checkSearchLimit(telegramId);
+
+      expect(result).toBe(true);
+    });
+
+    it('должен вернуть false если лимит превышен', async () => {
+      const telegramId = 123456789;
+      const user: TUser = {
+        telegramId,
+        chatId: 987654321,
+        city: EAvailableCities.PERM,
+        subscription: ESubscriptionType.BASIC,
+        subscriptionExpiry: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Создаем 5 поисков за сегодня (лимит для basic подписки)
+      const history: TSearchHistoryItem[] = Array.from({ length: 30 }, (_, i) => ({
+        id: `uuid${i}`,
+        query: `поиск ${i}`,
+        structuredQuery: {},
+        results: [],
+        timestamp: new Date(),
+      }));
+
+      vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(user);
+      vi.mocked(mockUserRepository.getSearchHistory).mockResolvedValue(history);
+
+      const result = await userService.checkSearchLimit(telegramId);
+
+      expect(result).toBe(false);
+    });
+
+    it('должен выбросить ошибку если пользователь не найден', async () => {
+      const telegramId = 123456789;
+
+      vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(null);
+
+      await expect(userService.checkSearchLimit(telegramId)).rejects.toThrow(AppError);
+    });
+  });
+
+  describe('getSearchStats', () => {
+    it('должен вернуть статистику поиска', async () => {
+      const telegramId = 123456789;
+      const user: TUser = {
+        telegramId,
+        chatId: 987654321,
+        city: EAvailableCities.PERM,
+        subscription: ESubscriptionType.BASIC,
+        subscriptionExpiry: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const history: TSearchHistoryItem[] = [
+        {
+          id: 'uuid1',
+          query: 'пицца',
+          structuredQuery: {},
+          results: [],
+          timestamp: new Date(),
+        },
+        {
+          id: 'uuid2',
+          query: 'суши',
+          structuredQuery: {},
+          results: [],
+          timestamp: new Date(),
+        },
+      ];
+
+      vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(user);
+      vi.mocked(mockUserRepository.getSearchHistory).mockResolvedValue(history);
+
+      const result = await userService.getSearchStats(telegramId);
+
+      expect(result).toEqual({
+        totalSearches: 2,
+        searchesToday: 2,
+        searchesThisMonth: 2,
+        lastSearchDate: expect.any(Date) as Date,
+        searchLimit: 30,
+        remainingSearches: 28,
+      });
+    });
+  });
 });

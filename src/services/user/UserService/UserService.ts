@@ -1,13 +1,17 @@
 import { createHash } from 'crypto';
 
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
-import type { TSearchHistoryItem, TUser } from '@/services/user/UserRepository/types';
+import type {
+  TSearchHistoryItem,
+  TSearchStats,
+  TUser,
+} from '@/services/user/UserRepository/types';
 import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { Validator } from '@/utils/Validator';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
-import { ESubscriptionType } from '@/services/user/UserRepository/types';
+import { ESubscriptionType, SEARCH_LIMITS_PER_DAY } from '@/services/user/UserRepository/types';
 import { EAvailableCities } from '@/config/bot/types';
 
 import type { UserRepository } from '../UserRepository/UserRepository';
@@ -296,5 +300,138 @@ export class UserService {
   private generateCacheKey = (type: string, ...params: unknown[]): string => {
     const data = JSON.stringify({ type, params });
     return `user_service:${createHash('sha256').update(data).digest('hex')}`;
+  };
+
+  public checkSearchLimit = async (telegramId: number): Promise<boolean> => {
+    const validation = Validator.validateTelegramId(telegramId);
+    if (!validation.isValid) {
+      throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
+    }
+
+    try {
+      const user = await this.getUser(telegramId);
+      if (!user) {
+        throw AppError.userNotFound(telegramId);
+      }
+
+      const searchLimit = SEARCH_LIMITS_PER_DAY[user.subscription];
+      const searchesToday = await this.getSearchesToday(telegramId);
+
+      const canSearch = searchesToday < searchLimit;
+
+      ConsoleLogger.info('Проверка лимита поиска', {
+        telegramId,
+        subscription: user.subscription,
+        searchLimit,
+        searchesToday,
+        canSearch,
+      });
+
+      return canSearch;
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      ConsoleLogger.error('Ошибка проверки лимита поиска', error as Error, { telegramId });
+      throw AppError.systemError('SEARCH_LIMIT_CHECK_FAILED', 'Не удалось проверить лимит поиска');
+    }
+  };
+
+  public getSearchStats = async (telegramId: number): Promise<TSearchStats> => {
+    const validation = Validator.validateTelegramId(telegramId);
+    if (!validation.isValid) {
+      throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
+    }
+
+    try {
+      const user = await this.getUser(telegramId);
+      if (!user) {
+        throw AppError.userNotFound(telegramId);
+      }
+
+      const [searchesToday, searchesThisMonth, totalSearches, lastSearchDate] = await Promise.all([
+        this.getSearchesToday(telegramId),
+        this.getSearchesThisMonth(telegramId),
+        this.getTotalSearches(telegramId),
+        this.getLastSearchDate(telegramId),
+      ]);
+
+      const searchLimit = SEARCH_LIMITS_PER_DAY[user.subscription];
+      const remainingSearches = Math.max(0, searchLimit - searchesToday);
+
+      return {
+        totalSearches,
+        searchesToday,
+        searchesThisMonth,
+        lastSearchDate,
+        searchLimit,
+        remainingSearches,
+      };
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      ConsoleLogger.error('Ошибка получения статистики поиска', error as Error, { telegramId });
+      throw AppError.systemError('SEARCH_STATS_GET_FAILED', 'Не удалось получить статистику поиска');
+    }
+  };
+
+  private getSearchesToday = async (telegramId: number): Promise<number> => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const history = await this.userRepository.getSearchHistory(telegramId, 1000);
+      const searchesToday = history.filter(item => {
+        const searchDate = new Date(item.timestamp);
+        return searchDate >= today && searchDate < tomorrow;
+      }).length;
+
+      return searchesToday;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка подсчета поисков за сегодня', error as Error, { telegramId });
+      return 0;
+    }
+  };
+
+  private getSearchesThisMonth = async (telegramId: number): Promise<number> => {
+    try {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const firstDayOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+      const history = await this.userRepository.getSearchHistory(telegramId, 1000);
+      const searchesThisMonth = history.filter(item => {
+        const searchDate = new Date(item.timestamp);
+        return searchDate >= firstDayOfMonth && searchDate < firstDayOfNextMonth;
+      }).length;
+
+      return searchesThisMonth;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка подсчета поисков за месяц', error as Error, { telegramId });
+      return 0;
+    }
+  };
+
+  private getTotalSearches = async (telegramId: number): Promise<number> => {
+    try {
+      const history = await this.userRepository.getSearchHistory(telegramId, 1000);
+      return history.length;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка подсчета общего количества поисков', error as Error, { telegramId });
+      return 0;
+    }
+  };
+
+  private getLastSearchDate = async (telegramId: number): Promise<Date | null> => {
+    try {
+      const history = await this.userRepository.getSearchHistory(telegramId, 1);
+      return history.length > 0 ? new Date(history[0].timestamp) : null;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка получения даты последнего поиска', error as Error, { telegramId });
+      return null;
+    }
   };
 }

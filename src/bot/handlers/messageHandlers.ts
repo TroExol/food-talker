@@ -204,6 +204,12 @@ export class MessageHandlers {
       return;
     }
 
+    const canSearch = await this.userService.checkSearchLimit(ctx.user.telegramId);
+    if (!canSearch) {
+      await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.');
+      return;
+    }
+
     // Устанавливаем состояние ожидания обработки запроса
     ctx.user.state = EUserState.WAITING_FOR_SEARCH_QUERY;
 

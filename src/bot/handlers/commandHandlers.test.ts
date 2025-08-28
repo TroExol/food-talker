@@ -6,6 +6,7 @@ import {
   vi,
 } from 'vitest';
 
+import type { TBotContext } from '@/types/telegram';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { SearchService } from '@/services/search/SearchService/SearchService';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
@@ -18,6 +19,9 @@ import { CommandHandlers } from './commandHandlers';
 const mockUserService = {
   getSearchHistory: vi.fn(),
   updateUserCity: vi.fn(),
+  checkSearchLimit: vi.fn(),
+  getSearchStats: vi.fn(),
+  getUser: vi.fn(),
 };
 
 const mockSearchService = {
@@ -54,6 +58,7 @@ describe('CommandHandlers', () => {
       expect(commands).toContain(EBotCommand.HELP);
       expect(commands).toContain(EBotCommand.ADDRESS);
       expect(commands).toContain(EBotCommand.HISTORY);
+      expect(commands).toContain(EBotCommand.STATS);
       expect(commands).toContain(EBotCommand.SUPPORT);
     });
 
@@ -63,6 +68,14 @@ describe('CommandHandlers', () => {
 
       expect(searchHandler).toBeDefined();
       expect(searchHandler?.description).toBe('Поиск еды по запросу');
+    });
+
+    it('должен иметь правильное описание для команды STATS', () => {
+      const handlers = commandHandlers.getHandlers();
+      const statsHandler = handlers.find(h => h.command === EBotCommand.STATS);
+
+      expect(statsHandler).toBeDefined();
+      expect(statsHandler?.description).toBe('Показать статистику поиска');
     });
   });
 
@@ -82,6 +95,127 @@ describe('CommandHandlers', () => {
         const result = input.replace(/^\/search(?:@\w+)?\s*/, '').trim();
         expect(result).toBe(expected);
       });
+    });
+  });
+
+  describe('handleSearch', () => {
+    it('должен проверять лимит поиска перед выполнением', async () => {
+      const mockContext = {
+        user: { telegramId: 123456789, city: 'Пермь' },
+        message: { text: '/search пицца' },
+        reply: vi.fn(),
+        chat: { id: 123 },
+        telegram: {
+          editMessageText: vi.fn(),
+          deleteMessage: vi.fn(),
+        },
+      };
+
+      vi.mocked(mockUserService.checkSearchLimit).mockResolvedValue(false);
+
+      const handlers = commandHandlers.getHandlers();
+      const searchHandler = handlers.find(h => h.command === EBotCommand.SEARCH);
+
+      if (searchHandler) {
+        await searchHandler.handler(mockContext as unknown as TBotContext);
+
+        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith(123456789);
+        expect(mockContext.reply).toHaveBeenCalledWith(
+          'Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.',
+        );
+      }
+    });
+
+    it('должен выполнять поиск если лимит не превышен', async () => {
+      const mockContext = {
+        user: { telegramId: 123456789, city: 'Пермь' },
+        message: { text: '/search пицца' },
+        reply: vi.fn(),
+        chat: { id: 123 },
+        telegram: {
+          editMessageText: vi.fn(),
+          deleteMessage: vi.fn(),
+        },
+      };
+
+      vi.mocked(mockUserService.checkSearchLimit).mockResolvedValue(true);
+      vi.mocked(mockSearchService.searchFood).mockResolvedValue([]);
+      vi.mocked(mockUserService.getSearchHistory).mockResolvedValue([]);
+      vi.mocked(mockMessageFormatter.formatNoResultsMessage).mockReturnValue({
+        text: 'Не найдено результатов',
+        parseMode: 'HTML',
+        replyMarkup: undefined,
+      });
+
+      const handlers = commandHandlers.getHandlers();
+      const searchHandler = handlers.find(h => h.command === EBotCommand.SEARCH);
+
+      if (searchHandler) {
+        await searchHandler.handler(mockContext as unknown as TBotContext);
+
+        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith(123456789);
+        expect(mockSearchService.searchFood).toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe('handleStats', () => {
+    it('должен показывать статистику поиска', async () => {
+      const mockContext = {
+        user: { telegramId: 123456789 },
+        reply: vi.fn(),
+      };
+
+      const mockStats = {
+        totalSearches: 10,
+        searchesToday: 3,
+        searchesThisMonth: 25,
+        lastSearchDate: new Date('2024-01-15'),
+        searchLimit: 5,
+        remainingSearches: 2,
+      };
+
+      const mockUser = {
+        telegramId: 123456789,
+        subscription: 'basic',
+      };
+
+      vi.mocked(mockUserService.getSearchStats).mockResolvedValue(mockStats);
+      vi.mocked(mockUserService.getUser).mockResolvedValue(mockUser as any);
+
+      const handlers = commandHandlers.getHandlers();
+      const statsHandler = handlers.find(h => h.command === EBotCommand.STATS);
+
+      if (statsHandler) {
+        await statsHandler.handler(mockContext as unknown as TBotContext);
+
+        expect(mockUserService.getSearchStats).toHaveBeenCalledWith(123456789);
+        expect(mockUserService.getUser).toHaveBeenCalledWith(123456789);
+        expect(mockContext.reply).toHaveBeenCalledWith(
+          expect.stringContaining('📊 <b>Статистика поиска</b>'),
+          { parse_mode: 'HTML' },
+        );
+      }
+    });
+
+    it('должен обрабатывать ошибки при получении статистики', async () => {
+      const mockContext = {
+        user: { telegramId: 123456789 },
+        reply: vi.fn(),
+      };
+
+      vi.mocked(mockUserService.getSearchStats).mockRejectedValue(new Error('Database error'));
+
+      const handlers = commandHandlers.getHandlers();
+      const statsHandler = handlers.find(h => h.command === EBotCommand.STATS);
+
+      if (statsHandler) {
+        await statsHandler.handler(mockContext as unknown as TBotContext);
+
+        expect(mockContext.reply).toHaveBeenCalledWith(
+          'Не удалось загрузить статистику. Попробуйте позже.',
+        );
+      }
     });
   });
 });

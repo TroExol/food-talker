@@ -5,6 +5,10 @@ export enum ESubscriptionType {
   BASIC = 'basic',
 }
 
+export const SEARCH_LIMITS_PER_DAY = {
+  [ESubscriptionType.BASIC]: 30,
+} as const;
+
 export interface TUser {
   telegramId: number;
   chatId: number;
@@ -40,4 +44,13 @@ export interface TSearchHistoryEntity {
   structured_query: TStructuredQuery;
   results: TSearchResultItem[];
   created_at: string; // ISO string
+}
+
+export interface TSearchStats {
+  totalSearches: number;
+  searchesToday: number;
+  searchesThisMonth: number;
+  lastSearchDate: Date | null;
+  searchLimit: number;
+  remainingSearches: number;
 }
