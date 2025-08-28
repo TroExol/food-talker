@@ -68,7 +68,7 @@ describe('LLMService', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'test-llm-api-url',
+        'test-llm-api-url/v1/chat/completions',
         expect.objectContaining({
           method: 'POST',
           headers: {
@@ -902,7 +902,7 @@ describe('LLMService', () => {
 
       expect(result).toBe('основное');
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('http://localhost:1234/v1/chat/completions'),
+        expect.stringContaining('/v1/chat/completions'),
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({

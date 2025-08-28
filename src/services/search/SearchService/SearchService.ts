@@ -170,7 +170,14 @@ export class SearchService {
       return await this.llmService.enhanceSearchResults(searchResults, originalQuery);
     } catch (error) {
       ConsoleLogger.warn('Не удалось улучшить результаты через LLM', error as Error);
-      return searchResults; // Fallback к оригинальным результатам
+      return searchResults;
+      // TODO: Uncomment this when we have a better model
+      // try {
+      //   return await this.llmService.enhanceSearchResults(searchResults, originalQuery, 'liquid/lfm2-1.2b');
+      // } catch (errorFallback) {
+      //   ConsoleLogger.warn('Не удалось улучшить результаты через LLM', errorFallback as Error);
+      //   return searchResults; // Fallback к оригинальным результатам
+      // }
     }
   };
 

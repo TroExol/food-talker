@@ -10,7 +10,7 @@ export class LLMServiceFactory {
       LLMServiceFactory.instance = new LLMService(
         CacheServiceFactory.getRedisInstance(),
         {
-          model: 'qwen/qwen3-4b-2507',
+          model: 'unsloth/gpt-oss-20b-GGUF',
           systemPrompt: 'Ты - помощник для поиска еды. Reasoning: low',
           timeoutMs: 40000,
         },

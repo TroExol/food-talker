@@ -26,7 +26,7 @@ vi.mock('@/config/environment', () => ({
     DB_USER: 'test-db-user',
     DB_PASSWORD: 'test-db-password',
     DB_MAX_CONNECTIONS: '10',
-    LLM_API_URL: 'test-llm-api-url',
+    LLM_API_BASE_URL: 'test-llm-api-url',
     LLM_API_KEY: 'test-llm-api-key',
     EMBEDDING_API_BASE_URL: 'test-embedding-api-base-url',
     EMBEDDING_API_KEY: 'test-embedding-api-key',

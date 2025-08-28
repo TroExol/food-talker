@@ -12,12 +12,13 @@ import { environment } from '@/config/environment';
 
 import type {
   TLLMConfig,
+  TLLMParams,
   TLLMRequest,
   TLLMResponse,
 } from './types';
 
 export class LLMService {
-  private readonly apiUrl: string;
+  private readonly apiBaseUrl: string;
   private readonly apiKey: string;
   private readonly model: string;
   private readonly maxRetries: number;
@@ -29,7 +30,7 @@ export class LLMService {
     private readonly cacheService: TCacheService,
     config: TLLMConfig,
   ) {
-    this.apiUrl = environment.LLM_API_URL;
+    this.apiBaseUrl = environment.LLM_API_BASE_URL;
     this.apiKey = environment.LLM_API_KEY;
     this.model = config.model;
     this.maxRetries = config?.maxRetries ?? 2;
@@ -54,7 +55,10 @@ export class LLMService {
       }
 
       const prompt = this.buildStructureQueryPrompt(naturalQuery, restaurants.map(r => r.name));
-      const response = await this.callLLM(prompt);
+      const response = await this.callLLM(prompt, '/v1/chat/completions', undefined, {
+        temperature: 0.6,
+        max_tokens: 5000,
+      });
       const structuredQuery = this.parseStructuredQuery(response);
 
       await this.cacheService.set(cacheKey, structuredQuery, this.cacheTTL);
@@ -71,7 +75,11 @@ export class LLMService {
     }
   };
 
-  public enhanceSearchResults = async (results: TSearchResultItem[], query: string): Promise<TSearchResultItem[]> => {
+  public enhanceSearchResults = async (
+    results: TSearchResultItem[],
+    query: string,
+    model?: string,
+  ): Promise<TSearchResultItem[]> => {
     try {
       if (results.length === 0) return results;
 
@@ -94,7 +102,10 @@ export class LLMService {
 
       const prompt = this.buildEnhancementPrompt(results, query);
 
-      const response = await this.callLLM(prompt);
+      const response = await this.callLLM(prompt, '/v1/chat/completions', model, {
+        temperature: 0.1,
+        max_tokens: 10000,
+      });
       const enhancedResults = this.parseEnhancedResults(response, results);
 
       await this.cacheService.set(cacheKey, enhancedResults, this.cacheTTL);
@@ -240,7 +251,12 @@ ${menuList}
 Если нет релевантных блюд, отвечай пустым массивом: []`;
   };
 
-  private callLLM = async (prompt: string, model?: string, url?: string): Promise<string> => {
+  private callLLM = async (
+    prompt: string,
+    url: string,
+    model?: string,
+    params?: TLLMParams,
+  ): Promise<string> => {
     const request: TLLMRequest = {
       model: model ?? this.model,
       messages: [
@@ -254,7 +270,8 @@ ${menuList}
         },
       ],
       temperature: 0.1, // Низкая температура для более предсказуемых ответов
-      max_tokens: 20000,
+      max_tokens: 11000,
+      ...params,
     };
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -264,7 +281,7 @@ ${menuList}
           controller.abort();
         }, this.timeoutMs);
 
-        const response = await fetch(url ?? this.apiUrl, {
+        const response = await fetch(`${this.apiBaseUrl}${url}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
@@ -491,7 +508,10 @@ ${menuList}
       }
 
       const prompt = this.buildCategorizationPrompt(dishName, description, ingredients);
-      const response = await this.callLLM(prompt, 'qwen/qwen3-4b-2507', 'http://localhost:1234/v1/chat/completions');
+      const response = await this.callLLM(prompt, '/v1/chat/completions', 'liquid/lfm2-1.2b', {
+        temperature: 0.2,
+        max_tokens: 1000,
+      });
       const category = this.parseCategoryResponse(response);
 
       // Перманентный кэш (TTL = 0 означает "без истечения")

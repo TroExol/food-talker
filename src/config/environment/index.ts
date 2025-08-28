@@ -19,7 +19,7 @@ export const environment: TEnvironment = {
   DB_USER: process.env.DB_USER || '',
   DB_PASSWORD: process.env.DB_PASSWORD || '',
   DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS || '10',
-  LLM_API_URL: process.env.LLM_API_URL || '',
+  LLM_API_BASE_URL: process.env.LLM_API_BASE_URL || '',
   LLM_API_KEY: process.env.LLM_API_KEY || '',
   EMBEDDING_API_BASE_URL: process.env.EMBEDDING_API_BASE_URL || '',
   EMBEDDING_API_KEY: process.env.EMBEDDING_API_KEY || '',
@@ -31,7 +31,7 @@ export const environment: TEnvironment = {
 export const validateEnvironment = (): void => {
   const required = [
     'BOT_TOKEN',
-    'LLM_API_URL',
+    'LLM_API_BASE_URL',
     'LLM_API_KEY',
     'EMBEDDING_API_BASE_URL',
     'EMBEDDING_API_KEY',

@@ -6,14 +6,18 @@ export interface TLLMConfig {
   cacheTTL?: number;
 }
 
+export interface TLLMParams {
+  temperature?: number;
+  max_tokens?: number;
+}
+
 export interface TLLMRequest {
   model: string;
   messages: Array<{
     role: 'system' | 'user' | 'assistant';
     content: string;
   }>;
-  temperature?: number;
-  max_tokens?: number;
+  params?: TLLMParams;
 }
 
 export interface TLLMResponse {
