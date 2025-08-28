@@ -31,8 +31,17 @@ export class CityValidator {
       .trim()
       .replace(/\s+/g, ' ');
 
-    // Capitalize first letter for Russian cities
-    return normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase() as EAvailableCities;
+    // Capitalize first letter of each word for Russian cities
+    // Сохраняем оригинальные разделители (пробелы или дефисы)
+    const words = normalized.split(/([\s-])/); // Разделяем, но сохраняем разделители
+    const result = words.map(part => {
+      if (part.match(/[\s-]/)) {
+        return part; // Возвращаем разделитель как есть
+      }
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    });
+
+    return result.join('') as EAvailableCities;
   };
 
   /**
