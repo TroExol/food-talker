@@ -122,10 +122,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        }),
       } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
@@ -148,10 +144,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: {} }),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve({ data: {} }),
-        }),
       } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
@@ -178,10 +170,6 @@ describe('YEApiService', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve(mockResponse),
-          clone: () => ({
-            ok: true,
-            json: () => Promise.resolve(mockResponse),
-          }),
         } as unknown as Response);
 
       const sendingRequest = service.requestRestaurants(mockCoordinates);
@@ -204,10 +192,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        }),
       } as unknown as Response);
 
       await service.requestRestaurants(mockCoordinates);
@@ -229,10 +213,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        }),
       } as unknown as Response);
 
       await service.requestRestaurants(mockCoordinates);
@@ -282,10 +262,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockMenuResponse),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve(mockMenuResponse),
-        }),
       } as unknown as Response);
 
       const result = await service.requestRestaurantMenu('test-place', mockCoordinates, 'test-brand');
@@ -306,10 +282,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockMenuResponse),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve(mockMenuResponse),
-        }),
       } as unknown as Response);
 
       await service.requestRestaurantMenu('test-place', mockCoordinates, '');
@@ -365,10 +337,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-        }),
       } as unknown as Response);
 
       const firstRequest = service.requestRestaurants(mockCoordinates);
@@ -379,10 +347,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-        }),
       } as unknown as Response);
 
       const secondRequest = service.requestRestaurants(mockCoordinates);
@@ -402,10 +366,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-        }),
       } as unknown as Response);
 
       const firstRequest = service.requestRestaurants(mockCoordinates);
@@ -427,10 +387,6 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-        clone: () => ({
-          ok: true,
-          json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
-        }),
       } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);

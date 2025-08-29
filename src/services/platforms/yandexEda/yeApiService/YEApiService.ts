@@ -1,4 +1,4 @@
-import fetch, { type RequestInit, type Response } from 'node-fetch';
+import fetch, { type RequestInit } from 'node-fetch';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
 import type { TCoordinates } from '@/types/restaurant';
@@ -121,8 +121,7 @@ export class YEApiService {
 
       if (cached && searchInCache) {
         ConsoleLogger.debug('Кэш ресторанов Яндекс.Еда найден', { coordinates, cacheKey });
-        // TODO: remove this
-        return cached.slice(0, 3);
+        return cached;
       }
 
       // Загружаем из API
@@ -142,8 +141,7 @@ export class YEApiService {
         cacheKey,
       });
 
-      // TODO: remove this
-      return restaurants.slice(0, 3);
+      return restaurants;
     } catch (error) {
       ConsoleLogger.error('Не удалось загрузить рестораны Яндекс.Еда', error as Error, { coordinates });
       throw AppError.apiError(`Не удалось загрузить рестораны Яндекс.Еда для ${city}`, error);
@@ -308,6 +306,8 @@ export class YEApiService {
 
         const processingTimeMs = Date.now() - startTime;
 
+        const data = response.ok ? await response.json() as T : undefined;
+
         // Логируем успешный запрос
         void this.apiRequestLoggingService.logRequest({
           requestType: this.getRequestType(endpoint),
@@ -315,18 +315,16 @@ export class YEApiService {
           method: options.method || 'GET',
           statusCode: response.status,
           requestData: this.sanitizeRequestData(options.body as string | undefined),
-          responseData: response.ok ? await this.sanitizeResponseData(response.clone()) : undefined,
+          responseData: response.ok ? this.truncateResponseData(response) : undefined,
           processingTimeMs,
           errorMessage: response.ok ? undefined : `${response.status}: ${response.statusText}`,
         }).catch(error => {
           ConsoleLogger.error('Ошибка логирования API запроса', error as Error, { endpoint });
         });
 
-        if (!response.ok) {
+        if (!response.ok || !data) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-
-        const data = await response.json() as T;
 
         ConsoleLogger.debug('Яндекс.Еда API запрос выполнен', {
           endpoint,
@@ -446,16 +444,6 @@ export class YEApiService {
       return data;
     } catch {
       return { rawBody: '[PARSE_ERROR]' };
-    }
-  };
-
-  private sanitizeResponseData = async (response: Response): Promise<Record<string, unknown> | undefined> => {
-    try {
-      const data = await response.json() as Record<string, unknown>;
-      // Ограничиваем размер ответа для логирования
-      return this.truncateResponseData(data);
-    } catch {
-      return { error: '[PARSE_ERROR]' };
     }
   };
 

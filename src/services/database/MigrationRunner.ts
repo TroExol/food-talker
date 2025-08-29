@@ -145,80 +145,6 @@ const migrations: TMigration[] = [
         )
       `);
 
-      // Индексы для производительности
-      await db.run(`CREATE INDEX IF NOT EXISTS idx_users_city ON users(city)`);
-      await db.run(`CREATE INDEX IF NOT EXISTS idx_search_history_user ON search_history(user_telegram_id)`);
-      // Создаем индексы для фильтрации
-      await db.run('CREATE INDEX IF NOT EXISTS dishes_category_idx ON dishes(category)');
-      await db.run('CREATE INDEX IF NOT EXISTS dishes_restaurant_id_idx ON dishes(restaurant_id)');
-      await db.run('CREATE INDEX IF NOT EXISTS dishes_available_idx ON dishes(available)');
-      await db.run('CREATE INDEX IF NOT EXISTS dishes_price_idx ON dishes(price)');
-      // Индексы для координат ресторанов
-      await db.run('CREATE INDEX IF NOT EXISTS dishes_coordinates_idx ON dishes(restaurant_latitude, restaurant_longitude)');
-      // Индекс для TTL
-      await db.run('CREATE INDEX IF NOT EXISTS dishes_expires_at_idx ON dishes(expires_at)');
-    },
-    down: async db => {
-      await db.run('DROP TABLE IF EXISTS search_history');
-      await db.run('DROP TABLE IF EXISTS users');
-      await db.run('DROP TABLE IF EXISTS dishes');
-    },
-  },
-  {
-    version: 2,
-    description: 'Добавление координат ресторанов в таблицу dishes',
-    up: async db => {
-      // Добавляем колонки координат если их нет
-      await db.run(`
-        ALTER TABLE dishes
-        ADD COLUMN IF NOT EXISTS restaurant_latitude DECIMAL(10, 8),
-        ADD COLUMN IF NOT EXISTS restaurant_longitude DECIMAL(11, 8)
-      `);
-
-      // Создаем индекс для координат
-      await db.run('CREATE INDEX IF NOT EXISTS dishes_coordinates_idx ON dishes(restaurant_latitude, restaurant_longitude)');
-    },
-    down: async db => {
-      // Удаляем колонки координат
-      await db.run(`
-        ALTER TABLE dishes
-        DROP COLUMN IF EXISTS restaurant_latitude,
-        DROP COLUMN IF EXISTS restaurant_longitude
-      `);
-
-      // Удаляем индекс
-      await db.run('DROP INDEX IF EXISTS dishes_coordinates_idx');
-    },
-  },
-  {
-    version: 3,
-    description: 'Добавление TTL для записей в таблице dishes',
-    up: async db => {
-      // Добавляем колонку expires_at если её нет
-      await db.run(`
-        ALTER TABLE dishes
-        ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP
-      `);
-
-      // Создаем индекс для TTL
-      await db.run('CREATE INDEX IF NOT EXISTS dishes_expires_at_idx ON dishes(expires_at)');
-    },
-    down: async db => {
-      // Удаляем колонку expires_at
-      await db.run(`
-        ALTER TABLE dishes
-        DROP COLUMN IF EXISTS expires_at
-      `);
-
-      // Удаляем индекс
-      await db.run('DROP INDEX IF EXISTS dishes_expires_at_idx');
-    },
-  },
-  {
-    version: 4,
-    description: 'Создание таблицы для логирования запросов к нейронным моделям',
-    up: async db => {
-      // Создаем таблицу для логов запросов к нейронным моделям
       await db.run(`
         CREATE TABLE IF NOT EXISTS neural_request_logs (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -236,28 +162,6 @@ const migrations: TMigration[] = [
         )
       `);
 
-      // Создаем индексы для производительности
-      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_user_idx ON neural_request_logs(user_telegram_id)');
-      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_type_idx ON neural_request_logs(request_type)');
-      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_created_at_idx ON neural_request_logs(created_at)');
-      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_user_type_idx ON neural_request_logs(user_telegram_id, request_type)');
-    },
-    down: async db => {
-      // Удаляем индексы
-      await db.run('DROP INDEX IF EXISTS neural_logs_user_type_idx');
-      await db.run('DROP INDEX IF EXISTS neural_logs_created_at_idx');
-      await db.run('DROP INDEX IF EXISTS neural_logs_type_idx');
-      await db.run('DROP INDEX IF EXISTS neural_logs_user_idx');
-
-      // Удаляем таблицу
-      await db.run('DROP TABLE IF EXISTS neural_request_logs');
-    },
-  },
-  {
-    version: 5,
-    description: 'Создание таблицы для логирования API запросов',
-    up: async db => {
-      // Создаем таблицу для логов API запросов
       await db.run(`
         CREATE TABLE IF NOT EXISTS api_request_logs (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -275,7 +179,22 @@ const migrations: TMigration[] = [
         )
       `);
 
-      // Создаем индексы для производительности
+      // Пользователи
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_users_city ON users(city)`);
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_search_history_user ON search_history(user_telegram_id)`);
+      // Блюда
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_category_idx ON dishes(category)');
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_restaurant_id_idx ON dishes(restaurant_id)');
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_available_idx ON dishes(available)');
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_price_idx ON dishes(price)');
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_coordinates_idx ON dishes(restaurant_latitude, restaurant_longitude)');
+      await db.run('CREATE INDEX IF NOT EXISTS dishes_expires_at_idx ON dishes(expires_at)');
+      // Логирование запросов к нейронным моделям
+      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_user_idx ON neural_request_logs(user_telegram_id)');
+      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_type_idx ON neural_request_logs(request_type)');
+      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_created_at_idx ON neural_request_logs(created_at)');
+      await db.run('CREATE INDEX IF NOT EXISTS neural_logs_user_type_idx ON neural_request_logs(user_telegram_id, request_type)');
+      // Логирование запросов к API
       await db.run('CREATE INDEX IF NOT EXISTS api_logs_user_idx ON api_request_logs(user_telegram_id)');
       await db.run('CREATE INDEX IF NOT EXISTS api_logs_type_idx ON api_request_logs(request_type)');
       await db.run('CREATE INDEX IF NOT EXISTS api_logs_endpoint_idx ON api_request_logs(endpoint)');
@@ -285,16 +204,10 @@ const migrations: TMigration[] = [
       await db.run('CREATE INDEX IF NOT EXISTS api_logs_failed_requests_idx ON api_request_logs(user_telegram_id, status_code) WHERE status_code >= 400');
     },
     down: async db => {
-      // Удаляем индексы
-      await db.run('DROP INDEX IF EXISTS api_logs_failed_requests_idx');
-      await db.run('DROP INDEX IF EXISTS api_logs_user_type_idx');
-      await db.run('DROP INDEX IF EXISTS api_logs_created_at_idx');
-      await db.run('DROP INDEX IF EXISTS api_logs_status_code_idx');
-      await db.run('DROP INDEX IF EXISTS api_logs_endpoint_idx');
-      await db.run('DROP INDEX IF EXISTS api_logs_type_idx');
-      await db.run('DROP INDEX IF EXISTS api_logs_user_idx');
-
-      // Удаляем таблицу
+      await db.run('DROP TABLE IF EXISTS search_history');
+      await db.run('DROP TABLE IF EXISTS users');
+      await db.run('DROP TABLE IF EXISTS dishes');
+      await db.run('DROP TABLE IF EXISTS neural_request_logs');
       await db.run('DROP TABLE IF EXISTS api_request_logs');
     },
   },
