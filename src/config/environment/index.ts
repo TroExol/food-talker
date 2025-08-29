@@ -26,6 +26,7 @@ export const environment: TEnvironment = {
   EMBEDDING_MODEL_NAME: process.env.EMBEDDING_MODEL_NAME || '',
   ADMIN_TELEGRAM_ID: process.env.ADMIN_TELEGRAM_ID,
   PROXY_URL: process.env.PROXY_URL,
+  YANDEX_METRIKA_COUNTER_ID: process.env.YANDEX_METRIKA_COUNTER_ID,
 };
 
 export const validateEnvironment = (): void => {

@@ -32,4 +32,5 @@ export const botConfig: TBotConfig = {
     retries: 3,
   },
   fallbackFoodImage: 'https://i.postimg.cc/Vk5DKb2j/generated-image.jpg',
+  analyticsEnabled: false,
 };

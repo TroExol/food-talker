@@ -18,4 +18,5 @@ export interface TEnvironment {
   EMBEDDING_MODEL_NAME: string;
   ADMIN_TELEGRAM_ID?: string;
   PROXY_URL?: string;
+  YANDEX_METRIKA_COUNTER_ID?: string;
 }

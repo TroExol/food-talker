@@ -4,6 +4,7 @@ import { AppSchedulerServiceFactory } from '@/services/scheduler/AppSchedulerSer
 import { validateEnvironment } from '@/config/environment';
 import { BotFactory } from '@/bot/BotFactory';
 
+import { AnalyticsServiceFactory } from './services/analytics/AnalyticsService/AnalyticsServiceFactory';
 import {
   AdminNotificationServiceFactory,
 } from './services/admin/AdminNotificationService/AdminNotificationServiceFactory';
@@ -13,6 +14,7 @@ validateEnvironment();
 
 async function main(): Promise<void> {
   const adminNotificationService = AdminNotificationServiceFactory.getInstance();
+  const analyticsService = AnalyticsServiceFactory.getInstance();
 
   try {
     ConsoleLogger.info('Запускаем Food Talker бота...');
@@ -29,17 +31,15 @@ async function main(): Promise<void> {
     ConsoleLogger.info('Food Talker бот запущен. Нажмите Ctrl+C для остановки.');
 
     // Обработка graceful shutdown
-    process.on('SIGINT', () => {
-      ConsoleLogger.info('\nПолучен SIGINT. Завершаем работу...');
-      bot.gracefulShutdown();
-      process.exit(0);
-    });
+    const gracefulShutdown = async (signal: string): Promise<void> => {
+      ConsoleLogger.info(`\nПолучен ${signal}. Завершаем работу...`);
 
-    process.on('SIGTERM', () => {
-      ConsoleLogger.info('\nПолучен SIGTERM. Завершаем работу...');
+      await analyticsService.gracefulShutdown();
       bot.gracefulShutdown();
       process.exit(0);
-    });
+    };
+
+    process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
   } catch (error) {
     ConsoleLogger.error('Ошибка работы приложения:', error as Error);
 
@@ -50,6 +50,38 @@ async function main(): Promise<void> {
     void main();
   }
 }
+
+// Обработка необработанных исключений
+process.on('uncaughtException', error => {
+  ConsoleLogger.error('Необработанное исключение:', error);
+
+  void (async () => {
+    try {
+      const analytics = AnalyticsServiceFactory.getInstance();
+      await analytics.gracefulShutdown();
+    } catch (flushError) {
+      ConsoleLogger.error('Ошибка при отправке аналитики при необработанном исключении:', flushError as Error);
+    } finally {
+      process.exit(1);
+    }
+  })();
+});
+
+// Обработка необработанных промисов
+process.on('unhandledRejection', reason => {
+  ConsoleLogger.error('Необработанный промис:', new Error(String(reason)));
+
+  void (async () => {
+    try {
+      const analytics = AnalyticsServiceFactory.getInstance();
+      await analytics.gracefulShutdown();
+    } catch (flushError) {
+      ConsoleLogger.error('Ошибка при отправке аналитики при необработанном промис:', flushError as Error);
+    } finally {
+      process.exit(1);
+    }
+  })();
+});
 
 // Запускаем приложение
 void main();

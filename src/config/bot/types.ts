@@ -27,6 +27,7 @@ export interface TBotConfig {
   sanitizer: TSanitizerConfig;
   fallbackFoodImage: string;
   cache: TCacheConfig;
+  analyticsEnabled: boolean;
 }
 
 export interface TYandexEdaConfig {
