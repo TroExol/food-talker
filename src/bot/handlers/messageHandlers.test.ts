@@ -12,7 +12,9 @@ import type { TUser } from '@/services/user/UserRepository/types';
 import type { SearchService } from '@/services/search/SearchService/SearchService';
 import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 
+import { ESubscriptionType } from '@/services/user/UserRepository/types';
 import { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
+import { EAvailableCities } from '@/config/bot/types';
 
 import { MessageHandlers } from './messageHandlers';
 
@@ -50,6 +52,10 @@ describe('MessageHandlers', () => {
       trackSearchQueryStarted: vi.fn(),
       trackSearchQueryCompleted: vi.fn(),
       trackUserStateChanged: vi.fn(),
+      trackMessageReceived: vi.fn(),
+      trackCallbackButtonClicked: vi.fn(),
+      trackCitySelectionCompleted: vi.fn(),
+      trackSearchLimitExceeded: vi.fn(),
     } as unknown as AnalyticsService;
 
     mockMessageFormatter = new MessageFormatterService();
@@ -99,6 +105,23 @@ describe('MessageHandlers', () => {
       };
 
       vi.mocked(mockUserService.checkSearchLimit).mockResolvedValue(false);
+      vi.mocked(mockUserService.getSearchStats).mockResolvedValue({
+        searchesToday: 10,
+        searchLimit: 10,
+        remainingSearches: 0,
+        searchesThisMonth: 50,
+        totalSearches: 100,
+        lastSearchDate: new Date(),
+      });
+      vi.mocked(mockUserService.getUser).mockResolvedValue({
+        telegramId: 123456789,
+        chatId: 123456789,
+        subscription: ESubscriptionType.BASIC,
+        subscriptionExpiry: new Date(),
+        city: EAvailableCities.PERM,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       const handlers = messageHandlers.getHandlers();
       const textHandler = handlers.find(h => h.pattern.toString() === '/.*/');
@@ -107,6 +130,8 @@ describe('MessageHandlers', () => {
         await textHandler.handler(mockContext as unknown as TBotContext);
 
         expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith(123456789);
+        expect(mockAnalyticsService.trackMessageReceived).toHaveBeenCalled();
+        expect(mockAnalyticsService.trackSearchLimitExceeded).toHaveBeenCalled();
         expect(mockContext.reply).toHaveBeenCalledWith(
           'Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.',
         );

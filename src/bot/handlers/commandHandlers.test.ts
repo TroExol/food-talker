@@ -43,6 +43,11 @@ const mockAnalyticsService = {
   trackSearchQueryStarted: vi.fn(),
   trackSearchQueryCompleted: vi.fn(),
   trackUserStateChanged: vi.fn(),
+  trackBotCommand: vi.fn(),
+  trackBotCommandError: vi.fn(),
+  trackSearchLimitExceeded: vi.fn(),
+  trackSearchHistoryViewed: vi.fn(),
+  trackUserStatsViewed: vi.fn(),
 };
 
 describe('CommandHandlers', () => {
@@ -122,6 +127,22 @@ describe('CommandHandlers', () => {
       };
 
       vi.mocked(mockUserService.checkSearchLimit).mockResolvedValue(false);
+      vi.mocked(mockUserService.getSearchStats).mockResolvedValue({
+        searchesToday: 10,
+        searchLimit: 10,
+        remainingSearches: 0,
+        searchesThisMonth: 50,
+        totalSearches: 100,
+        lastSearchDate: new Date(),
+      });
+      vi.mocked(mockUserService.getUser).mockResolvedValue({
+        telegramId: 123456789,
+        subscription: 'basic',
+        city: 'Пермь',
+        state: 'idle',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       const handlers = commandHandlers.getHandlers();
       const searchHandler = handlers.find(h => h.command === EBotCommand.SEARCH);
@@ -130,6 +151,7 @@ describe('CommandHandlers', () => {
         await searchHandler.handler(mockContext as unknown as TBotContext);
 
         expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith(123456789);
+        expect(mockAnalyticsService.trackSearchLimitExceeded).toHaveBeenCalled();
         expect(mockContext.reply).toHaveBeenCalledWith(
           'Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.',
         );
@@ -188,6 +210,10 @@ describe('CommandHandlers', () => {
       const mockUser = {
         telegramId: 123456789,
         subscription: 'basic',
+        city: 'Пермь',
+        state: 'idle',
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       vi.mocked(mockUserService.getSearchStats).mockResolvedValue(mockStats);
@@ -201,6 +227,8 @@ describe('CommandHandlers', () => {
 
         expect(mockUserService.getSearchStats).toHaveBeenCalledWith(123456789);
         expect(mockUserService.getUser).toHaveBeenCalledWith(123456789);
+        expect(mockAnalyticsService.trackBotCommand).toHaveBeenCalled();
+        expect(mockAnalyticsService.trackUserStatsViewed).toHaveBeenCalled();
         expect(mockContext.reply).toHaveBeenCalledWith(
           expect.stringContaining('📊 <b>Статистика поиска</b>'),
           { parse_mode: 'HTML' },
@@ -222,6 +250,7 @@ describe('CommandHandlers', () => {
       if (statsHandler) {
         await statsHandler.handler(mockContext as unknown as TBotContext);
 
+        expect(mockAnalyticsService.trackBotCommandError).toHaveBeenCalled();
         expect(mockContext.reply).toHaveBeenCalledWith(
           'Не удалось загрузить статистику. Попробуйте позже.',
         );

@@ -58,7 +58,7 @@ export class AnalyticsService {
     }
   }
 
-  public trackError(params: TTrackErrorParams): void {
+  public trackError = (params: TTrackErrorParams): void => {
     this.trackEvent({
       name: 'error_occurred',
       parameters: {
@@ -73,9 +73,9 @@ export class AnalyticsService {
       user_id: params.context.user_id as number,
       session_id: params.context.session_id as string,
     });
-  }
+  };
 
-  public trackPerformance(params: TTrackPerformanceParams): void {
+  public trackPerformance = (params: TTrackPerformanceParams): void => {
     this.trackEvent({
       name: 'performance_metric',
       parameters: {
@@ -84,9 +84,9 @@ export class AnalyticsService {
       },
       timestamp: Date.now(),
     });
-  }
+  };
 
-  public trackNeuralSummary(params: TTrackNeuralSummaryParams): void {
+  public trackNeuralSummary = (params: TTrackNeuralSummaryParams): void => {
     this.trackEvent({
       name: `${params.serviceType}_requests_summary`,
       parameters: {
@@ -100,9 +100,9 @@ export class AnalyticsService {
       },
       timestamp: Date.now(),
     });
-  }
+  };
 
-  public async flush(): Promise<void> {
+  public flush = async (): Promise<void> => {
     if (!this.config.enabled) return;
 
     try {
@@ -110,9 +110,9 @@ export class AnalyticsService {
     } catch (error) {
       ConsoleLogger.error('Ошибка при отправке событий в аналитику', error as Error);
     }
-  }
+  };
 
-  public async gracefulShutdown(): Promise<void> {
+  public gracefulShutdown = async (): Promise<void> => {
     ConsoleLogger.info('Завершение работы AnalyticsService...');
 
     try {
@@ -123,10 +123,10 @@ export class AnalyticsService {
     } catch (error) {
       ConsoleLogger.error('Ошибка при завершении работы AnalyticsService:', error as Error);
     }
-  }
+  };
 
   // Методы для конкретных событий
-  public trackBotCommand(params: TTrackBotCommandParams): void {
+  public trackBotCommand = (params: TTrackBotCommandParams): void => {
     this.trackEvent({
       name: 'bot_command_executed',
       parameters: {
@@ -137,9 +137,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackSearchQueryStarted(params: TTrackSearchQueryStartedParams): void {
+  public trackSearchQueryStarted = (params: TTrackSearchQueryStartedParams): void => {
     this.trackEvent({
       name: 'search_query_started',
       parameters: {
@@ -152,9 +152,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackSearchQueryCompleted(params: TTrackSearchQueryCompletedParams): void {
+  public trackSearchQueryCompleted = (params: TTrackSearchQueryCompletedParams): void => {
     this.trackEvent({
       name: 'search_query_completed',
       parameters: {
@@ -169,9 +169,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackUserStateChanged(params: TTrackUserStateChangedParams): void {
+  public trackUserStateChanged = (params: TTrackUserStateChangedParams): void => {
     this.trackEvent({
       name: 'user_state_changed',
       parameters: {
@@ -182,10 +182,10 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
   // Новые методы для недостающих событий
-  public trackBotCommandError(params: TTrackBotCommandErrorParams): void {
+  public trackBotCommandError = (params: TTrackBotCommandErrorParams): void => {
     this.trackEvent({
       name: 'bot_command_error',
       parameters: {
@@ -197,9 +197,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackMessageReceived(params: TTrackMessageReceivedParams): void {
+  public trackMessageReceived = (params: TTrackMessageReceivedParams): void => {
     this.trackEvent({
       name: 'message_received',
       parameters: {
@@ -211,9 +211,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackSearchQueryError(params: TTrackSearchQueryErrorParams): void {
+  public trackSearchQueryError = (params: TTrackSearchQueryErrorParams): void => {
     this.trackEvent({
       name: 'search_query_error',
       parameters: {
@@ -227,9 +227,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackSearchLimitExceeded(params: TTrackSearchLimitExceededParams): void {
+  public trackSearchLimitExceeded = (params: TTrackSearchLimitExceededParams): void => {
     this.trackEvent({
       name: 'search_limit_exceeded',
       parameters: {
@@ -241,9 +241,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackCallbackButtonClicked(params: TTrackCallbackButtonClickedParams): void {
+  public trackCallbackButtonClicked = (params: TTrackCallbackButtonClickedParams): void => {
     this.trackEvent({
       name: 'callback_button_clicked',
       parameters: {
@@ -254,9 +254,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackCitySelectionCompleted(params: TTrackCitySelectionCompletedParams): void {
+  public trackCitySelectionCompleted = (params: TTrackCitySelectionCompletedParams): void => {
     this.trackEvent({
       name: 'city_selection_completed',
       parameters: {
@@ -267,9 +267,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackItemSelectionCompleted(params: TTrackItemSelectionCompletedParams): void {
+  public trackItemSelectionCompleted = (params: TTrackItemSelectionCompletedParams): void => {
     this.trackEvent({
       name: 'item_selection_completed',
       parameters: {
@@ -280,9 +280,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackPageNavigationCompleted(params: TTrackPageNavigationCompletedParams): void {
+  public trackPageNavigationCompleted = (params: TTrackPageNavigationCompletedParams): void => {
     this.trackEvent({
       name: 'page_navigation_completed',
       parameters: {
@@ -293,9 +293,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackHistoryItemRepeated(params: TTrackHistoryItemRepeatedParams): void {
+  public trackHistoryItemRepeated = (params: TTrackHistoryItemRepeatedParams): void => {
     this.trackEvent({
       name: 'history_item_repeated',
       parameters: {
@@ -306,9 +306,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackNeuralServiceError(params: TTrackNeuralServiceErrorParams): void {
+  public trackNeuralServiceError = (params: TTrackNeuralServiceErrorParams): void => {
     this.trackEvent({
       name: 'neural_service_error',
       parameters: {
@@ -319,9 +319,9 @@ export class AnalyticsService {
       },
       timestamp: Date.now(),
     });
-  }
+  };
 
-  public trackRateLimitExceeded(params: TTrackRateLimitExceededParams): void {
+  public trackRateLimitExceeded = (params: TTrackRateLimitExceededParams): void => {
     this.trackEvent({
       name: 'rate_limit_exceeded',
       parameters: {
@@ -332,9 +332,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackCacheMiss(params: TTrackCacheMissParams): void {
+  public trackCacheMiss = (params: TTrackCacheMissParams): void => {
     this.trackEvent({
       name: 'cache_miss',
       parameters: {
@@ -344,9 +344,9 @@ export class AnalyticsService {
       },
       timestamp: Date.now(),
     });
-  }
+  };
 
-  public trackSearchHistoryViewed(params: TTrackSearchHistoryViewedParams): void {
+  public trackSearchHistoryViewed = (params: TTrackSearchHistoryViewedParams): void => {
     this.trackEvent({
       name: 'search_history_viewed',
       parameters: {
@@ -356,9 +356,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackUserStatsViewed(params: TTrackUserStatsViewedParams): void {
+  public trackUserStatsViewed = (params: TTrackUserStatsViewedParams): void => {
     this.trackEvent({
       name: 'user_stats_viewed',
       parameters: {
@@ -370,9 +370,9 @@ export class AnalyticsService {
       timestamp: Date.now(),
       user_id: params.userId,
     });
-  }
+  };
 
-  public trackBotStarted(params: TTrackBotStartedParams): void {
+  public trackBotStarted = (params: TTrackBotStartedParams): void => {
     this.trackEvent({
       name: 'bot_started',
       parameters: {
@@ -382,9 +382,9 @@ export class AnalyticsService {
       },
       timestamp: Date.now(),
     });
-  }
+  };
 
-  public trackBotStopped(params: TTrackBotStoppedParams): void {
+  public trackBotStopped = (params: TTrackBotStoppedParams): void => {
     this.trackEvent({
       name: 'bot_stopped',
       parameters: {
@@ -394,5 +394,5 @@ export class AnalyticsService {
       },
       timestamp: Date.now(),
     });
-  }
+  };
 }

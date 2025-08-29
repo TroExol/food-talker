@@ -8,7 +8,7 @@ import { YandexMetricaServiceFactory } from '../YandexMetricaService/YandexMetri
 export class AnalyticsServiceFactory {
   private static instance: AnalyticsService | null = null;
 
-  static getInstance(): AnalyticsService {
+  static getInstance = (): AnalyticsService => {
     if (!AnalyticsServiceFactory.instance) {
       const config: TAnalyticsConfig = {
         enabled: botConfig.analyticsEnabled,
@@ -24,5 +24,5 @@ export class AnalyticsServiceFactory {
       );
     }
     return AnalyticsServiceFactory.instance;
-  }
+  };
 }

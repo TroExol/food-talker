@@ -105,30 +105,95 @@ export class CommandHandlers {
   };
 
   private handleHelp = async (ctx: TBotContext): Promise<void> => {
-    const formattedMessage = this.messageFormatter.formatHelpMessage();
+    try {
+      // Отслеживаем выполнение команды
+      this.analyticsService.trackBotCommand({
+        command: '/help',
+        userState: ctx.user?.state ?? '',
+        userCity: ctx.user?.city ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
 
-    await ctx.reply(formattedMessage.text, {
-      parse_mode: formattedMessage.parseMode,
-      reply_markup: formattedMessage.replyMarkup,
-    });
+      const formattedMessage = this.messageFormatter.formatHelpMessage();
+
+      await ctx.reply(formattedMessage.text, {
+        parse_mode: formattedMessage.parseMode,
+        reply_markup: formattedMessage.replyMarkup,
+      });
+    } catch (error) {
+      // Отслеживаем ошибку команды
+      this.analyticsService.trackBotCommandError({
+        command: '/help',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
+      throw error;
+    }
   };
 
   private handleAddress = async (ctx: TBotContext): Promise<void> => {
-    if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
-    }
+    try {
+      // Отслеживаем выполнение команды
+      this.analyticsService.trackBotCommand({
+        command: '/address',
+        userState: ctx.user?.state ?? '',
+        userCity: ctx.user?.city ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
 
-    ctx.user.state = EUserState.WAITING_FOR_CITY;
-    await this.showCitySelection(ctx);
+      if (!ctx.user) {
+        throw AppError.userNotFound(ctx.from?.id ?? 0);
+      }
+
+      const oldState = ctx.user.state;
+      ctx.user.state = EUserState.WAITING_FOR_CITY;
+
+      // Отслеживаем изменение состояния пользователя
+      this.analyticsService.trackUserStateChanged({
+        oldState,
+        newState: EUserState.WAITING_FOR_CITY,
+        trigger: 'command',
+        userId: ctx.from?.id ?? 0,
+      });
+
+      await this.showCitySelection(ctx);
+    } catch (error) {
+      // Отслеживаем ошибку команды
+      this.analyticsService.trackBotCommandError({
+        command: '/address',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
+      throw error;
+    }
   };
 
   private handleHistory = async (ctx: TBotContext): Promise<void> => {
-    if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
-    }
-
     try {
+      // Отслеживаем выполнение команды
+      this.analyticsService.trackBotCommand({
+        command: '/history',
+        userState: ctx.user?.state ?? '',
+        userCity: ctx.user?.city ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
+
+      if (!ctx.user) {
+        throw AppError.userNotFound(ctx.from?.id ?? 0);
+      }
+
       const history = await this.userService.getSearchHistory(ctx.user.telegramId, 10);
+
+      // Отслеживаем просмотр истории поиска
+      this.analyticsService.trackSearchHistoryViewed({
+        historyItemsCount: history.length,
+        viewedItemsCount: Math.min(history.length, 10),
+        userId: ctx.from?.id ?? 0,
+      });
 
       if (history.length === 0) {
         const formattedMessage = this.messageFormatter.formatHistoryMessage([]);
@@ -146,6 +211,15 @@ export class CommandHandlers {
         reply_markup: formattedMessage.replyMarkup,
       });
     } catch (error) {
+      // Отслеживаем ошибку команды
+      this.analyticsService.trackBotCommandError({
+        command: '/history',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
+
       ConsoleLogger.error('Ошибка при получении истории поиска', error as Error, {
         telegramId: ctx.from?.id,
       });
@@ -192,6 +266,19 @@ export class CommandHandlers {
 
       const canSearch = await this.userService.checkSearchLimit(ctx.user.telegramId);
       if (!canSearch) {
+        // Получаем статистику для отслеживания превышения лимита
+        const stats = await this.userService.getSearchStats(ctx.user.telegramId);
+        const user = await this.userService.getUser(ctx.user.telegramId);
+
+        // Отслеживаем превышение лимита поиска
+        this.analyticsService.trackSearchLimitExceeded({
+          userSubscription: user?.subscription ?? '',
+          searchesToday: stats.searchesToday,
+          searchLimit: stats.searchLimit,
+          remainingSearches: stats.remainingSearches,
+          userId: ctx.from?.id ?? 0,
+        });
+
         await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.');
         return;
       }
@@ -309,7 +396,16 @@ export class CommandHandlers {
   };
 
   private handleSupport = async (ctx: TBotContext): Promise<void> => {
-    const text = `🆘 <b>Поддержка</b>
+    try {
+      // Отслеживаем выполнение команды
+      this.analyticsService.trackBotCommand({
+        command: '/support',
+        userState: ctx.user?.state ?? '',
+        userCity: ctx.user?.city ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
+
+      const text = `🆘 <b>Поддержка</b>
 
 Если у вас есть вопросы или проблемы, обращайтесь в наш канал поддержки:
 
@@ -317,23 +413,51 @@ export class CommandHandlers {
 
 Наши специалисты помогут вам решить любые вопросы!`;
 
-    await ctx.reply(text, {
-      parse_mode: 'HTML',
-    });
+      await ctx.reply(text, {
+        parse_mode: 'HTML',
+      });
+    } catch (error) {
+      // Отслеживаем ошибку команды
+      this.analyticsService.trackBotCommandError({
+        command: '/support',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
+      throw error;
+    }
   };
 
   private handleStats = async (ctx: TBotContext): Promise<void> => {
-    if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
-    }
-
     try {
+      // Отслеживаем выполнение команды
+      this.analyticsService.trackBotCommand({
+        command: '/stats',
+        userState: ctx.user?.state ?? '',
+        userCity: ctx.user?.city ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
+
+      if (!ctx.user) {
+        throw AppError.userNotFound(ctx.from?.id ?? 0);
+      }
+
       const stats = await this.userService.getSearchStats(ctx.user.telegramId);
       const user = await this.userService.getUser(ctx.user.telegramId);
 
       if (!user) {
         throw AppError.userNotFound(ctx.user.telegramId);
       }
+
+      // Отслеживаем просмотр статистики пользователя
+      this.analyticsService.trackUserStatsViewed({
+        userSubscription: user.subscription ?? '',
+        searchesToday: stats.searchesToday,
+        searchesThisMonth: stats.searchesThisMonth,
+        totalSearches: stats.totalSearches,
+        userId: ctx.from?.id ?? 0,
+      });
 
       const subscriptionText = user.subscription === ESubscriptionType.BASIC ? 'Базовая' : 'Премиум';
       const lastSearchText = stats.lastSearchDate
@@ -357,6 +481,15 @@ ${stats.remainingSearches > 0
         parse_mode: 'HTML',
       });
     } catch (error) {
+      // Отслеживаем ошибку команды
+      this.analyticsService.trackBotCommandError({
+        command: '/stats',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        userId: ctx.from?.id ?? 0,
+      });
+
       ConsoleLogger.error('Ошибка при получении статистики', error as Error, {
         telegramId: ctx.from?.id,
       });

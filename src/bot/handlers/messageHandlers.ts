@@ -85,6 +85,15 @@ export class MessageHandlers {
 
     try {
       const oldState = ctx.user.state;
+      const oldCity = ctx.user.city;
+
+      // Отслеживаем нажатие на callback кнопку
+      this.analyticsService.trackCallbackButtonClicked({
+        buttonType: 'city_selection',
+        buttonData: callbackData,
+        userState: ctx.user.state,
+        userId: ctx.from?.id ?? 0,
+      });
 
       // Обновляем город пользователя
       await this.userService.updateUserCity(ctx.user.telegramId, selectedCity);
@@ -92,6 +101,14 @@ export class MessageHandlers {
       // Обновляем состояние пользователя
       ctx.user.city = selectedCity;
       ctx.user.state = EUserState.IDLE;
+
+      // Отслеживаем завершение выбора города
+      this.analyticsService.trackCitySelectionCompleted({
+        selectedCity,
+        selectionMethod: 'callback',
+        oldCity,
+        userId: ctx.from?.id ?? 0,
+      });
 
       // Отслеживаем изменение состояния пользователя
       this.analyticsService.trackUserStateChanged({
@@ -136,6 +153,15 @@ export class MessageHandlers {
       return;
     }
 
+    // Отслеживаем получение сообщения
+    this.analyticsService.trackMessageReceived({
+      messageLength: messageText.length,
+      userState: ctx.user.state,
+      userCity: ctx.user.city,
+      messageType: 'text',
+      userId: ctx.from?.id ?? 0,
+    });
+
     // Если пользователь ожидает выбора города
     if (ctx.user.state === EUserState.WAITING_FOR_CITY) {
       await this.handleCityTextInput(ctx, messageText);
@@ -167,12 +193,31 @@ export class MessageHandlers {
     }
 
     try {
+      const oldState = ctx.user!.state;
+      const oldCity = ctx.user!.city;
+
       // Обновляем город пользователя
       await this.userService.updateUserCity(ctx.user!.telegramId, normalizedCity as EAvailableCities);
 
       // Обновляем состояние пользователя
       ctx.user!.city = normalizedCity;
       ctx.user!.state = EUserState.IDLE;
+
+      // Отслеживаем завершение выбора города
+      this.analyticsService.trackCitySelectionCompleted({
+        selectedCity: normalizedCity,
+        selectionMethod: 'text_input',
+        oldCity,
+        userId: ctx.from?.id ?? 0,
+      });
+
+      // Отслеживаем изменение состояния пользователя
+      this.analyticsService.trackUserStateChanged({
+        oldState,
+        newState: EUserState.IDLE,
+        trigger: 'text_input',
+        userId: ctx.from?.id ?? 0,
+      });
 
       const userName = ctx.from?.first_name;
       const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName, normalizedCity);
@@ -218,12 +263,34 @@ export class MessageHandlers {
 
     const canSearch = await this.userService.checkSearchLimit(ctx.user.telegramId);
     if (!canSearch) {
+      // Получаем статистику для отслеживания превышения лимита
+      const stats = await this.userService.getSearchStats(ctx.user.telegramId);
+      const user = await this.userService.getUser(ctx.user.telegramId);
+
+      // Отслеживаем превышение лимита поиска
+      this.analyticsService.trackSearchLimitExceeded({
+        userSubscription: user?.subscription ?? '',
+        searchesToday: stats.searchesToday,
+        searchLimit: stats.searchLimit,
+        remainingSearches: stats.remainingSearches,
+        userId: ctx.from?.id ?? 0,
+      });
+
       await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.');
       return;
     }
 
     // Устанавливаем состояние ожидания обработки запроса
+    const oldState = ctx.user.state;
     ctx.user.state = EUserState.WAITING_FOR_SEARCH_QUERY;
+
+    // Отслеживаем изменение состояния пользователя
+    this.analyticsService.trackUserStateChanged({
+      oldState,
+      newState: EUserState.WAITING_FOR_SEARCH_QUERY,
+      trigger: 'text_message',
+      userId: ctx.from?.id ?? 0,
+    });
 
     try {
       const botMessage = await ctx.reply('🔍 Ищу для вас...');
@@ -296,6 +363,14 @@ export class MessageHandlers {
     const itemId = match[2];
 
     try {
+      // Отслеживаем нажатие на callback кнопку
+      this.analyticsService.trackCallbackButtonClicked({
+        buttonType: 'item_selection',
+        buttonData: callbackData,
+        userState: ctx.user.state,
+        userId: ctx.from?.id ?? 0,
+      });
+
       await ctx.answerCbQuery('Загружаем информацию о блюде...');
 
       const searchHistory = await this.userService.getSearchHistoryItemById(ctx.user.telegramId, searchHistoryId);
@@ -308,6 +383,14 @@ export class MessageHandlers {
         await ctx.answerCbQuery('Блюдо не найдено');
         return;
       }
+
+      // Отслеживаем выбор блюда
+      this.analyticsService.trackItemSelectionCompleted({
+        searchHistoryId,
+        itemId,
+        hasPhoto: !!searchResultItem.image,
+        userId: ctx.from?.id ?? 0,
+      });
 
       const formattedMessage = this.messageFormatter.formatMenuItem(searchResultItem);
 
@@ -356,6 +439,14 @@ export class MessageHandlers {
     const historyItemId = match[1];
 
     try {
+      // Отслеживаем нажатие на callback кнопку
+      this.analyticsService.trackCallbackButtonClicked({
+        buttonType: 'history_item',
+        buttonData: callbackData,
+        userState: ctx.user.state,
+        userId: ctx.from?.id ?? 0,
+      });
+
       await ctx.answerCbQuery('Повторяем поиск...');
 
       // Получаем элемент истории
@@ -364,6 +455,14 @@ export class MessageHandlers {
         await ctx.answerCbQuery('Запрос из истории не найден');
         return;
       }
+
+      // Отслеживаем повторный поиск из истории
+      this.analyticsService.trackHistoryItemRepeated({
+        historyItemId,
+        originalQuery: historyItem.query,
+        queryLength: historyItem.query.length,
+        userId: ctx.from?.id ?? 0,
+      });
 
       await this.handleSearchQuery(
         ctx as unknown as TBotContext<Update.MessageUpdate<Message.TextMessage>>,
@@ -401,6 +500,14 @@ export class MessageHandlers {
     const pageNumber = parseInt(match[2], 10);
 
     try {
+      // Отслеживаем нажатие на callback кнопку
+      this.analyticsService.trackCallbackButtonClicked({
+        buttonType: 'page_navigation',
+        buttonData: callbackData,
+        userState: ctx.user.state,
+        userId: ctx.from?.id ?? 0,
+      });
+
       await ctx.answerCbQuery(`Переходим на страницу ${pageNumber}...`);
 
       // Получаем историю поиска
@@ -409,6 +516,17 @@ export class MessageHandlers {
         await ctx.answerCbQuery('История поиска не найдена');
         return;
       }
+
+      // Вычисляем общее количество страниц
+      const totalPages = Math.ceil(searchHistory.results.length / 5); // Предполагаем 5 элементов на страницу
+
+      // Отслеживаем навигацию по страницам
+      this.analyticsService.trackPageNavigationCompleted({
+        searchHistoryId,
+        pageNumber,
+        totalPages,
+        userId: ctx.from?.id ?? 0,
+      });
 
       // Форматируем результаты для указанной страницы
       const formattedResults = this.messageFormatter.formatSearchResults(
@@ -454,6 +572,14 @@ export class MessageHandlers {
     }
 
     try {
+      // Отслеживаем нажатие на callback кнопку
+      this.analyticsService.trackCallbackButtonClicked({
+        buttonType: 'delete_message',
+        buttonData: callbackData,
+        userState: ctx.user.state,
+        userId: ctx.from?.id ?? 0,
+      });
+
       await ctx.answerCbQuery('Удаляем сообщение...');
 
       // Удаляем сообщение с блюдом

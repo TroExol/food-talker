@@ -23,7 +23,7 @@ export class YandexMetricaService {
     }, 5000); // Отправляем каждые 5 секунд
   }
 
-  public trackEvent(event: YandexMetricaEvent): void {
+  public trackEvent = (event: YandexMetricaEvent): void => {
     // Добавляем дату в формате YYYY-MM-DD если её нет
     const dt = event.dt || new Date(event.timestamp || Date.now()).toISOString().split('T')[0];
 
@@ -38,9 +38,9 @@ export class YandexMetricaService {
         ConsoleLogger.error('Ошибка при отправке событий в Яндекс Метрику', error as Error);
       });
     }
-  }
+  };
 
-  public trackGoal(goalName: string, parameters?: Record<string, unknown>): void {
+  public trackGoal = (goalName: string, parameters?: Record<string, unknown>): void => {
     this.trackEvent({
       name: 'goal',
       parameters: {
@@ -49,9 +49,9 @@ export class YandexMetricaService {
       },
       timestamp: Date.now(),
     });
-  }
+  };
 
-  public trackPageView(url: string, title?: string, parameters?: Record<string, unknown>): void {
+  public trackPageView = (url: string, title?: string, parameters?: Record<string, unknown>): void => {
     this.trackEvent({
       name: 'pageview',
       parameters: {
@@ -61,9 +61,9 @@ export class YandexMetricaService {
       },
       timestamp: Date.now(),
     });
-  }
+  };
 
-  public async flush(): Promise<void> {
+  public flush = async (): Promise<void> => {
     if (this.isFlushing || this.eventQueue.length === 0) return;
 
     this.isFlushing = true;
@@ -80,9 +80,9 @@ export class YandexMetricaService {
     } finally {
       this.isFlushing = false;
     }
-  }
+  };
 
-  private async sendEvents(events: YandexMetricaEvent[]): Promise<void> {
+  private sendEvents = async (events: YandexMetricaEvent[]): Promise<void> => {
     const batch: YandexMetricaBatch = {
       events,
       timestamp: Date.now(),
@@ -100,9 +100,9 @@ export class YandexMetricaService {
         await sleep(this.config.retryDelayMs * (attempt + 1));
       }
     }
-  }
+  };
 
-  private async sendBatch(batch: YandexMetricaBatch): Promise<void> {
+  private sendBatch = async (batch: YandexMetricaBatch): Promise<void> => {
     const url = new URL(this.config.endpoint);
 
     // Добавляем обязательные параметры
@@ -156,11 +156,11 @@ export class YandexMetricaService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     }
-  }
+  };
 
-  public destroy(): void {
+  public destroy = (): void => {
     if (this.flushInterval) {
       clearInterval(this.flushInterval);
     }
-  }
+  };
 }
