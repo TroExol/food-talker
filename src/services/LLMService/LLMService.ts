@@ -69,7 +69,7 @@ export class LLMService {
         userTelegramId,
         'yandex/YandexGPT-5-Lite-8B-instruct-GGUF',
         {
-          temperature: 0.2,
+          temperature: 0.4,
           max_tokens: 5000,
         },
       );
@@ -193,7 +193,7 @@ availableRestaurants: ["McDonald's", "Burger King", "KFC"]
 РЕЗУЛЬТАТ:
 {
   "tags": ["бургер", "burger"],
-  "dishCategories": ["основное"]
+  "category": "основное"
 }
 
 Пример 2 - С рестораном:
@@ -203,7 +203,7 @@ availableRestaurants: ["Domino's", "Dodo", "Papa John's"]
 {
   "restaurants": ["Domino's"],
   "tags": ["пицца", "pizza"],
-  "dishCategories": ["основное"]
+  "category": "основное"
 }
 
 Пример 3 - Исключения:
@@ -212,7 +212,7 @@ availableRestaurants: ["McDonald's", "Domino's", "Dodo"]
 РЕЗУЛЬТАТ:
 {
   "tags": ["острый", "пикант", "пицца", "pizza"],
-  "dishCategories": ["основное"],
+  "category": "основное",
   "exclusions": {
     "restaurants": ["McDonald's"]
   }
@@ -223,12 +223,12 @@ availableRestaurants: ["McDonald's", "Domino's", "Dodo"]
   "restaurants"?: string[],
   "tags"?: string[],
   "priceRange"?: {"min": number, "max": number},
-  "dishCategories"?: string[],
+  "category"?: string,
   "exclusions"?: {
     "restaurants"?: string[],
     "tags"?: string[],
     "priceRange"?: {"min": number, "max": number},
-    "dishCategories"?: string[]
+    "category"?: string
   }
 }
 
@@ -575,8 +575,11 @@ ${menuList}
     }
 
     if (query.priceRange) {
-      if (typeof query.priceRange.min === 'number' && typeof query.priceRange.max === 'number') {
-        repairedQuery.priceRange = { min: query.priceRange.min, max: query.priceRange.max };
+      if (typeof query.priceRange.min === 'number' || typeof query.priceRange.max === 'number') {
+        repairedQuery.priceRange = {
+          min: query.priceRange.min ?? 0,
+          max: query.priceRange.max ?? Number.MAX_SAFE_INTEGER,
+        };
       }
     }
 
@@ -622,10 +625,10 @@ ${menuList}
       }
 
       if (query.exclusions?.priceRange) {
-        if (typeof query.exclusions.priceRange.min === 'number' && typeof query.exclusions.priceRange.max === 'number') {
+        if (typeof query.exclusions.priceRange.min === 'number' || typeof query.exclusions.priceRange.max === 'number') {
           repairedQuery.exclusions.priceRange = {
-            min: query.exclusions.priceRange.min,
-            max: query.exclusions.priceRange.max,
+            min: query.exclusions.priceRange.min ?? 0,
+            max: query.exclusions.priceRange.max ?? Number.MAX_SAFE_INTEGER,
           };
         }
       }

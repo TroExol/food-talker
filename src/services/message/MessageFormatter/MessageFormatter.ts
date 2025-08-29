@@ -101,7 +101,7 @@ export class MessageFormatterService {
 • Например: "хочу пиццу с грибами", "бургер с картошкой", "суши с лососем"
 
 📍 <b>Доступные города:</b>
-${Object.values(EAvailableCities).map(city => `• ${city}`).join('\n')}
+${Object.values(EAvailableCities).map(availableCity => `• ${availableCity}`).join('\n')}
 
 📍 <b>Выбранный город:</b>
 ${city ? this.escapeHtml(city) : 'Не выбран'}

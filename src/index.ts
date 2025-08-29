@@ -21,7 +21,8 @@ async function main(): Promise<void> {
     const appSchedulerService = await AppSchedulerServiceFactory.getInstance();
 
     appSchedulerService.startAllJobs();
-    await appSchedulerService.initialLoad();
+    // TODO: Uncomment this when we have a way to load the data
+    // await appSchedulerService.initialLoad();
 
     void bot.start();
 

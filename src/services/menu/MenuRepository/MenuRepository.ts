@@ -197,8 +197,8 @@ export class MenuRepository {
           sql += `
             AND (
               6371 * acos(
-                cos(radians($${paramIndex})) * cos(radians(restaurant_latitude)) * 
-                cos(radians(restaurant_longitude) - radians($${paramIndex + 1})) + 
+                cos(radians($${paramIndex})) * cos(radians(restaurant_latitude)) *
+                cos(radians(restaurant_longitude) - radians($${paramIndex + 1})) +
                 sin(radians($${paramIndex})) * sin(radians(restaurant_latitude))
               )
             ) <= $${paramIndex + 2}
@@ -214,7 +214,7 @@ export class MenuRepository {
         paramIndex++;
       }
 
-      if (restaurantNames) {
+      if (restaurantNames?.length) {
         const restaurantNamesLower = restaurantNames.map(name => name.toLowerCase());
         sql += ` AND LOWER(restaurant_name) = ANY($${paramIndex})`;
         params.push(restaurantNamesLower);
