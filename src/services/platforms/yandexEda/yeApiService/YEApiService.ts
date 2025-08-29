@@ -1,15 +1,17 @@
-import fetch, { type RequestInit } from 'node-fetch';
+import fetch, { type RequestInit, type Response } from 'node-fetch';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
 import type { TCoordinates } from '@/types/restaurant';
 import type { MenuService } from '@/services/menu/MenuService/MenuService';
 import type { CacheService } from '@/services/cacheService/CacheService';
+import type { ApiRequestLoggingService } from '@/services/ApiRequestLoggingService/ApiRequestLoggingService';
 import type { EAvailableCities } from '@/config/bot/types';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
 import { EDishCategory, type TMenuItem } from '@/types/menuItem';
+import { EApiRequestType } from '@/types/apiRequestLogging';
 import { environment } from '@/config/environment';
 import { botConfig } from '@/config/bot';
 
@@ -37,6 +39,7 @@ export class YEApiService {
     private readonly cacheService: CacheService,
     private readonly yeDataTransformer: YEDataTransformer,
     private readonly menuService: MenuService,
+    private readonly apiRequestLoggingService: ApiRequestLoggingService,
   ) {
     this.config = {
       baseUrl: 'https://eda.yandex.ru',
@@ -277,6 +280,7 @@ export class YEApiService {
   private makeRequest = async <T>(endpoint: string, options: RequestInit): Promise<T> => {
     const url = `${this.config.baseUrl}${endpoint}`;
     let lastError: Error | null = null;
+    const startTime = Date.now();
 
     for (let attempt = 0; attempt <= this.config.retries; attempt++) {
       try {
@@ -302,6 +306,22 @@ export class YEApiService {
 
         clearTimeout(timeoutId);
 
+        const processingTimeMs = Date.now() - startTime;
+
+        // Логируем успешный запрос
+        void this.apiRequestLoggingService.logRequest({
+          requestType: this.getRequestType(endpoint),
+          endpoint,
+          method: options.method || 'GET',
+          statusCode: response.status,
+          requestData: this.sanitizeRequestData(options.body as string | undefined),
+          responseData: response.ok ? await this.sanitizeResponseData(response.clone()) : undefined,
+          processingTimeMs,
+          errorMessage: response.ok ? undefined : `${response.status}: ${response.statusText}`,
+        }).catch(error => {
+          ConsoleLogger.error('Ошибка логирования API запроса', error as Error, { endpoint });
+        });
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -319,6 +339,20 @@ export class YEApiService {
         lastError = error as Error;
 
         if (attempt === this.config.retries) {
+          // Логируем неудачный запрос после всех попыток
+          const processingTimeMs = Date.now() - startTime;
+          void this.apiRequestLoggingService.logRequest({
+            requestType: this.getRequestType(endpoint),
+            endpoint,
+            method: options.method || 'GET',
+            statusCode: 0, // Неизвестный статус для сетевых ошибок
+            requestData: this.sanitizeRequestData(options.body as string | undefined),
+            responseData: undefined,
+            processingTimeMs,
+            errorMessage: lastError.message,
+          }).catch(logError => {
+            ConsoleLogger.error('Ошибка логирования неудачного API запроса', logError as Error, { endpoint });
+          });
           break;
         }
 
@@ -385,5 +419,51 @@ export class YEApiService {
       ConsoleLogger.error('Не удалось получить ресторан Яндекс.Еда по slug', error as Error, { restaurantId, city });
       return null;
     }
+  };
+
+  private getRequestType = (endpoint: string): EApiRequestType => {
+    if (endpoint.includes('/layout-constructor')) {
+      return EApiRequestType.YANDEX_EDA_RESTAURANTS;
+    }
+    if (endpoint.includes('/menu/retrieve')) {
+      return EApiRequestType.YANDEX_EDA_MENU;
+    }
+    return EApiRequestType.YANDEX_EDA_PLACE;
+  };
+
+  private sanitizeRequestData = (body: string | undefined): Record<string, unknown> | undefined => {
+    if (!body) return undefined;
+
+    try {
+      const data = JSON.parse(body) as Record<string, unknown>;
+      // Удаляем чувствительные данные
+      if (data.location) {
+        return { location: data.location };
+      }
+      if (data.restaurantId) {
+        return { restaurantId: data.restaurantId };
+      }
+      return data;
+    } catch {
+      return { rawBody: '[PARSE_ERROR]' };
+    }
+  };
+
+  private sanitizeResponseData = async (response: Response): Promise<Record<string, unknown> | undefined> => {
+    try {
+      const data = await response.json() as Record<string, unknown>;
+      // Ограничиваем размер ответа для логирования
+      return this.truncateResponseData(data);
+    } catch {
+      return { error: '[PARSE_ERROR]' };
+    }
+  };
+
+  private truncateResponseData = (data: unknown): Record<string, unknown> => {
+    const stringified = JSON.stringify(data);
+    if (stringified.length > 1000) {
+      return { truncated: true, size: stringified.length };
+    }
+    return data as Record<string, unknown>;
   };
 }

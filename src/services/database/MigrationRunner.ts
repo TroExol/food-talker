@@ -253,4 +253,49 @@ const migrations: TMigration[] = [
       await db.run('DROP TABLE IF EXISTS neural_request_logs');
     },
   },
+  {
+    version: 5,
+    description: 'Создание таблицы для логирования API запросов',
+    up: async db => {
+      // Создаем таблицу для логов API запросов
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS api_request_logs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_telegram_id INTEGER,
+          request_type TEXT NOT NULL,
+          endpoint TEXT NOT NULL,
+          method TEXT NOT NULL,
+          status_code INTEGER NOT NULL,
+          request_data JSONB,
+          response_data JSONB,
+          processing_time_ms INTEGER NOT NULL,
+          error_message TEXT,
+          created_at TIMESTAMP DEFAULT now(),
+          FOREIGN KEY (user_telegram_id) REFERENCES users (telegram_id)
+        )
+      `);
+
+      // Создаем индексы для производительности
+      await db.run('CREATE INDEX IF NOT EXISTS api_logs_user_idx ON api_request_logs(user_telegram_id)');
+      await db.run('CREATE INDEX IF NOT EXISTS api_logs_type_idx ON api_request_logs(request_type)');
+      await db.run('CREATE INDEX IF NOT EXISTS api_logs_endpoint_idx ON api_request_logs(endpoint)');
+      await db.run('CREATE INDEX IF NOT EXISTS api_logs_status_code_idx ON api_request_logs(status_code)');
+      await db.run('CREATE INDEX IF NOT EXISTS api_logs_created_at_idx ON api_request_logs(created_at)');
+      await db.run('CREATE INDEX IF NOT EXISTS api_logs_user_type_idx ON api_request_logs(user_telegram_id, request_type)');
+      await db.run('CREATE INDEX IF NOT EXISTS api_logs_failed_requests_idx ON api_request_logs(user_telegram_id, status_code) WHERE status_code >= 400');
+    },
+    down: async db => {
+      // Удаляем индексы
+      await db.run('DROP INDEX IF EXISTS api_logs_failed_requests_idx');
+      await db.run('DROP INDEX IF EXISTS api_logs_user_type_idx');
+      await db.run('DROP INDEX IF EXISTS api_logs_created_at_idx');
+      await db.run('DROP INDEX IF EXISTS api_logs_status_code_idx');
+      await db.run('DROP INDEX IF EXISTS api_logs_endpoint_idx');
+      await db.run('DROP INDEX IF EXISTS api_logs_type_idx');
+      await db.run('DROP INDEX IF EXISTS api_logs_user_idx');
+
+      // Удаляем таблицу
+      await db.run('DROP TABLE IF EXISTS api_request_logs');
+    },
+  },
 ];

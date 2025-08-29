@@ -28,6 +28,7 @@ import type {
 } from '@/services/platforms/yandexEda/yeApiService/types';
 import type { MenuService } from '@/services/menu/MenuService/MenuService';
 import type { CacheService } from '@/services/cacheService/CacheService';
+import type { ApiRequestLoggingService } from '@/services/ApiRequestLoggingService/ApiRequestLoggingService';
 
 import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
@@ -77,7 +78,16 @@ describe('YEApiService', () => {
       createMenu: vi.fn(),
     } as unknown as MenuService;
 
-    service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService);
+    const mockApiRequestLoggingService = {
+      logRequest: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ApiRequestLoggingService;
+
+    service = new YEApiService(
+      mockCacheService,
+      mockDataTransformer,
+      mockMenuService,
+      mockApiRequestLoggingService,
+    );
     (service as any).config.delayBetweenRequestsMs = 0;
   });
 
@@ -112,6 +122,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        }),
       } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
@@ -134,6 +148,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: {} }),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve({ data: {} }),
+        }),
       } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
@@ -160,6 +178,10 @@ describe('YEApiService', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve(mockResponse),
+          clone: () => ({
+            ok: true,
+            json: () => Promise.resolve(mockResponse),
+          }),
         } as unknown as Response);
 
       const sendingRequest = service.requestRestaurants(mockCoordinates);
@@ -182,6 +204,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        }),
       } as unknown as Response);
 
       await service.requestRestaurants(mockCoordinates);
@@ -203,6 +229,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        }),
       } as unknown as Response);
 
       await service.requestRestaurants(mockCoordinates);
@@ -252,6 +282,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockMenuResponse),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve(mockMenuResponse),
+        }),
       } as unknown as Response);
 
       const result = await service.requestRestaurantMenu('test-place', mockCoordinates, 'test-brand');
@@ -272,6 +306,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockMenuResponse),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve(mockMenuResponse),
+        }),
       } as unknown as Response);
 
       await service.requestRestaurantMenu('test-place', mockCoordinates, '');
@@ -327,6 +365,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        }),
       } as unknown as Response);
 
       const firstRequest = service.requestRestaurants(mockCoordinates);
@@ -337,6 +379,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        }),
       } as unknown as Response);
 
       const secondRequest = service.requestRestaurants(mockCoordinates);
@@ -356,6 +402,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        }),
       } as unknown as Response);
 
       const firstRequest = service.requestRestaurants(mockCoordinates);
@@ -377,6 +427,10 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        clone: () => ({
+          ok: true,
+          json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        }),
       } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
@@ -482,7 +536,11 @@ describe('YEApiService', () => {
         createMenu: vi.fn().mockResolvedValue(undefined),
       } as unknown as MenuService;
 
-      service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService);
+      const mockApiRequestLoggingService = {
+        logRequest: vi.fn(),
+      } as unknown as ApiRequestLoggingService;
+
+      service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService, mockApiRequestLoggingService);
       (service as any).config.delayBetweenRequestsMs = 0;
     });
 
@@ -649,7 +707,16 @@ describe('YEApiService', () => {
         createMenu: vi.fn(),
       } as unknown as MenuService;
 
-      const service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService);
+      const mockApiRequestLoggingService = {
+        logRequest: vi.fn(),
+      } as unknown as ApiRequestLoggingService;
+
+      const service = new YEApiService(
+        mockCacheService,
+        mockDataTransformer,
+        mockMenuService,
+        mockApiRequestLoggingService,
+      );
 
       await service.clearCache();
       expect(mockCacheService.clear).toHaveBeenCalled();
@@ -682,7 +749,16 @@ describe('YEApiService', () => {
         createMenu: vi.fn(),
       } as unknown as MenuService;
 
-      const service = new YEApiService(mockCacheService, mockDataTransformer, mockMenuService);
+      const mockApiRequestLoggingService = {
+        logRequest: vi.fn(),
+      } as unknown as ApiRequestLoggingService;
+
+      const service = new YEApiService(
+        mockCacheService,
+        mockDataTransformer,
+        mockMenuService,
+        mockApiRequestLoggingService,
+      );
 
       const stats = await service.getCacheStats();
 
