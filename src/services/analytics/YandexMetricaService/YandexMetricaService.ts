@@ -109,6 +109,7 @@ export class YandexMetricaService {
     url.searchParams.set('tid', this.config.counterId);
     url.searchParams.set('t', 'event');
     url.searchParams.set('et', batch.timestamp.toString());
+    url.searchParams.set('ms', this.config.measurementProtocolToken);
 
     // Отправляем каждое событие отдельно (Measurement Protocol)
     for (const event of batch.events) {
@@ -119,7 +120,9 @@ export class YandexMetricaService {
       }
 
       if (event.session_id) {
-        eventUrl.searchParams.set('sid', event.session_id);
+        eventUrl.searchParams.set('сid', event.session_id);
+      } else {
+        eventUrl.searchParams.set('cid', `${batch.timestamp}${(Math.random() * 100).toFixed(0)}`);
       }
 
       // Добавляем дату в формате YYYY-MM-DD

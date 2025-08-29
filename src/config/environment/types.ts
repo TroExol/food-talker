@@ -19,4 +19,5 @@ export interface TEnvironment {
   ADMIN_TELEGRAM_ID?: string;
   PROXY_URL?: string;
   YANDEX_METRIKA_COUNTER_ID?: string;
+  YANDEX_METRIKA_MS?: string;
 }

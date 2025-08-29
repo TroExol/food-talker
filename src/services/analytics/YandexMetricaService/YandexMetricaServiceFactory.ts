@@ -11,6 +11,7 @@ export class YandexMetricaServiceFactory {
     if (!YandexMetricaServiceFactory.instance) {
       const config: YandexMetricaConfig = {
         counterId: environment.YANDEX_METRIKA_COUNTER_ID || '',
+        measurementProtocolToken: environment.YANDEX_METRIKA_MS || '',
         endpoint: 'https://mc.yandex.ru/collect/',
         timeoutMs: 10000,
         retryAttempts: 3,

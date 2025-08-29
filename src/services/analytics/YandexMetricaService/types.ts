@@ -1,5 +1,6 @@
 export interface YandexMetricaConfig {
   counterId: string;
+  measurementProtocolToken: string;
   endpoint: string;
   timeoutMs: number;
   retryAttempts: number;

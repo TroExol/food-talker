@@ -21,6 +21,7 @@ describe('YandexMetricaService', () => {
   beforeEach(() => {
     config = {
       counterId: '123456',
+      measurementProtocolToken: 'test_token',
       endpoint: 'https://mc.yandex.ru/collect/',
       timeoutMs: 10000,
       retryAttempts: 3,

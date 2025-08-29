@@ -27,6 +27,7 @@ export const environment: TEnvironment = {
   ADMIN_TELEGRAM_ID: process.env.ADMIN_TELEGRAM_ID,
   PROXY_URL: process.env.PROXY_URL,
   YANDEX_METRIKA_COUNTER_ID: process.env.YANDEX_METRIKA_COUNTER_ID,
+  YANDEX_METRIKA_MS: process.env.YANDEX_METRIKA_MS,
 };
 
 export const validateEnvironment = (): void => {
