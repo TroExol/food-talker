@@ -74,7 +74,7 @@ export class YEDataTransformer implements TYEDataTransformer {
         image: imageUrl || botConfig.fallbackFoodImage,
         available: yeMenuItem.available && (yeMenuItem.inStock !== false),
         restaurant,
-        orderUrl: `https://eda.yandex.ru/r/${restaurant.additionalInfo.brandSlug}?placeSlug=${restaurant.id}`,
+        orderUrl: `https://eda.yandex.ru/r/${restaurant.additionalInfo.brandSlug}?placeSlug=${restaurant.id}&search=${yeMenuItem.name}`,
         category,
       };
 
