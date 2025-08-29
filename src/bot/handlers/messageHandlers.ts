@@ -97,7 +97,7 @@ export class MessageHandlers {
 
       // Отправляем приветственное сообщение
       const userName = ctx.from?.first_name;
-      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName);
+      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName, selectedCity);
 
       await ctx.reply(formattedMessage.text, {
         parse_mode: formattedMessage.parseMode,
@@ -163,7 +163,7 @@ export class MessageHandlers {
       ctx.user!.state = EUserState.IDLE;
 
       const userName = ctx.from?.first_name;
-      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName);
+      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName, normalizedCity);
 
       await ctx.reply(formattedMessage.text, {
         parse_mode: formattedMessage.parseMode,

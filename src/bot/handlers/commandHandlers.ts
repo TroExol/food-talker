@@ -65,7 +65,7 @@ export class CommandHandlers {
       await this.showCitySelection(ctx);
     } else {
       const userName = ctx.from?.first_name;
-      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName);
+      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName, ctx.user.city);
 
       await ctx.reply(formattedMessage.text, {
         parse_mode: formattedMessage.parseMode,

@@ -89,7 +89,7 @@ export class MessageFormatterService {
   };
 
   // Форматирование системных сообщений
-  public formatWelcomeMessage = (userName?: string): TFormattedMessage => {
+  public formatWelcomeMessage = (userName?: string, city?: string): TFormattedMessage => {
     const greeting = userName ? `Привет, ${userName}! 👋` : 'Привет! 👋';
 
     const text = `${greeting}
@@ -103,10 +103,15 @@ export class MessageFormatterService {
 📍 <b>Доступные города:</b>
 ${Object.values(EAvailableCities).map(city => `• ${city}`).join('\n')}
 
+📍 <b>Выбранный город:</b>
+${city ? this.escapeHtml(city) : 'Не выбран'}
+
 💡 <b>Команды:</b>
 /help - справка
 /address - изменить город
 /history - история поиска
+/support - связаться с поддержкой
+/stats - статистика поиска
 
 Начните поиск прямо сейчас! 🚀`;
 
@@ -140,6 +145,7 @@ ${Object.values(EAvailableCities).map(city => `• ${city}`).join('\n')}
 /address - изменить город доставки
 /history - история поиска
 /support - связаться с поддержкой
+/stats - статистика поиска
 
 💡 <b>Советы:</b>
 • Чем подробнее опишете желаемое, тем точнее будут результаты
