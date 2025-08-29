@@ -3,13 +3,29 @@ import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import type {
   AnalyticsEvent,
   TAnalyticsConfig,
+  TTrackBotCommandErrorParams,
   TTrackBotCommandParams,
+  TTrackBotStartedParams,
+  TTrackBotStoppedParams,
+  TTrackCacheMissParams,
+  TTrackCallbackButtonClickedParams,
+  TTrackCitySelectionCompletedParams,
   TTrackErrorParams,
+  TTrackHistoryItemRepeatedParams,
+  TTrackItemSelectionCompletedParams,
+  TTrackMessageReceivedParams,
+  TTrackNeuralServiceErrorParams,
   TTrackNeuralSummaryParams,
+  TTrackPageNavigationCompletedParams,
   TTrackPerformanceParams,
+  TTrackRateLimitExceededParams,
+  TTrackSearchHistoryViewedParams,
+  TTrackSearchLimitExceededParams,
   TTrackSearchQueryCompletedParams,
+  TTrackSearchQueryErrorParams,
   TTrackSearchQueryStartedParams,
   TTrackUserStateChangedParams,
+  TTrackUserStatsViewedParams,
 } from './types';
 import type { YandexMetricaService } from '../YandexMetricaService/YandexMetricaService';
 
@@ -165,6 +181,218 @@ export class AnalyticsService {
       },
       timestamp: Date.now(),
       user_id: params.userId,
+    });
+  }
+
+  // Новые методы для недостающих событий
+  public trackBotCommandError(params: TTrackBotCommandErrorParams): void {
+    this.trackEvent({
+      name: 'bot_command_error',
+      parameters: {
+        command: params.command,
+        error_type: params.errorType,
+        error_message: params.errorMessage,
+        user_state: params.userState,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackMessageReceived(params: TTrackMessageReceivedParams): void {
+    this.trackEvent({
+      name: 'message_received',
+      parameters: {
+        message_length: params.messageLength,
+        user_state: params.userState,
+        user_city: params.userCity,
+        message_type: params.messageType,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackSearchQueryError(params: TTrackSearchQueryErrorParams): void {
+    this.trackEvent({
+      name: 'search_query_error',
+      parameters: {
+        id: params.id,
+        query_length: params.queryLength,
+        error_type: params.errorType,
+        error_message: params.errorMessage,
+        processing_time_ms: params.processingTimeMs,
+        search_method: params.searchMethod,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackSearchLimitExceeded(params: TTrackSearchLimitExceededParams): void {
+    this.trackEvent({
+      name: 'search_limit_exceeded',
+      parameters: {
+        user_subscription: params.userSubscription,
+        searches_today: params.searchesToday,
+        search_limit: params.searchLimit,
+        remaining_searches: params.remainingSearches,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackCallbackButtonClicked(params: TTrackCallbackButtonClickedParams): void {
+    this.trackEvent({
+      name: 'callback_button_clicked',
+      parameters: {
+        button_type: params.buttonType,
+        button_data: params.buttonData,
+        user_state: params.userState,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackCitySelectionCompleted(params: TTrackCitySelectionCompletedParams): void {
+    this.trackEvent({
+      name: 'city_selection_completed',
+      parameters: {
+        selected_city: params.selectedCity,
+        selection_method: params.selectionMethod,
+        old_city: params.oldCity,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackItemSelectionCompleted(params: TTrackItemSelectionCompletedParams): void {
+    this.trackEvent({
+      name: 'item_selection_completed',
+      parameters: {
+        search_history_id: params.searchHistoryId,
+        item_id: params.itemId,
+        has_photo: params.hasPhoto,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackPageNavigationCompleted(params: TTrackPageNavigationCompletedParams): void {
+    this.trackEvent({
+      name: 'page_navigation_completed',
+      parameters: {
+        search_history_id: params.searchHistoryId,
+        page_number: params.pageNumber,
+        total_pages: params.totalPages,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackHistoryItemRepeated(params: TTrackHistoryItemRepeatedParams): void {
+    this.trackEvent({
+      name: 'history_item_repeated',
+      parameters: {
+        history_item_id: params.historyItemId,
+        original_query: params.originalQuery,
+        query_length: params.queryLength,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackNeuralServiceError(params: TTrackNeuralServiceErrorParams): void {
+    this.trackEvent({
+      name: 'neural_service_error',
+      parameters: {
+        service_type: params.serviceType,
+        error_type: params.errorType,
+        error_message: params.errorMessage,
+        retry_count: params.retryCount,
+      },
+      timestamp: Date.now(),
+    });
+  }
+
+  public trackRateLimitExceeded(params: TTrackRateLimitExceededParams): void {
+    this.trackEvent({
+      name: 'rate_limit_exceeded',
+      parameters: {
+        limit_type: params.limitType,
+        current_requests: params.currentRequests,
+        limit_value: params.limitValue,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackCacheMiss(params: TTrackCacheMissParams): void {
+    this.trackEvent({
+      name: 'cache_miss',
+      parameters: {
+        cache_type: params.cacheType,
+        cache_key: params.cacheKey,
+        data_type: params.dataType,
+      },
+      timestamp: Date.now(),
+    });
+  }
+
+  public trackSearchHistoryViewed(params: TTrackSearchHistoryViewedParams): void {
+    this.trackEvent({
+      name: 'search_history_viewed',
+      parameters: {
+        history_items_count: params.historyItemsCount,
+        viewed_items_count: params.viewedItemsCount,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackUserStatsViewed(params: TTrackUserStatsViewedParams): void {
+    this.trackEvent({
+      name: 'user_stats_viewed',
+      parameters: {
+        user_subscription: params.userSubscription,
+        searches_today: params.searchesToday,
+        searches_this_month: params.searchesThisMonth,
+        total_searches: params.totalSearches,
+      },
+      timestamp: Date.now(),
+      user_id: params.userId,
+    });
+  }
+
+  public trackBotStarted(params: TTrackBotStartedParams): void {
+    this.trackEvent({
+      name: 'bot_started',
+      parameters: {
+        bot_version: params.botVersion,
+        environment: params.environment,
+        startup_time_ms: params.startupTimeMs,
+      },
+      timestamp: Date.now(),
+    });
+  }
+
+  public trackBotStopped(params: TTrackBotStoppedParams): void {
+    this.trackEvent({
+      name: 'bot_stopped',
+      parameters: {
+        uptime_minutes: params.uptimeMinutes,
+        total_requests: params.totalRequests,
+        total_errors: params.totalErrors,
+      },
+      timestamp: Date.now(),
     });
   }
 }

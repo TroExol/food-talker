@@ -109,36 +109,6 @@
 - `original_query` - оригинальный запрос
 - `query_length` - длина запроса
 
-## 4. API запросы
-
-### 4.1 `api_request_started`
-**Описание:** Начало запроса к внешнему API
-**Параметры:**
-- `id` - id запроса
-- `api_name` - название API ('yandex_eda')
-- `endpoint` - эндпоинт
-- `request_type` - тип запроса ('GET', 'POST')
-
-### 4.2 `api_request_completed`
-**Описание:** Завершение запроса к внешнему API
-**Параметры:**
-- `id` - id запроса
-- `api_name` - название API
-- `endpoint` - эндпоинт
-- `processing_time_ms` - время обработки
-- `response_size` - размер ответа
-- `status_code` - HTTP статус код
-
-### 4.3 `api_request_error`
-**Описание:** Ошибка при запросе к внешнему API
-**Параметры:**
-- `id` - id запроса
-- `api_name` - название API
-- `endpoint` - эндпоинт
-- `error_type` - тип ошибки
-- `status_code` - HTTP статус код
-- `processing_time_ms` - время до ошибки
-
 ## 5. LLM и Embedding запросы
 
 **Примечание:** Детальное логирование LLM и embedding запросов ведется в отдельной таблице БД. В Yandex Metrica отправляются только агрегированные метрики для мониторинга производительности.

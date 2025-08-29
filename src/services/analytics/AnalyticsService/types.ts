@@ -71,3 +71,118 @@ export interface TTrackUserStateChangedParams {
   trigger: string;
   userId: number;
 }
+
+export interface TTrackBotCommandErrorParams {
+  command: string;
+  errorType: string;
+  errorMessage: string;
+  userState: string;
+  userId?: number;
+}
+
+export interface TTrackMessageReceivedParams {
+  messageLength: number;
+  userState: string;
+  userCity?: string;
+  messageType: string;
+  userId: number;
+}
+
+export interface TTrackSearchQueryErrorParams {
+  id: string;
+  queryLength: number;
+  errorType: string;
+  errorMessage: string;
+  processingTimeMs: number;
+  searchMethod: string;
+  userId?: number;
+}
+
+export interface TTrackSearchLimitExceededParams {
+  userSubscription: string;
+  searchesToday: number;
+  searchLimit: number;
+  remainingSearches: number;
+  userId: number;
+}
+
+export interface TTrackCallbackButtonClickedParams {
+  buttonType: string;
+  buttonData: string;
+  userState: string;
+  userId: number;
+}
+
+export interface TTrackCitySelectionCompletedParams {
+  selectedCity: string;
+  selectionMethod: string;
+  oldCity?: string;
+  userId: number;
+}
+
+export interface TTrackItemSelectionCompletedParams {
+  searchHistoryId: string;
+  itemId: string;
+  hasPhoto: boolean;
+  userId: number;
+}
+
+export interface TTrackPageNavigationCompletedParams {
+  searchHistoryId: string;
+  pageNumber: number;
+  totalPages: number;
+  userId: number;
+}
+
+export interface TTrackHistoryItemRepeatedParams {
+  historyItemId: string;
+  originalQuery: string;
+  queryLength: number;
+  userId: number;
+}
+
+export interface TTrackNeuralServiceErrorParams {
+  serviceType: 'llm' | 'embedding';
+  errorType: string;
+  errorMessage: string;
+  retryCount: number;
+}
+
+export interface TTrackRateLimitExceededParams {
+  limitType: string;
+  currentRequests: number;
+  limitValue: number;
+  userId?: number;
+}
+
+export interface TTrackCacheMissParams {
+  cacheType: string;
+  cacheKey: string;
+  dataType: string;
+}
+
+export interface TTrackSearchHistoryViewedParams {
+  historyItemsCount: number;
+  viewedItemsCount: number;
+  userId: number;
+}
+
+export interface TTrackUserStatsViewedParams {
+  userSubscription: string;
+  searchesToday: number;
+  searchesThisMonth: number;
+  totalSearches: number;
+  userId: number;
+}
+
+export interface TTrackBotStartedParams {
+  botVersion: string;
+  environment: string;
+  startupTimeMs: number;
+}
+
+export interface TTrackBotStoppedParams {
+  uptimeMinutes: number;
+  totalRequests: number;
+  totalErrors: number;
+}
