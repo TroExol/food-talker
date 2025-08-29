@@ -16,6 +16,7 @@ import type { YESearchService } from '@/services/platforms/yandexEda/yeSearchSer
 import type { YEApiService } from '@/services/platforms/yandexEda/yeApiService/YEApiService';
 import type { LLMService } from '@/services/LLMService/LLMService';
 import type { CacheService } from '@/services/cacheService/CacheService';
+import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 
 import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 import { EAvailableCities } from '@/config/bot/types';
@@ -30,6 +31,7 @@ describe('SearchService', () => {
   let mockUserService: UserService;
   let mockCacheService: CacheService;
   let mockVectorSearchService: VectorSearchService;
+  let mockAnalyticsService: AnalyticsService;
 
   const mockUser = {
     telegramId: 123456789,
@@ -117,6 +119,14 @@ describe('SearchService', () => {
       initializeEmbeddingModel: vi.fn(),
     } as unknown as VectorSearchService;
 
+    // Мокаем AnalyticsService
+    mockAnalyticsService = {
+      trackError: vi.fn(),
+      trackPerformance: vi.fn(),
+      trackSearchQueryStarted: vi.fn(),
+      trackSearchQueryCompleted: vi.fn(),
+    } as unknown as AnalyticsService;
+
     searchService = new SearchService(
       mockLLMService,
       mockYEApiService,
@@ -124,6 +134,7 @@ describe('SearchService', () => {
       mockUserService,
       mockCacheService,
       mockVectorSearchService,
+      mockAnalyticsService,
     );
   });
 

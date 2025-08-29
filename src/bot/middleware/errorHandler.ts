@@ -1,5 +1,6 @@
 import type { TBotContext } from '@/types/telegram';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
+import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 import type { AdminNotificationService } from '@/services/admin/AdminNotificationService/AdminNotificationService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
@@ -10,6 +11,7 @@ export class ErrorHandlerMiddleware {
   constructor(
     private readonly messageFormatter: MessageFormatterService,
     private readonly adminNotificationService: AdminNotificationService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
 
   public handleError = async (ctx: TBotContext, next: () => Promise<void>): Promise<void> => {
@@ -17,6 +19,18 @@ export class ErrorHandlerMiddleware {
       await next();
     } catch (error) {
       ConsoleLogger.error('Bot error:', error as Error);
+
+      // Отслеживаем ошибку в аналитике
+      this.analyticsService.trackError({
+        error: error as Error,
+        context: {
+          component: 'bot_middleware',
+          user_action: 'unknown',
+          user_id: ctx.from?.id,
+          chat_id: ctx.chat?.id,
+          username: ctx.from?.username,
+        },
+      });
 
       // Отправляем уведомление админу для критических ошибок
       if (error instanceof AppError) {

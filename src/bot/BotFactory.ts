@@ -1,6 +1,7 @@
 import { UserServiceFactory } from '@/services/user/UserServiceFactory';
 import { SearchServiceFactory } from '@/services/search/SearchService/SearchServiceFactory';
 import { MessageFormatterFactory } from '@/services/message/MessageFormatter/MessageFormatterFactory';
+import { AnalyticsServiceFactory } from '@/services/analytics/AnalyticsService/AnalyticsServiceFactory';
 import {
   AdminNotificationServiceFactory,
 } from '@/services/admin/AdminNotificationService/AdminNotificationServiceFactory';
@@ -19,6 +20,7 @@ export class BotFactory {
         await SearchServiceFactory.getInstance(),
         MessageFormatterFactory.getInstance(),
         AdminNotificationServiceFactory.getInstance(),
+        AnalyticsServiceFactory.getInstance(),
       );
     }
 

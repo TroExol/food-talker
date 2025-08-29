@@ -8,6 +8,7 @@ import type { TBotContext, TMessageHandler } from '@/types/telegram';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { SearchService } from '@/services/search/SearchService/SearchService';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
+import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
@@ -20,6 +21,7 @@ export class MessageHandlers {
     private readonly userService: UserService,
     private readonly searchService: SearchService,
     private readonly messageFormatter: MessageFormatterService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
 
   public getHandlers = (): TMessageHandler[] => {
@@ -82,12 +84,22 @@ export class MessageHandlers {
     }
 
     try {
+      const oldState = ctx.user.state;
+
       // Обновляем город пользователя
       await this.userService.updateUserCity(ctx.user.telegramId, selectedCity);
 
       // Обновляем состояние пользователя
       ctx.user.city = selectedCity;
       ctx.user.state = EUserState.IDLE;
+
+      // Отслеживаем изменение состояния пользователя
+      this.analyticsService.trackUserStateChanged({
+        oldState,
+        newState: EUserState.IDLE,
+        trigger: 'city_selection',
+        userId: ctx.from?.id ?? 0,
+      });
 
       await ctx.answerCbQuery(`Город изменен на: ${selectedCity}`);
 

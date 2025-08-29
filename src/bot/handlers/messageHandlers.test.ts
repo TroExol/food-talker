@@ -10,6 +10,7 @@ import type { TBotContext } from '@/types/telegram';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { TUser } from '@/services/user/UserRepository/types';
 import type { SearchService } from '@/services/search/SearchService/SearchService';
+import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 
 import { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
 
@@ -20,6 +21,7 @@ describe('MessageHandlers', () => {
   let mockUserService: UserService;
   let mockSearchService: SearchService;
   let mockMessageFormatter: MessageFormatterService;
+  let mockAnalyticsService: AnalyticsService;
 
   beforeEach(() => {
     mockUserService = {
@@ -42,9 +44,22 @@ describe('MessageHandlers', () => {
       getSearchStats: vi.fn(),
     } as unknown as SearchService;
 
+    mockAnalyticsService = {
+      trackError: vi.fn(),
+      trackPerformance: vi.fn(),
+      trackSearchQueryStarted: vi.fn(),
+      trackSearchQueryCompleted: vi.fn(),
+      trackUserStateChanged: vi.fn(),
+    } as unknown as AnalyticsService;
+
     mockMessageFormatter = new MessageFormatterService();
 
-    messageHandlers = new MessageHandlers(mockUserService, mockSearchService, mockMessageFormatter);
+    messageHandlers = new MessageHandlers(
+      mockUserService,
+      mockSearchService,
+      mockMessageFormatter,
+      mockAnalyticsService,
+    );
   });
 
   describe('constructor', () => {

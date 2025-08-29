@@ -10,6 +10,7 @@ import type { TBotContext } from '@/types/telegram';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { SearchService } from '@/services/search/SearchService/SearchService';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
+import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 
 import { EBotCommand } from '@/types/telegram';
 
@@ -36,6 +37,14 @@ const mockMessageFormatter = {
   formatSearchResults: vi.fn(),
 };
 
+const mockAnalyticsService = {
+  trackError: vi.fn(),
+  trackPerformance: vi.fn(),
+  trackSearchQueryStarted: vi.fn(),
+  trackSearchQueryCompleted: vi.fn(),
+  trackUserStateChanged: vi.fn(),
+};
+
 describe('CommandHandlers', () => {
   let commandHandlers: CommandHandlers;
 
@@ -44,6 +53,7 @@ describe('CommandHandlers', () => {
       mockUserService as unknown as UserService,
       mockSearchService as unknown as SearchService,
       mockMessageFormatter as unknown as MessageFormatterService,
+      mockAnalyticsService as unknown as AnalyticsService,
     );
     vi.clearAllMocks();
   });

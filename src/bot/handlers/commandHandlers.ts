@@ -2,6 +2,7 @@ import type { TBotContext, TCommandHandler } from '@/types/telegram';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { SearchService } from '@/services/search/SearchService/SearchService';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
+import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
@@ -14,6 +15,7 @@ export class CommandHandlers {
     private readonly userService: UserService,
     private readonly searchService: SearchService,
     private readonly messageFormatter: MessageFormatterService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
 
   public getHandlers = (): TCommandHandler[] => {
@@ -57,20 +59,48 @@ export class CommandHandlers {
   };
 
   private handleStart = async (ctx: TBotContext): Promise<void> => {
-    if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
-    }
+    const startTime = Date.now();
 
-    if (ctx.user.state === EUserState.WAITING_FOR_CITY) {
-      await this.showCitySelection(ctx);
-    } else {
-      const userName = ctx.from?.first_name;
-      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName, ctx.user.city);
-
-      await ctx.reply(formattedMessage.text, {
-        parse_mode: formattedMessage.parseMode,
-        reply_markup: formattedMessage.replyMarkup,
+    try {
+      // Отслеживаем выполнение команды
+      this.analyticsService.trackBotCommand({
+        command: '/start',
+        userState: ctx.user?.state ?? '',
+        userCity: ctx.user?.city ?? '',
+        userId: ctx.from?.id ?? 0,
       });
+
+      if (!ctx.user) {
+        throw AppError.userNotFound(ctx.from?.id ?? 0);
+      }
+
+      if (ctx.user.state === EUserState.WAITING_FOR_CITY) {
+        await this.showCitySelection(ctx);
+      } else {
+        const userName = ctx.from?.first_name;
+        const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName, ctx.user.city);
+
+        await ctx.reply(formattedMessage.text, {
+          parse_mode: formattedMessage.parseMode,
+          reply_markup: formattedMessage.replyMarkup,
+        });
+      }
+
+      // Отслеживаем производительность
+      const duration = Date.now() - startTime;
+      this.analyticsService.trackPerformance({ operation: 'command_start', duration });
+    } catch (error) {
+      // Отслеживаем ошибку
+      this.analyticsService.trackError({
+        error: error as Error,
+        context: {
+          component: 'command_handler',
+          user_action: 'start_command',
+          user_id: ctx.from?.id,
+          command: '/start',
+        },
+      });
+      throw error;
     }
   };
 
@@ -124,48 +154,68 @@ export class CommandHandlers {
   };
 
   private handleSearch = async (ctx: TBotContext): Promise<void> => {
-    if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
-    }
-
-    if (!ctx.message || !('text' in ctx.message)) {
-      await ctx.reply('Использование: /search <запрос>\n\nПример: /search пицца с грибами');
-      return;
-    }
-
-    const query = ctx.message.text.replace(/^\/search(?:@\w+)?\s*/, '').trim();
-
-    if (!query) {
-      await ctx.reply('Использование: /search <запрос>\n\nПример: /search пицца с грибами');
-      return;
-    }
-
-    // Проверяем длину запроса
-    if (query.length > 500) {
-      await ctx.reply('Запрос слишком длинный. Максимальная длина - 500 символов.');
-      return;
-    }
-
-    if (query.length < 3) {
-      await ctx.reply('Запрос слишком короткий. Опишите, что хотите найти.');
-      return;
-    }
-
-    if (!ctx.user.city) {
-      await ctx.reply('Сначала выберите город для доставки командой /address');
-      return;
-    }
-
-    const canSearch = await this.userService.checkSearchLimit(ctx.user.telegramId);
-    if (!canSearch) {
-      await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.');
-      return;
-    }
-
-    // Устанавливаем состояние ожидания обработки запроса
-    ctx.user.state = EUserState.WAITING_FOR_SEARCH_QUERY;
+    const startTime = Date.now();
+    const searchId = `search_${Date.now()}_${ctx.from?.id ?? 0}`;
 
     try {
+      if (!ctx.user) {
+        throw AppError.userNotFound(ctx.from?.id ?? 0);
+      }
+
+      if (!ctx.message || !('text' in ctx.message)) {
+        await ctx.reply('Использование: /search <запрос>\n\nПример: /search пицца с грибами');
+        return;
+      }
+
+      const query = ctx.message.text.replace(/^\/search(?:@\w+)?\s*/, '').trim();
+
+      if (!query) {
+        await ctx.reply('Использование: /search <запрос>\n\nПример: /search пицца с грибами');
+        return;
+      }
+
+      // Проверяем длину запроса
+      if (query.length > 500) {
+        await ctx.reply('Запрос слишком длинный. Максимальная длина - 500 символов.');
+        return;
+      }
+
+      if (query.length < 3) {
+        await ctx.reply('Запрос слишком короткий. Опишите, что хотите найти.');
+        return;
+      }
+
+      if (!ctx.user.city) {
+        await ctx.reply('Сначала выберите город для доставки командой /address');
+        return;
+      }
+
+      const canSearch = await this.userService.checkSearchLimit(ctx.user.telegramId);
+      if (!canSearch) {
+        await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.');
+        return;
+      }
+
+      const searchOptions = {
+        enableLLMEnhancement: true,
+        enableVectorSearch: true,
+      };
+
+      // Отслеживаем начало поиска
+      this.analyticsService.trackSearchQueryStarted({
+        id: searchId,
+        query,
+        userCity: ctx.user.city,
+        searchOptions: {
+          enableLLMEnhancement: searchOptions.enableLLMEnhancement,
+          enableVectorSearch: searchOptions.enableVectorSearch,
+        },
+        userId: ctx.from?.id ?? 0,
+      });
+
+      // Устанавливаем состояние ожидания обработки запроса
+      ctx.user.state = EUserState.WAITING_FOR_SEARCH_QUERY;
+
       const botMessage = await ctx.reply('🔍 Ищу для вас...');
 
       const timeout = setTimeout(() => {
@@ -176,8 +226,8 @@ export class CommandHandlers {
 
       // Выполняем поиск через SearchService
       const results = await this.searchService.searchFood(query, ctx.user.telegramId, {
-        enableLLMEnhancement: true,
-        enableVectorSearch: true,
+        enableLLMEnhancement: searchOptions.enableLLMEnhancement,
+        enableVectorSearch: searchOptions.enableVectorSearch,
       });
       const searchHistory = await this.userService.getSearchHistory(ctx.user.telegramId, 1);
 
@@ -191,6 +241,19 @@ export class CommandHandlers {
         await ctx.reply(noResultsMessage.text, {
           parse_mode: noResultsMessage.parseMode,
           reply_markup: noResultsMessage.replyMarkup,
+        });
+
+        // Отслеживаем завершение поиска с 0 результатами
+        const duration = Date.now() - startTime;
+        this.analyticsService.trackSearchQueryCompleted({
+          id: searchId,
+          queryLength: query.length,
+          resultsCount: 0,
+          processingTimeMs: duration,
+          searchMethod: 'hybrid',
+          hasLlmEnhancement: searchOptions.enableLLMEnhancement,
+          hasVectorSearch: searchOptions.enableVectorSearch,
+          userId: ctx.from?.id ?? 0,
         });
         return;
       }
@@ -206,15 +269,42 @@ export class CommandHandlers {
         parse_mode: formattedResults.parseMode,
         reply_markup: formattedResults.replyMarkup,
       });
+
+      // Отслеживаем завершение поиска
+      const duration = Date.now() - startTime;
+      this.analyticsService.trackSearchQueryCompleted({
+        id: searchId,
+        queryLength: query.length,
+        resultsCount: results.length,
+        processingTimeMs: duration,
+        searchMethod: 'hybrid',
+        hasLlmEnhancement: true,
+        hasVectorSearch: true,
+        userId: ctx.from?.id ?? 0,
+      });
     } catch (error) {
+      // Отслеживаем ошибку поиска
+      this.analyticsService.trackError({
+        error: error as Error,
+        context: {
+          component: 'search_handler',
+          user_action: 'search_query',
+          user_id: ctx.from?.id,
+          search_id: searchId,
+          query: ctx.message && 'text' in ctx.message ? ctx.message.text.replace(/^\/search(?:@\w+)?\s*/, '').trim() : '',
+        },
+      });
+
       ConsoleLogger.error('Ошибка при поиске', error as Error, {
         telegramId: ctx.from?.id,
-        city: ctx.user.city,
-        query,
+        city: ctx.user?.city,
+        query: ctx.message && 'text' in ctx.message ? ctx.message.text.replace(/^\/search(?:@\w+)?\s*/, '').trim() : '',
       });
       await ctx.reply('Ошибка при поиске. Попробуйте еще раз.');
     } finally {
-      ctx.user.state = EUserState.IDLE;
+      if (ctx.user) {
+        ctx.user.state = EUserState.IDLE;
+      }
     }
   };
 

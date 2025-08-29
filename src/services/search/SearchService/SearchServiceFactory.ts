@@ -3,6 +3,7 @@ import { VectorSearchServiceFactory } from '@/services/search/VectorSearchServic
 import { YESearchServiceFactory } from '@/services/platforms/yandexEda/yeSearchService/YESearchServiceFactory';
 import { YEApiServiceFactory } from '@/services/platforms/yandexEda/yeApiService/YEApiServiceFactory';
 import { CacheServiceFactory } from '@/services/cacheService/CacheServiceFactory';
+import { AnalyticsServiceFactory } from '@/services/analytics/AnalyticsService/AnalyticsServiceFactory';
 
 import { SearchService } from './SearchService';
 import { LLMServiceFactory } from '../../LLMService/LLMServiceFactory';
@@ -19,6 +20,7 @@ export class SearchServiceFactory {
         await UserServiceFactory.getInstance(),
         CacheServiceFactory.getRedisInstance(),
         await VectorSearchServiceFactory.getInstance(),
+        AnalyticsServiceFactory.getInstance(),
       );
     }
     return SearchServiceFactory.instance;

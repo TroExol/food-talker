@@ -8,6 +8,7 @@ import {
 
 import type { TBotContext } from '@/types/telegram';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
+import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 import type { AdminNotificationService } from '@/services/admin/AdminNotificationService/AdminNotificationService';
 
 import { AppError } from '@/utils/AppError';
@@ -18,6 +19,7 @@ describe('ErrorHandlerMiddleware', () => {
   let middleware: ErrorHandlerMiddleware;
   let mockMessageFormatter: MessageFormatterService;
   let mockAdminNotificationService: AdminNotificationService;
+  let mockAnalyticsService: AnalyticsService;
   let mockContext: TBotContext;
 
   beforeEach(() => {
@@ -40,7 +42,19 @@ describe('ErrorHandlerMiddleware', () => {
       chat: { id: 456 },
     } as unknown as TBotContext;
 
-    middleware = new ErrorHandlerMiddleware(mockMessageFormatter, mockAdminNotificationService);
+    mockAnalyticsService = {
+      trackError: vi.fn(),
+      trackPerformance: vi.fn(),
+      trackSearchQueryStarted: vi.fn(),
+      trackSearchQueryCompleted: vi.fn(),
+      trackUserStateChanged: vi.fn(),
+    } as unknown as AnalyticsService;
+
+    middleware = new ErrorHandlerMiddleware(
+      mockMessageFormatter,
+      mockAdminNotificationService,
+      mockAnalyticsService,
+    );
   });
 
   describe('handleError', () => {

@@ -9,6 +9,7 @@ import type { YESearchService } from '@/services/platforms/yandexEda/yeSearchSer
 import type { YEApiService } from '@/services/platforms/yandexEda/yeApiService/YEApiService';
 import type { LLMService } from '@/services/LLMService/LLMService';
 import type { CacheService } from '@/services/cacheService/CacheService';
+import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 import type { EAvailableCities } from '@/config/bot/types';
 
 import { Validator } from '@/utils/Validator';
@@ -27,6 +28,7 @@ export class SearchService {
     private readonly userService: UserService,
     private readonly cacheService: CacheService,
     private readonly vectorSearchService: VectorSearchService,
+    private readonly analyticsService: AnalyticsService,
   ) { }
 
   public searchFood = async (
@@ -83,8 +85,22 @@ export class SearchService {
         city: user.city,
       });
 
+      // Отслеживаем производительность поиска
+      this.analyticsService.trackPerformance({ operation: 'search_food', duration });
+
       return results;
     } catch (error) {
+      // Отслеживаем ошибку поиска
+      this.analyticsService.trackError({
+        error: error as Error,
+        context: {
+          component: 'search_service',
+          user_action: 'search_food',
+          user_id: telegramId,
+          query: naturalQuery,
+        },
+      });
+
       ConsoleLogger.error('Ошибка поиска еды', error as Error, { query: naturalQuery, telegramId });
       throw this.handleSearchError(error, naturalQuery);
     }

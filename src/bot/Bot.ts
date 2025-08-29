@@ -6,6 +6,7 @@ import type { TBotContext, TRateLimitConfig } from '@/types/telegram';
 import type { UserService } from '@/services/user/UserService/UserService';
 import type { SearchService } from '@/services/search/SearchService/SearchService';
 import type { MessageFormatterService } from '@/services/message/MessageFormatter/MessageFormatter';
+import type { AnalyticsService } from '@/services/analytics/AnalyticsService/AnalyticsService';
 import type { AdminNotificationService } from '@/services/admin/AdminNotificationService/AdminNotificationService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
@@ -31,6 +32,7 @@ export class Bot {
     private readonly searchService: SearchService,
     private readonly messageFormatter: MessageFormatterService,
     private readonly adminNotificationService: AdminNotificationService,
+    private readonly analyticsService: AnalyticsService,
   ) {
     this.telegraf = new Telegraf<TBotContext>(token);
 
@@ -43,9 +45,13 @@ export class Bot {
     this.authMiddleware = new AuthMiddleware(userService);
     this.rateLimitMiddleware = new RateLimitMiddleware(this.rateLimitConfig);
 
-    this.errorHandlerMiddleware = new ErrorHandlerMiddleware(messageFormatter, adminNotificationService);
-    this.commandHandlers = new CommandHandlers(userService, searchService, messageFormatter);
-    this.messageHandlers = new MessageHandlers(userService, searchService, messageFormatter);
+    this.errorHandlerMiddleware = new ErrorHandlerMiddleware(
+      messageFormatter,
+      adminNotificationService,
+      analyticsService,
+    );
+    this.commandHandlers = new CommandHandlers(userService, searchService, messageFormatter, analyticsService);
+    this.messageHandlers = new MessageHandlers(userService, searchService, messageFormatter, analyticsService);
 
     this.setupMiddleware();
     this.setupHandlers();
