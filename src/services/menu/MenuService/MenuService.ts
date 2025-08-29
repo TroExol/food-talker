@@ -40,16 +40,28 @@ export class MenuService {
 
   public createMenu = async (menu: TMenuItem[]): Promise<void> => {
     try {
-      const vectorMenu: TVectorMenuItem[] = [];
-      for (const item of menu) {
-        const textForEmbedding = `${item.name} ${item.description} ${item.ingredients.join(', ')} ${item.category}`.trim();
-        const embedding = await this.embeddingService.generateEmbedding(textForEmbedding);
-        vectorMenu.push({
-          ...item,
-          embedding,
-        });
-      }
+      if (menu.length === 0) return;
+
+      // Подготавливаем тексты для embedding
+      const textsForEmbedding = menu.map(item =>
+        `${item.name} ${item.description} ${item.ingredients.join(', ')} ${item.category}`.trim(),
+      );
+
+      // Генерируем embedding батчем
+      const embeddings = await this.embeddingService.generateEmbeddingsBatch(textsForEmbedding);
+
+      // Создаем векторные элементы меню
+      const vectorMenu: TVectorMenuItem[] = menu.map((item, index) => ({
+        ...item,
+        embedding: embeddings[index],
+      }));
+
       await this.menuRepository.createBulk(vectorMenu);
+
+      ConsoleLogger.info('Меню создано с батч embedding', {
+        menuItemCount: menu.length,
+        embeddingCount: embeddings.length,
+      });
     } catch (error) {
       ConsoleLogger.error('Ошибка создания блюд', error as Error, { menuItemCount: menu.length });
       throw AppError.systemError('MENU_CREATION_FAILED', 'Не удалось создать блюда');

@@ -5,7 +5,7 @@ export interface TEmbeddingConfig {
 }
 
 export interface TEmbeddingRequest {
-  input: string;
+  input: string | string[];
   model?: string;
 }
 

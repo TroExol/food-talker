@@ -200,7 +200,7 @@ describe('MessageHandlers', () => {
     it('должен обрабатывать выбор города', async () => {
       const mockContext = {
         user: { telegramId: 123456789 },
-        callbackQuery: { data: 'city:Москва' },
+        callbackQuery: { data: 'city:Пермь' },
         reply: vi.fn(),
         answerCbQuery: vi.fn(),
         from: { id: 123456789 },
@@ -210,7 +210,7 @@ describe('MessageHandlers', () => {
 
       const mockUser = {
         telegramId: 123456789,
-        city: 'Москва',
+        city: 'Пермь',
       };
 
       vi.mocked(mockUserService.updateUserCity).mockResolvedValue(mockUser as unknown as TUser);
@@ -221,8 +221,8 @@ describe('MessageHandlers', () => {
       if (callbackHandler) {
         await callbackHandler.handler(mockContext as unknown as TBotContext);
 
-        expect(mockUserService.updateUserCity).toHaveBeenCalledWith(123456789, 'Москва');
-        expect(mockContext.answerCbQuery).toHaveBeenCalledWith('Город изменен на: Москва');
+        expect(mockUserService.updateUserCity).toHaveBeenCalledWith(123456789, 'Пермь');
+        expect(mockContext.answerCbQuery).toHaveBeenCalledWith('Город изменен на: Пермь');
       }
     });
 

@@ -90,7 +90,7 @@ describe('UserService', () => {
       const existingUser: TUser = {
         telegramId,
         chatId,
-        city: EAvailableCities.MOSCOW,
+        city: EAvailableCities.PERM,
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: new Date(),
         createdAt: new Date(),
@@ -153,7 +153,7 @@ describe('UserService', () => {
   describe('updateUserCity', () => {
     it('должен обновить город пользователя', async () => {
       const telegramId = 123456789;
-      const newCity = EAvailableCities.MOSCOW;
+      const newCity = EAvailableCities.PERM;
 
       const existingUser: TUser = {
         telegramId,
@@ -167,7 +167,7 @@ describe('UserService', () => {
 
       const updatedUser: TUser = {
         ...existingUser,
-        city: EAvailableCities.MOSCOW,
+        city: EAvailableCities.PERM,
         updatedAt: new Date(),
       };
 
@@ -177,7 +177,7 @@ describe('UserService', () => {
       const result = await userService.updateUserCity(telegramId, newCity);
 
       expect(result).toEqual(updatedUser);
-      expect(mockUserRepository.update).toHaveBeenCalledWith(telegramId, { city: 'Москва' });
+      expect(mockUserRepository.update).toHaveBeenCalledWith(telegramId, { city: EAvailableCities.PERM });
     });
 
     it('должен выбросить ошибку если пользователь не найден', async () => {

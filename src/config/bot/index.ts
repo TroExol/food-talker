@@ -28,7 +28,7 @@ export const botConfig: TBotConfig = {
       requestsPerMinute: 300,
       requestsPerHour: 300 * Object.values(EAvailableCities).length * 2,
     },
-    delayBetweenRequestsMs: 200,
+    delayBetweenRequestsMs: 100,
     retries: 3,
   },
   fallbackFoodImage: 'https://i.postimg.cc/Vk5DKb2j/generated-image.jpg',

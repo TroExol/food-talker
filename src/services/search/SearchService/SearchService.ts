@@ -189,7 +189,7 @@ export class SearchService {
       return searchResults;
       // TODO: Uncomment this when we have a better model
       // try {
-      //   return await this.llmService.enhanceSearchResults(searchResults, originalQuery, 'yandex/YandexGPT-5-Lite-8B-instruct-GGUF');
+      //   return await this.llmService.enhanceSearchResults(searchResults, originalQuery, 'Qwen/Qwen2.5-7B-Instruct-GGUF');
       // } catch (errorFallback) {
       //   ConsoleLogger.warn('Не удалось улучшить результаты через LLM', errorFallback as Error);
       //   return searchResults; // Fallback к оригинальным результатам

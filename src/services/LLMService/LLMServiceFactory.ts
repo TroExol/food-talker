@@ -14,7 +14,7 @@ export class LLMServiceFactory {
         CacheServiceFactory.getRedisInstance(),
         await NeuralRequestLoggingServiceFactory.getInstance(),
         {
-          model: 'yandex/YandexGPT-5-Lite-8B-instruct-GGUF',
+          model: 'Qwen/Qwen2.5-7B-Instruct-GGUF',
           systemPrompt: 'Ты - помощник для поиска еды. Reasoning: low',
           timeoutMs: 40000,
         },

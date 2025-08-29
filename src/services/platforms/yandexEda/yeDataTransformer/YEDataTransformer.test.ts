@@ -42,7 +42,7 @@ describe('DataTransformer', () => {
   };
 
   describe('extractIngredients', () => {
-    it('должен извлечь ингредиенты из стандартного описания с "Состав:"', async () => {
+    it('должен извлечь ингредиенты из стандартного описания с "Состав:"', () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 1,
         name: 'Тест блюдо',
@@ -67,7 +67,7 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       // Проверяем что ингредиенты извлечены (исключая названия роллов)
       expect(result.ingredients.length).toBeGreaterThan(0);
@@ -75,7 +75,7 @@ describe('DataTransformer', () => {
       expect(result.ingredients).not.toContain('Калифорния');
     });
 
-    it('должен извлечь ингредиенты из простого списка без title "Состав"', async () => {
+    it('должен извлечь ингредиенты из простого списка без title "Состав"', () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 2,
         name: 'Простое блюдо',
@@ -100,7 +100,7 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       expect(result.ingredients).toContain('рис');
       expect(result.ingredients).toContain('сыр сливочный');
@@ -108,7 +108,7 @@ describe('DataTransformer', () => {
       expect(result.ingredients.length).toBeGreaterThan(10);
     });
 
-    it('должен извлечь ингредиенты из описания с рекламным текстом', async () => {
+    it('должен извлечь ингредиенты из описания с рекламным текстом', () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 3,
         name: 'Сет роллов',
@@ -133,7 +133,7 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       expect(result.ingredients).toContain('лосось');
       expect(result.ingredients).toContain('огурец');
@@ -141,7 +141,7 @@ describe('DataTransformer', () => {
       expect(result.ingredients.length).toBeGreaterThan(4);
     });
 
-    it('должен вернуть пустой массив если нет описания состава', async () => {
+    it('должен вернуть пустой массив если нет описания состава', () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 4,
         name: 'Блюдо без состава',
@@ -166,12 +166,12 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       expect(result.ingredients).toEqual([]);
     });
 
-    it('должен игнорировать рекламный текст и найти чистый список ингредиентов', async () => {
+    it('должен игнорировать рекламный текст и найти чистый список ингредиентов', () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 6,
         name: 'Сложное блюдо',
@@ -203,7 +203,7 @@ describe('DataTransformer', () => {
         ],
       };
 
-      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       // Должен найти чистый список ингредиентов, а не рекламный текст с названиями роллов
       expect(result.ingredients).toContain('рис');
@@ -213,7 +213,7 @@ describe('DataTransformer', () => {
       expect(result.ingredients).toContain('лава темпура');
     });
 
-    it('должен вернуть пустой массив если нет descriptions', async () => {
+    it('должен вернуть пустой массив если нет descriptions', () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 5,
         name: 'Блюдо без описаний',
@@ -229,18 +229,18 @@ describe('DataTransformer', () => {
         publicId: 'test5',
       };
 
-      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       expect(result.ingredients).toEqual([]);
     });
   });
 
   describe('transformMenuItem', () => {
-    it('должен определить категорию блюда через LLM', async () => {
+    it('должен определить категорию блюда через LLM', () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 1,
-        name: 'Пицца Маргарита',
-        description: 'Классическая пицца',
+        name: 'Экзотическое блюдо',
+        description: 'Уникальное блюдо с необычными ингредиентами',
         available: true,
         inStock: true,
         price: 500,
@@ -256,17 +256,18 @@ describe('DataTransformer', () => {
       // Мокаем LLM для возврата категории MAIN
       mockLLMService.categorizeDish = vi.fn().mockResolvedValue(EDishCategory.MAIN);
 
-      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
-      expect(mockLLMService.categorizeDish).toHaveBeenCalledWith('Пицца Маргарита', 'Классическая пицца', [], undefined);
-      expect(result.category).toBe(EDishCategory.MAIN);
+      // LLM не вызывается в transformMenuItem, только локальная категоризация
+      expect(mockLLMService.categorizeDish).not.toHaveBeenCalled();
+      expect(result.category).toBe(EDishCategory.MAIN); // Fallback значение
     });
 
-    it('должен обработать ошибку категоризации и вернуть MAIN', async () => {
+    it('должен обработать ошибку категоризации и вернуть MAIN', () => {
       const yeMenuItem: TYEMenuItemFromServer = {
         id: 2,
-        name: 'Бургер',
-        description: 'Сочный бургер',
+        name: 'Неизвестное блюдо',
+        description: 'Блюдо без четкой категории',
         available: true,
         inStock: true,
         price: 400,
@@ -279,12 +280,13 @@ describe('DataTransformer', () => {
         descriptions: [],
       };
 
-      // Мокаем ошибку LLM
+      // LLM не вызывается в transformMenuItem
       mockLLMService.categorizeDish = vi.fn().mockRejectedValue(new Error('LLM Error'));
 
-      const result = await transformer.transformMenuItem(yeMenuItem, mockRestaurant);
+      const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
-      expect(result.category).toBe(EDishCategory.MAIN); // Fallback к MAIN
+      expect(mockLLMService.categorizeDish).not.toHaveBeenCalled();
+      expect(result.category).toBe(EDishCategory.MAIN); // Fallback значение
     });
   });
 

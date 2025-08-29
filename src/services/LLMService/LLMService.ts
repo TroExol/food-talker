@@ -67,7 +67,7 @@ export class LLMService {
         '/v1/chat/completions',
         ENeuralRequestType.LLM_STRUCTURE_QUERY,
         userTelegramId,
-        'yandex/YandexGPT-5-Lite-8B-instruct-GGUF',
+        'Qwen/Qwen2.5-7B-Instruct-GGUF',
         {
           temperature: 0.4,
           max_tokens: 5000,
@@ -455,12 +455,12 @@ ${menuList}
           throw error;
         }
 
-        ConsoleLogger.warn(`Попытка ${attempt + 1} не удалась, повторяю...`, error as Error);
+        ConsoleLogger.warn(`LLM попытка ${attempt + 1} не удалась, повторяю...`, error as Error);
         await sleep(1000 * attempt);
       }
     }
 
-    throw new Error('Все попытки вызова LLM не удались');
+    throw new Error('LLM все попытки вызова не удались');
   };
 
   private callLLM = async (
@@ -733,7 +733,7 @@ ${menuList}
         '/v1/chat/completions',
         ENeuralRequestType.LLM_CATEGORIZE_DISHES,
         userTelegramId,
-        'yandex/YandexGPT-5-Lite-8B-instruct-GGUF',
+        'Qwen/Qwen2.5-7B-Instruct-GGUF',
         {
           temperature: 0.2,
           max_tokens: 2000,

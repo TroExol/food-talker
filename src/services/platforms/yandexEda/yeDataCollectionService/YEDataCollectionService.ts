@@ -13,6 +13,8 @@ import type { YEApiService } from '../yeApiService/YEApiService';
 export class YEDataCollectionService {
   private lastUpdateTime: Date | null = null;
   private errorCount = 0;
+  private readonly maxConcurrentRestaurants = 5; // Максимум параллельных запросов к ресторанам
+  private readonly maxConcurrentCities = 2; // Максимум параллельных городов
 
   constructor(
     private readonly yeApiService: YEApiService,
@@ -21,12 +23,17 @@ export class YEDataCollectionService {
 
   public updateRestaurants = async (): Promise<void> => {
     try {
-      for (const cityName of botConfig.availableCities) {
-        await this.updateCityRestaurants(cityName);
+      // Параллельная обработка городов с ограничением
+      const cityBatches = this.chunkArray(botConfig.availableCities, this.maxConcurrentCities);
 
-        // Небольшая пауза между городами чтобы не перегружать API
-        if (botConfig.availableCities.indexOf(cityName) !== botConfig.availableCities.length - 1) {
-          await sleep(2000);
+      for (const cityBatch of cityBatches) {
+        await Promise.all(
+          cityBatch.map(cityName => this.updateCityRestaurants(cityName)),
+        );
+
+        // Пауза между батчами городов
+        if (cityBatches.indexOf(cityBatch) !== cityBatches.length - 1) {
+          await sleep(1000);
         }
       }
 
@@ -101,8 +108,25 @@ export class YEDataCollectionService {
         restaurantsCount: restaurants.length,
       });
 
-      for (const restaurant of restaurants) {
-        await this.updateRestaurantMenu(restaurant.id, city);
+      // Параллельная обработка ресторанов с ограничением
+      const restaurantBatches = this.chunkArray(restaurants, this.maxConcurrentRestaurants);
+
+      for (const restaurantBatch of restaurantBatches) {
+        await Promise.all(
+          restaurantBatch.map(restaurant =>
+            this.updateRestaurantMenu(restaurant.id, city).catch(error => {
+              ConsoleLogger.error('Ошибка обновления меню ресторана', error as Error, {
+                restaurantId: restaurant.id,
+                city,
+              });
+            }),
+          ),
+        );
+
+        // Небольшая пауза между батчами ресторанов
+        if (restaurantBatches.indexOf(restaurantBatch) !== restaurantBatches.length - 1) {
+          await sleep(500);
+        }
       }
 
       ConsoleLogger.info('Меню для всех ресторанов Яндекс.Еда для города обновлено', {
@@ -113,5 +137,14 @@ export class YEDataCollectionService {
       ConsoleLogger.error('Не удалось обновить данные ресторанов Яндекс.Еда для города', error as Error, { city });
       throw error;
     }
+  };
+
+  // Вспомогательный метод для разбиения массива на батчи
+  private chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+      chunks.push(array.slice(i, i + chunkSize));
+    }
+    return chunks;
   };
 }

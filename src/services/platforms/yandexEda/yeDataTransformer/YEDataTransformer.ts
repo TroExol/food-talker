@@ -11,9 +11,16 @@ import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { EDishCategory } from '@/types/menuItem';
 import { botConfig } from '@/config/bot';
 
-import type { TYEDataTransformer } from './types';
+export class YEDataTransformer {
+  // Локальный классификатор для быстрой категоризации
+  private readonly localClassifier = {
+    accessory: ['салфетки', 'палочки', 'вилка', 'ложка', 'контейнер', 'упаковка'],
+    drink: ['кола', 'сок', 'чай', 'кофе', 'лимонад', 'вода', 'напиток', 'компот', 'морс'],
+    main: ['бургер', 'пицца', 'ролл', 'суши', 'стейк', 'курица', 'паста', 'суп', 'шашлык', 'котлета', 'рыба', 'мясо'],
+    sauce: ['кетчуп', 'майонез', 'горчица', 'соус', 'заправка', 'аджика', 'хрен'],
+    side: ['картошка', 'рис', 'макароны', 'салат', 'овощи', 'гарнир', 'пюре'],
+  };
 
-export class YEDataTransformer implements TYEDataTransformer {
   constructor(
     private readonly llmService: LLMService,
   ) { }
@@ -40,10 +47,55 @@ export class YEDataTransformer implements TYEDataTransformer {
     }
   };
 
-  public transformMenuItem = async (
+  // Локальная категоризация без LLM
+  private categorizeLocally = (name: string, description?: string): EDishCategory | null => {
+    const text = `${name} ${description || ''}`.toLowerCase();
+
+    for (const [category, keywords] of Object.entries(this.localClassifier)) {
+      if (keywords.some(keyword => text.includes(keyword))) {
+        switch (category) {
+          case 'accessory': return EDishCategory.ACCESSORY;
+          case 'drink': return EDishCategory.DRINK;
+          case 'main': return EDishCategory.MAIN;
+          case 'sauce': return EDishCategory.SAUCE;
+          case 'side': return EDishCategory.SIDE;
+        }
+      }
+    }
+
+    return null; // Не удалось определить локально
+  };
+
+  // Батчинг категоризации через LLM
+  private categorizeBatch = async (items: Array<{
+    name: string;
+    description?: string;
+    ingredients?: string[];
+  }>): Promise<EDishCategory[]> => {
+    if (items.length === 0) return [];
+
+    try {
+      // Используем параллельные запросы к существующему методу
+      const categoryPromises = items.map(item =>
+        this.llmService.categorizeDish(
+          item.name,
+          item.description,
+          item.ingredients,
+          undefined,
+        ).catch(() => EDishCategory.MAIN), // Fallback на случай ошибки
+      );
+
+      return await Promise.all(categoryPromises);
+    } catch (error) {
+      ConsoleLogger.error('Ошибка батч категоризации, используем fallback', error as Error);
+      return new Array<EDishCategory>(items.length).fill(EDishCategory.MAIN);
+    }
+  };
+
+  public transformMenuItem = (
     yeMenuItem: TYEMenuItemFromServer,
     restaurant: TYERestaurant,
-  ): Promise<TMenuItem> => {
+  ): TMenuItem => {
     try {
       const ingredients = this.extractIngredients(yeMenuItem);
 
@@ -51,18 +103,12 @@ export class YEDataTransformer implements TYEDataTransformer {
         ? `https://eda.yandex${yeMenuItem.picture.uri.replace('{w}x{h}', '400x400')}`
         : undefined;
 
-      // Определяем категорию блюда через LLM
-      let category: EDishCategory;
-      try {
-        category = await this.llmService.categorizeDish(
-          yeMenuItem.name,
-          yeMenuItem.description,
-          ingredients,
-          undefined,
-        );
-      } catch (error) {
-        ConsoleLogger.error('Ошибка категоризации блюда, используем MAIN', error as Error, { dishName: yeMenuItem.name });
-        category = EDishCategory.MAIN; // Fallback к основной категории
+      // Сначала пробуем локальную категоризацию
+      let category = this.categorizeLocally(yeMenuItem.name, yeMenuItem.description);
+
+      // Если не удалось, используем LLM (будет обработано в батче)
+      if (!category) {
+        category = EDishCategory.MAIN; // Временное значение, будет заменено в батче
       }
 
       const menuItem: TMenuItem = {
@@ -97,16 +143,75 @@ export class YEDataTransformer implements TYEDataTransformer {
   ): Promise<TMenuItem[]> => {
     try {
       const menuItems: TMenuItem[] = [];
+      const itemsForLLM: Array<{
+        name: string;
+        description?: string;
+        ingredients?: string[];
+        index: number;
+      }> = [];
 
-      for (const yeMenuItem of yeMenuItems) {
+      // Первый проход - создаем базовые элементы и собираем те, что нуждаются в LLM
+      for (let i = 0; i < yeMenuItems.length; i++) {
+        const yeMenuItem = yeMenuItems[i];
         try {
-          const menuItem = await this.transformMenuItem(yeMenuItem, restaurant);
+          const ingredients = this.extractIngredients(yeMenuItem);
+          const imageUrl = yeMenuItem.picture?.uri
+            ? `https://eda.yandex${yeMenuItem.picture.uri.replace('{w}x{h}', '400x400')}`
+            : undefined;
+
+          // Проверяем локальную категоризацию
+          const localCategory = this.categorizeLocally(yeMenuItem.name, yeMenuItem.description);
+
+          const menuItem: TMenuItem = {
+            id: `ye_${yeMenuItem.id}`,
+            name: yeMenuItem.name,
+            description: yeMenuItem.description || '',
+            ingredients,
+            price: yeMenuItem.price,
+            image: imageUrl || botConfig.fallbackFoodImage,
+            available: yeMenuItem.available && (yeMenuItem.inStock !== false),
+            restaurant,
+            orderUrl: `https://eda.yandex.ru/r/${restaurant.additionalInfo.brandSlug}?placeSlug=${restaurant.id}&search=${yeMenuItem.name}`,
+            category: localCategory || EDishCategory.MAIN, // Временное значение
+          };
+
           menuItems.push(menuItem);
+
+          // Если локальная категоризация не сработала, добавляем в список для LLM
+          if (!localCategory) {
+            itemsForLLM.push({
+              name: yeMenuItem.name,
+              description: yeMenuItem.description,
+              ingredients,
+              index: i,
+            });
+          }
         } catch (error) {
           ConsoleLogger.error('Не удалось трансформировать элемент меню', error as Error, {
             menuItemId: yeMenuItem.id,
             restaurantId: restaurant.id,
           });
+        }
+      }
+
+      // Батч категоризация через LLM для сложных случаев
+      if (itemsForLLM.length > 0) {
+        try {
+          const batchItems = itemsForLLM.map(item => ({
+            name: item.name,
+            description: item.description,
+            ingredients: item.ingredients,
+          }));
+
+          const categories = await this.categorizeBatch(batchItems);
+
+          // Обновляем категории в элементах меню
+          for (let i = 0; i < itemsForLLM.length; i++) {
+            const item = itemsForLLM[i];
+            menuItems[item.index].category = categories[i];
+          }
+        } catch (error) {
+          ConsoleLogger.error('Ошибка батч категоризации, оставляем MAIN', error as Error);
         }
       }
 
