@@ -25,8 +25,8 @@ export const botConfig: TBotConfig = {
       'x-taxi': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 platform=eats_desktop_web',
     },
     rateLimits: {
-      requestsPerMinute: 100,
-      requestsPerHour: 1000,
+      requestsPerMinute: 300,
+      requestsPerHour: 300 * Object.values(EAvailableCities).length * 2,
     },
     delayBetweenRequestsMs: 200,
     retries: 3,
