@@ -6,6 +6,99 @@ import type { TDatabaseConnection, TMigration } from './types';
 export class MigrationRunner {
   constructor(private db: TDatabaseConnection) {}
 
+  /**
+   * Создает копию таблицы с данными
+   * @param sourceTable - исходная таблица
+   * @param targetTable - целевая таблица
+   */
+  public copyTableWithData = async (sourceTable: string, targetTable: string): Promise<void> => {
+    try {
+      ConsoleLogger.info(`Создание копии таблицы ${sourceTable} -> ${targetTable} с данными`);
+
+      await this.db.run(`CREATE TABLE IF NOT EXISTS ${targetTable} AS SELECT * FROM ${sourceTable}`);
+
+      ConsoleLogger.info(`Таблица ${targetTable} успешно создана с данными из ${sourceTable}`);
+    } catch (error) {
+      ConsoleLogger.error(`Ошибка создания копии таблицы ${sourceTable}`, error as Error);
+      throw AppError.databaseError('COPY_TABLE_FAILED', `Не удалось создать копию таблицы ${sourceTable}`);
+    }
+  };
+
+  /**
+   * Создает копию структуры таблицы без данных
+   * @param sourceTable - исходная таблица
+   * @param targetTable - целевая таблица
+   */
+  public copyTableStructure = async (sourceTable: string, targetTable: string): Promise<void> => {
+    try {
+      ConsoleLogger.info(`Создание копии структуры таблицы ${sourceTable} -> ${targetTable}`);
+
+      await this.db.run(`CREATE TABLE IF NOT EXISTS ${targetTable} (LIKE ${sourceTable} INCLUDING ALL)`);
+
+      ConsoleLogger.info(`Структура таблицы ${targetTable} успешно создана из ${sourceTable}`);
+    } catch (error) {
+      ConsoleLogger.error(`Ошибка создания копии структуры таблицы ${sourceTable}`, error as Error);
+      throw AppError.databaseError('COPY_STRUCTURE_FAILED', `Не удалось создать копию структуры таблицы ${sourceTable}`);
+    }
+  };
+
+  /**
+   * Создает резервную копию таблицы с временной меткой
+   * @param tableName - имя таблицы для резервного копирования
+   */
+  public createBackupTable = async (tableName: string): Promise<string> => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupTableName = `${tableName}_backup_${timestamp}`;
+
+    try {
+      ConsoleLogger.info(`Создание резервной копии таблицы ${tableName} -> ${backupTableName}`);
+
+      await this.copyTableWithData(tableName, backupTableName);
+
+      ConsoleLogger.info(`Резервная копия ${backupTableName} успешно создана`);
+      return backupTableName;
+    } catch (error) {
+      ConsoleLogger.error(`Ошибка создания резервной копии таблицы ${tableName}`, error as Error);
+      throw AppError.databaseError('BACKUP_FAILED', `Не удалось создать резервную копию таблицы ${tableName}`);
+    }
+  };
+
+  public createBackupTables = async (): Promise<void> => {
+    try {
+      await this.copyTableWithData('users', 'users_backup');
+      await this.copyTableWithData('dishes', 'dishes_backup');
+      await this.copyTableWithData('neural_request_logs', 'neural_request_logs_backup');
+      await this.copyTableWithData('api_request_logs', 'api_request_logs_backup');
+    } catch (error) {
+      ConsoleLogger.error('Ошибка создания резервных копий таблиц', error as Error);
+      throw AppError.databaseError('BACKUP_FAILED', 'Не удалось создать резервные копии таблиц');
+    }
+  };
+
+  /**
+   * Восстанавливает таблицу из резервной копии
+   * @param backupTableName - имя резервной таблицы
+   * @param targetTableName - имя целевой таблицы (если не указано, используется оригинальное имя)
+   */
+  public restoreFromBackup = async (backupTableName: string, targetTableName?: string): Promise<void> => {
+    const targetTable = targetTableName || backupTableName.replace(/_backup_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/, '');
+
+    try {
+      ConsoleLogger.info(`Восстановление таблицы ${targetTable} из резервной копии ${backupTableName}`);
+
+      // Удаляем существующую таблицу если она есть
+      await this.db.run(`DROP TABLE IF EXISTS ${targetTable}`);
+
+      // Создаем таблицу из резервной копии
+      await this.copyTableWithData(backupTableName, targetTable);
+
+      ConsoleLogger.info(`Таблица ${targetTable} успешно восстановлена из ${backupTableName}`);
+    } catch (error) {
+      ConsoleLogger.error(`Ошибка восстановления таблицы из ${backupTableName}`, error as Error);
+      throw AppError.databaseError('RESTORE_FAILED', `Не удалось восстановить таблицу из ${backupTableName}`);
+    }
+  };
+
   public runMigrations = async (): Promise<void> => {
     // Создаем таблицу миграций если её нет
     await this.createMigrationsTable();
@@ -138,7 +231,7 @@ const migrations: TMigration[] = [
           restaurant_longitude DECIMAL(11, 8) NOT NULL,
           order_url TEXT NOT NULL,
           category VARCHAR(50) NOT NULL,
-          embedding vector(768),
+          embedding vector(1024),
           expires_at TIMESTAMP NOT NULL,
           created_at TEXT DEFAULT now(),
           updated_at TEXT DEFAULT now()
@@ -204,11 +297,11 @@ const migrations: TMigration[] = [
       await db.run('CREATE INDEX IF NOT EXISTS api_logs_failed_requests_idx ON api_request_logs(user_telegram_id, status_code) WHERE status_code >= 400');
     },
     down: async db => {
-      await db.run('DROP TABLE IF EXISTS search_history');
-      await db.run('DROP TABLE IF EXISTS users');
-      await db.run('DROP TABLE IF EXISTS dishes');
       await db.run('DROP TABLE IF EXISTS neural_request_logs');
       await db.run('DROP TABLE IF EXISTS api_request_logs');
+      await db.run('DROP TABLE IF EXISTS dishes');
+      await db.run('DROP TABLE IF EXISTS search_history');
+      await db.run('DROP TABLE IF EXISTS users');
     },
   },
 ];

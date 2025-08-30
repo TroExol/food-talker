@@ -218,9 +218,14 @@ export class YEApiService {
       const menuItems = (await this.yeDataTransformer.transformMenu(yeMenu, restaurant))
         .filter(item => item.category !== EDishCategory.ACCESSORY);
 
-      void this.menuService.createMenuToLightRAG(menuItems).catch(error => {
-        ConsoleLogger.error('Не удалось сохранить меню в базу данных', error as Error, { restaurantId, coordinates });
+      void this.menuService.createMenuToRAG(menuItems).catch(error => {
+        ConsoleLogger.error('Не удалось сохранить меню в RAG', error as Error, { restaurantId, coordinates });
       });
+      if (botConfig.lightRAGEnabled) {
+        void this.menuService.createMenuToLightRAG(menuItems).catch(error => {
+          ConsoleLogger.error('Не удалось сохранить меню в lightRAG', error as Error, { restaurantId, coordinates });
+        });
+      }
 
       // Кэшируем результат
       await this.cacheService.set(cacheKey, menuItems, botConfig.cache.ttlMenu);

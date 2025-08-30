@@ -779,11 +779,11 @@ ${menuList}
 Описание блюда: "${description}"
 Ингредиенты блюда: "${ingredients?.join(', ')}"
 
-Ответь только одной категорией: основное/гарнир/напиток/соус/аксессуар`;
+Ответь только одной категорией без уточнений и символов: основное/гарнир/напиток/соус/аксессуар`;
   };
 
   private parseCategoryResponse = (response: string): EDishCategory => {
-    const cleanResponse = response.trim().toLowerCase();
+    const cleanResponse = response.trim().toLowerCase().replace(/[^А-Яа-я]/g, '');
 
     switch (cleanResponse) {
       case 'аксессуар':

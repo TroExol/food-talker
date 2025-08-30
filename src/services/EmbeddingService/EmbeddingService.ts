@@ -1,5 +1,6 @@
 import type { NeuralRequestLoggingService } from '@/services/NeuralRequestLoggingService/NeuralRequestLoggingService';
 
+import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
 import { ENeuralRequestType } from '@/types/neuralRequestLogging';
 
@@ -145,7 +146,7 @@ export class EmbeddingService {
       }
 
       const totalTime = Date.now() - startTime;
-      console.log(`Generated ${texts.length} embeddings in ${totalTime}ms (${Math.round(texts.length / totalTime * 1000)}/sec)`);
+      ConsoleLogger.debug(`Generated ${texts.length} embeddings in ${totalTime}ms (${Math.round(texts.length / totalTime * 1000)}/sec)`);
 
       return results;
     } catch (error) {

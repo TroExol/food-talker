@@ -1,5 +1,7 @@
 import { environment } from '@/config/environment';
 
+import { AppError } from './AppError';
+
 export class ConsoleLogger {
   private static logLevel = environment.LOG_LEVEL;
 
@@ -30,7 +32,14 @@ export class ConsoleLogger {
 
   public static error(message: string, error?: Error, meta?: object): void {
     if (this.shouldLog('error')) {
-      const errorMeta = error ? { ...(meta || {}), error: error.message, stack: error.stack } : meta;
+      const errorMeta = error
+        ? {
+            ...(meta || {}),
+            error: error.message,
+            stack: error.stack,
+            details: error instanceof AppError ? error.details : undefined,
+          }
+        : meta;
       console.error(this.formatMessage('error', message, errorMeta));
     }
   }

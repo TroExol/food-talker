@@ -33,4 +33,5 @@ export const botConfig: TBotConfig = {
   },
   fallbackFoodImage: 'https://i.postimg.cc/Vk5DKb2j/generated-image.jpg',
   analyticsEnabled: true,
+  lightRAGEnabled: false,
 };

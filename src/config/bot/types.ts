@@ -28,6 +28,7 @@ export interface TBotConfig {
   fallbackFoodImage: string;
   cache: TCacheConfig;
   analyticsEnabled: boolean;
+  lightRAGEnabled: boolean;
 }
 
 export interface TYandexEdaConfig {
