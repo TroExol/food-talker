@@ -20,4 +20,6 @@ export interface TEnvironment {
   PROXY_URL?: string;
   YANDEX_METRIKA_COUNTER_ID?: string;
   YANDEX_METRIKA_MS?: string;
+  LIGHTRAG_BASE_URL: string;
+  LIGHTRAG_API_KEY: string;
 }

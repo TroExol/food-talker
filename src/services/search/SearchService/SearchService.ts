@@ -119,7 +119,6 @@ export class SearchService {
         minPrice: structuredQuery.priceRange?.min,
         maxPrice: structuredQuery.priceRange?.max,
         limit: 200,
-        minSimilarity: 0.3,
         city,
       });
 
@@ -127,7 +126,6 @@ export class SearchService {
         naturalQuery,
         structuredQuery,
         resultsCount: vectorResults.length,
-        maxSimilarity: vectorResults[0]?.similarity,
       });
 
       return vectorResults;

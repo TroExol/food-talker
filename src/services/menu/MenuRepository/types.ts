@@ -37,3 +37,13 @@ export interface TVectorMenuSearchOptions {
   city?: string;
   deliveryRadiusKm?: number;
 }
+
+export interface TMenuSearchOptions {
+  limit?: number;
+  category?: string;
+  restaurantNames?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  city?: string;
+  deliveryRadiusKm?: number;
+}

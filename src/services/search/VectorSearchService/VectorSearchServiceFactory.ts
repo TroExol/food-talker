@@ -1,5 +1,4 @@
 import { MenuServiceFactory } from '@/services/menu/MenuService/MenuServiceFactory';
-import { EmbeddingServiceFactory } from '@/services/EmbeddingService/EmbeddingServiceFactory';
 
 import { VectorSearchService } from './VectorSearchService';
 
@@ -9,7 +8,6 @@ export class VectorSearchServiceFactory {
   static getInstance = async (): Promise<VectorSearchService> => {
     if (!VectorSearchServiceFactory.instance) {
       VectorSearchServiceFactory.instance = new VectorSearchService(
-        await EmbeddingServiceFactory.getInstance(),
         await MenuServiceFactory.getInstance(),
       );
     }

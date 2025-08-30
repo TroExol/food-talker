@@ -160,7 +160,6 @@ describe('SearchService', () => {
       expect(mockUserService.getUser).toHaveBeenCalledWith(123456789);
       expect(mockVectorSearchService.searchMenu).toHaveBeenCalledWith('хочу пиццу', {
         limit: 200,
-        minSimilarity: 0.3,
         category: undefined,
         restaurantNames: undefined,
         minPrice: undefined,

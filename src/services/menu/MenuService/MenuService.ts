@@ -1,34 +1,48 @@
+import type { TSearchResultItem } from '@/types/search';
 import type { TMenuItem } from '@/types/menuItem';
-import type { EmbeddingService } from '@/services/EmbeddingService/EmbeddingService';
+import type { LightRAGService } from '@/services/LightRAGService/LightRAGService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
 
-import type {
-  TVectorMenuItem,
-  TVectorMenuSearchOptions,
-  TVectorSearchResultItem,
-} from '../MenuRepository/types';
+import type { TMenuSearchOptions } from '../MenuRepository/types';
 import type { MenuRepository } from '../MenuRepository/MenuRepository';
+
+export interface MenuSearchOptions {
+  mode?: 'hybrid' | 'naive' | 'local' | 'global' | 'mix';
+  enableRerank?: boolean;
+  topK?: number;
+  ids?: string[];
+}
+
+export interface MenuSearchResult {
+  answer: string;
+  context?: string[];
+  sources?: string[];
+  menuItems?: TMenuItem[];
+}
 
 export class MenuService {
   constructor(
     private readonly menuRepository: MenuRepository,
-    private readonly embeddingService: EmbeddingService,
-  ) {}
+    private readonly lightRAGService: LightRAGService,
+  ) { }
 
-  public createMenuItem = async (menuItem: TMenuItem): Promise<TVectorMenuItem> => {
+  public createMenuItem = async (menuItem: TMenuItem): Promise<void> => {
     try {
-      const textForEmbedding = `${menuItem.name} ${menuItem.description} ${menuItem.ingredients.join(', ')} ${menuItem.category}`.trim();
-      const embedding = await this.embeddingService.generateEmbedding(textForEmbedding);
+      const textForLightRAG = this.transformMenuItemsToText([menuItem])[0];
 
-      // Создаем нового пользователя с базовыми настройками
-      const menuItemData = {
-        ...menuItem,
-        embedding,
+      // Создаем метаданные с полной информацией о блюде
+      const metadata = {
+        menuItem: menuItem,
+        type: 'menu_item',
+        createdAt: new Date().toISOString(),
       };
 
-      return await this.menuRepository.create(menuItemData);
+      // Добавляем блюдо в LightRAG с метаданными
+      await this.lightRAGService.insertText(textForLightRAG, `Меню: ${menuItem.name}`, menuItem.id, metadata);
+
+      ConsoleLogger.info('Блюдо добавлено в LightRAG с метаданными', { menuItemId: menuItem.id });
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
@@ -42,25 +56,22 @@ export class MenuService {
     try {
       if (menu.length === 0) return;
 
-      // Подготавливаем тексты для embedding
-      const textsForEmbedding = menu.map(item =>
-        `${item.name} ${item.description} ${item.ingredients.join(', ')} ${item.category}`.trim(),
-      );
+      // Подготавливаем тексты для LightRAG
+      const textsForLightRAG = this.transformMenuItemsToText(menu);
 
-      // Генерируем embedding батчем
-      const embeddings = await this.embeddingService.generateEmbeddingsBatch(textsForEmbedding);
-
-      // Создаем векторные элементы меню
-      const vectorMenu: TVectorMenuItem[] = menu.map((item, index) => ({
-        ...item,
-        embedding: embeddings[index],
+      const ids = menu.map(item => item.id);
+      const descriptions = menu.map(item => `Меню: ${item.name}`);
+      const metadata = menu.map(item => ({
+        menuItem: item,
+        type: 'menu_item',
+        createdAt: new Date().toISOString(),
       }));
 
-      await this.menuRepository.createBulk(vectorMenu);
+      // Добавляем блюда в LightRAG батчем с метаданными
+      await this.lightRAGService.insertTexts(textsForLightRAG, descriptions, ids, metadata);
 
-      ConsoleLogger.info('Меню создано с батч embedding', {
+      ConsoleLogger.info('Меню создано в LightRAG с метаданными', {
         menuItemCount: menu.length,
-        embeddingCount: embeddings.length,
       });
     } catch (error) {
       ConsoleLogger.error('Ошибка создания блюд', error as Error, { menuItemCount: menu.length });
@@ -68,34 +79,60 @@ export class MenuService {
     }
   };
 
-  public getMenuItem = async (menuItemId: string): Promise<TVectorSearchResultItem | null> => {
+  public searchMenuWithRAG = async (
+    query: string,
+    options: MenuSearchOptions = {},
+  ): Promise<MenuSearchResult> => {
     try {
-      return await this.menuRepository.findById(menuItemId);
+      // Используем LightRAG для поиска
+      const result = await this.lightRAGService.query(query, {
+        mode: options.mode || 'hybrid',
+        enableRerank: options.enableRerank ?? true,
+        topK: options.topK || 40,
+        ids: options.ids,
+      });
+
+      // Извлекаем блюда из метаданных
+      const menuItems: TMenuItem[] = [];
+      if (result.metadata) {
+        for (const metadata of result.metadata) {
+          if (metadata.menuItem && metadata.type === 'menu_item') {
+            menuItems.push(metadata.menuItem as TMenuItem);
+          }
+        }
+      }
+
+      return {
+        answer: result.answer,
+        context: result.context,
+        sources: result.sources,
+        menuItems,
+      };
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
       }
-      ConsoleLogger.error('Ошибка получения блюда', error as Error, { menuItemId });
-      throw AppError.systemError('MENU_ITEM_FETCH_FAILED', 'Не удалось получить блюдо');
+      ConsoleLogger.error('Ошибка поиска меню', error as Error, { query });
+      throw AppError.systemError('MENU_SEARCH_FAILED', 'Не удалось выполнить поиск');
     }
   };
 
-  public searchByEmbedding = async (
-    queryEmbedding: number[],
-    options?: TVectorMenuSearchOptions,
-  ): Promise<TVectorSearchResultItem[]> => {
-    return await this.menuRepository.searchByEmbedding(queryEmbedding, options);
-  };
-
-  public deleteMenuItem = async (menuItemId: string): Promise<boolean> => {
+  public getMenuItems = async (options: TMenuSearchOptions = {}): Promise<TSearchResultItem[]> => {
     try {
-      return await this.menuRepository.delete(menuItemId);
+      return this.menuRepository.search(options);
     } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      ConsoleLogger.error('Ошибка удаления блюда', error as Error, { menuItemId });
-      throw AppError.systemError('MENU_ITEM_DELETE_FAILED', 'Не удалось удалить блюдо');
+      ConsoleLogger.error('Ошибка получения меню', error as Error);
+      throw AppError.systemError('MENU_GET_FAILED', 'Не удалось получить меню');
     }
+  };
+
+  private transformMenuItemsToText = (menuItems: TMenuItem[]): string[] => {
+    return menuItems.map(item =>
+      `Название: ${item.name}
+      Описание: ${item.description}
+      Ресторан: ${item.restaurant.name}
+      Ингредиенты: ${item.ingredients.join(', ')}
+      Категория: ${item.category}`.trim(),
+    );
   };
 }

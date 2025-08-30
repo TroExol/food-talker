@@ -1,3 +1,4 @@
+import type { TSearchResultItem } from '@/types/search';
 import type { EDishCategory, TMenuItem } from '@/types/menuItem';
 import type { TDatabaseConnection } from '@/services/database/types';
 import type { EAvailableCities } from '@/config/bot/types';
@@ -9,6 +10,7 @@ import { botConfig } from '@/config/bot';
 
 import type {
   TMenuItemEntity,
+  TMenuSearchOptions,
   TVectorMenuItem,
   TVectorMenuSearchOptions,
   TVectorSearchResultItem,
@@ -159,6 +161,112 @@ export class MenuRepository {
     }
   };
 
+  public search = async (options: TMenuSearchOptions = {}): Promise<TSearchResultItem[]> => {
+    try {
+      const {
+        limit = 20,
+        category,
+        restaurantNames,
+        minPrice,
+        maxPrice,
+        city,
+        deliveryRadiusKm = 50,
+      } = options;
+
+      // Строим SQL запрос с фильтрами
+      let sql = `
+        SELECT 
+          id, name, description, price, restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, available, order_url, category, image, ingredients
+        FROM dishes 
+        WHERE available = true
+          AND expires_at > CURRENT_TIMESTAMP
+      `;
+
+      const params: unknown[] = [];
+      let paramIndex = 3;
+
+      // Фильтрация по городу (радиус доставки)
+      if (city) {
+        const cityCoords = CityValidator.getCityCoordinates(city as EAvailableCities);
+        if (cityCoords) {
+          // Используем формулу гаверсинуса для расчета расстояния
+          sql += `
+            AND (
+              6371 * acos(
+                cos(radians($${paramIndex})) * cos(radians(restaurant_latitude)) *
+                cos(radians(restaurant_longitude) - radians($${paramIndex + 1})) +
+                sin(radians($${paramIndex})) * sin(radians(restaurant_latitude))
+              )
+            ) <= $${paramIndex + 2}
+          `;
+          params.push(cityCoords.latitude, cityCoords.longitude, deliveryRadiusKm);
+          paramIndex += 3;
+        }
+      }
+
+      if (category) {
+        sql += ` AND category = $${paramIndex}`;
+        params.push(category);
+        paramIndex++;
+      }
+
+      if (restaurantNames?.length) {
+        const restaurantNamesLower = restaurantNames.map(name => name.toLowerCase());
+        sql += ` AND LOWER(restaurant_name) = ANY($${paramIndex})`;
+        params.push(restaurantNamesLower);
+        paramIndex++;
+      }
+
+      if (minPrice) {
+        sql += ` AND price >= $${paramIndex}`;
+        params.push(minPrice);
+        paramIndex++;
+      }
+
+      if (maxPrice) {
+        sql += ` AND price <= $${paramIndex}`;
+        params.push(maxPrice);
+        paramIndex++;
+      }
+
+      sql += ` LIMIT $${paramIndex}`;
+      params.push(limit);
+
+      const result = await this.db.query<TMenuItemEntity>(sql, params);
+
+      const menu: TVectorSearchResultItem[] = result.map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        price: row.price,
+        restaurant: {
+          id: row.restaurant_id,
+          name: row.restaurant_name,
+          coordinates: {
+            latitude: row.restaurant_latitude,
+            longitude: row.restaurant_longitude,
+          },
+        },
+        available: row.available,
+        orderUrl: row.order_url,
+        similarity: row.similarity,
+        category: row.category as EDishCategory,
+        image: row.image,
+        tags: JSON.parse(row.ingredients) as string[] || [],
+      }));
+
+      ConsoleLogger.debug('Поиск меню выполнен', {
+        resultsCount: menu.length,
+        maxSimilarity: menu[0]?.similarity,
+      });
+
+      return menu;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка поиска меню', error as Error);
+      throw error;
+    }
+  };
+
   public searchByEmbedding = async (
     queryEmbedding: number[],
     options: TVectorMenuSearchOptions = {},
@@ -259,14 +367,14 @@ export class MenuRepository {
         tags: JSON.parse(row.ingredients) as string[] || [],
       }));
 
-      ConsoleLogger.debug('Векторный поиск выполнен', {
+      ConsoleLogger.debug('Векторный поиск меню выполнен', {
         resultsCount: menu.length,
         maxSimilarity: menu[0]?.similarity,
       });
 
       return menu;
     } catch (error) {
-      ConsoleLogger.error('Ошибка векторного поиска', error as Error);
+      ConsoleLogger.error('Ошибка векторного поиска меню', error as Error);
       throw error;
     }
   };

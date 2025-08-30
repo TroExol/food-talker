@@ -28,6 +28,8 @@ export const environment: TEnvironment = {
   PROXY_URL: process.env.PROXY_URL,
   YANDEX_METRIKA_COUNTER_ID: process.env.YANDEX_METRIKA_COUNTER_ID,
   YANDEX_METRIKA_MS: process.env.YANDEX_METRIKA_MS,
+  LIGHTRAG_BASE_URL: process.env.LIGHTRAG_BASE_URL || '',
+  LIGHTRAG_API_KEY: process.env.LIGHTRAG_API_KEY || '',
 };
 
 export const validateEnvironment = (): void => {
@@ -42,6 +44,8 @@ export const validateEnvironment = (): void => {
     'DB_PORT',
     'DB_NAME',
     'DB_USER',
+    'LIGHTRAG_BASE_URL',
+    'LIGHTRAG_API_KEY',
   ];
   const missing = required.filter(key => !environment[key as keyof TEnvironment]);
 
