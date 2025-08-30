@@ -67,7 +67,7 @@ export class LLMService {
         '/v1/chat/completions',
         ENeuralRequestType.LLM_STRUCTURE_QUERY,
         userTelegramId,
-        'Qwen/Qwen2.5-7B-Instruct-GGUF',
+        undefined,
         {
           temperature: 0.4,
           max_tokens: 5000,
@@ -733,7 +733,7 @@ ${menuList}
         '/v1/chat/completions',
         ENeuralRequestType.LLM_CATEGORIZE_DISHES,
         userTelegramId,
-        'Qwen/Qwen2.5-7B-Instruct-GGUF',
+        undefined,
         {
           temperature: 0.2,
           max_tokens: 2000,

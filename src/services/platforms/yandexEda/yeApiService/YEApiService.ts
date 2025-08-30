@@ -218,7 +218,7 @@ export class YEApiService {
       const menuItems = (await this.yeDataTransformer.transformMenu(yeMenu, restaurant))
         .filter(item => item.category !== EDishCategory.ACCESSORY);
 
-      void this.menuService.createMenu(menuItems).catch(error => {
+      void this.menuService.createMenuToLightRAG(menuItems).catch(error => {
         ConsoleLogger.error('Не удалось сохранить меню в базу данных', error as Error, { restaurantId, coordinates });
       });
 

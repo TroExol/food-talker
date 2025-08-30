@@ -115,7 +115,8 @@ describe('SearchService', () => {
 
     // Мокаем VectorSearchService
     mockVectorSearchService = {
-      searchMenu: vi.fn(),
+      searchMenuWithLightRAG: vi.fn(),
+      searchMenuWithRAG: vi.fn(),
       initializeEmbeddingModel: vi.fn(),
     } as unknown as VectorSearchService;
 
@@ -144,12 +145,13 @@ describe('SearchService', () => {
       (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockVectorSearchService.searchMenu as Mock).mockResolvedValue([mockSearchResult]);
+      (mockVectorSearchService.searchMenuWithRAG as Mock).mockResolvedValue([mockSearchResult]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
       const result = await searchService.searchFood('хочу пиццу', 123456789, {
         enableVectorSearch: true,
+        searchIn: 'RAG',
       });
 
       expect(result).toHaveLength(1);
@@ -158,11 +160,12 @@ describe('SearchService', () => {
       expect(result[0].name).toBe(mockSearchResult.name);
       expect(result[0].price).toBe(mockSearchResult.price);
       expect(mockUserService.getUser).toHaveBeenCalledWith(123456789);
-      expect(mockVectorSearchService.searchMenu).toHaveBeenCalledWith('хочу пиццу', {
+      expect(mockVectorSearchService.searchMenuWithRAG).toHaveBeenCalledWith('хочу пиццу', {
         limit: 200,
         category: undefined,
         restaurantNames: undefined,
         minPrice: undefined,
+        minSimilarity: 0.3,
         maxPrice: undefined,
         city: EAvailableCities.PERM,
       });
@@ -172,7 +175,7 @@ describe('SearchService', () => {
     it('должен использовать традиционный поиск если векторный не дал результатов', async () => {
       // Настройка моков
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockVectorSearchService.searchMenu as Mock).mockResolvedValue([]); // Пустой результат
+      (mockVectorSearchService.searchMenuWithRAG as Mock).mockResolvedValue([]); // Пустой результат
       (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
       (mockYESearchService.searchMenu as Mock).mockResolvedValue([mockMenuItem]);
@@ -182,11 +185,12 @@ describe('SearchService', () => {
 
       const result = await searchService.searchFood('хочу пиццу', 123456789, {
         enableVectorSearch: true,
+        searchIn: 'RAG',
       });
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual(mockSearchResult);
-      expect(mockVectorSearchService.searchMenu).toHaveBeenCalled();
+      expect(mockVectorSearchService.searchMenuWithRAG).toHaveBeenCalled();
       expect(mockYEApiService.getRestaurants).toHaveBeenCalledWith(EAvailableCities.PERM);
       expect(mockLLMService.stuctureQuery).toHaveBeenCalledWith('хочу пиццу', [mockRestaurant]);
       expect(mockUserService.addToSearchHistory).toHaveBeenCalled();
@@ -201,12 +205,13 @@ describe('SearchService', () => {
       (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockVectorSearchService.searchMenu as Mock).mockResolvedValue(mockResults);
+      (mockVectorSearchService.searchMenuWithRAG as Mock).mockResolvedValue(mockResults);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue(mockResults);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
       const result = await searchService.searchFood('хочу пиццу', 123456789, {
         enableVectorSearch: true,
+        searchIn: 'RAG',
       });
 
       expect(result).toHaveLength(5);
@@ -230,12 +235,13 @@ describe('SearchService', () => {
       (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
       (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
-      (mockVectorSearchService.searchMenu as Mock).mockResolvedValue([mockSearchResult]);
+      (mockVectorSearchService.searchMenuWithRAG as Mock).mockResolvedValue([mockSearchResult]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockRejectedValue(new Error('Database error'));
 
       const result = await searchService.searchFood('хочу пиццу', 123456789, {
         enableVectorSearch: true,
+        searchIn: 'RAG',
       });
 
       expect(result).toHaveLength(1);

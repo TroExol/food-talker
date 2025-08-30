@@ -164,6 +164,7 @@ describe('MessageHandlers', () => {
         expect(mockSearchService.searchFood).toHaveBeenCalledWith('хочу пиццу', 123456789, {
           enableLLMEnhancement: true,
           enableVectorSearch: true,
+          searchIn: 'RAG',
         });
       }
     });

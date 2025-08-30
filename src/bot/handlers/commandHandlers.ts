@@ -315,6 +315,7 @@ export class CommandHandlers {
       const results = await this.searchService.searchFood(query, ctx.user.telegramId, {
         enableLLMEnhancement: searchOptions.enableLLMEnhancement,
         enableVectorSearch: searchOptions.enableVectorSearch,
+        searchIn: 'RAG',
       });
       const searchHistory = await this.userService.getSearchHistory(ctx.user.telegramId, 1);
 

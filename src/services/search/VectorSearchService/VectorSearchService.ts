@@ -1,5 +1,6 @@
 import type { TSearchResultItem } from '@/types/search';
 import type { TMenuItem } from '@/types/menuItem';
+import type { EmbeddingService } from '@/services/EmbeddingService/EmbeddingService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 
@@ -9,9 +10,33 @@ import type { MenuSearchOptions, MenuService } from '../../menu/MenuService/Menu
 export class VectorSearchService {
   constructor(
     private readonly menuService: MenuService,
+    private readonly embeddingService: EmbeddingService,
   ) { }
 
-  public searchMenu = async (
+  public searchMenuWithRAG = async (
+    naturalQuery: string,
+    options?: Parameters<typeof this.menuService.searchMenuWithRAG>[1],
+  ) => {
+    try {
+      // Генерируем эмбеддинг для запроса
+      const queryEmbedding = await this.embeddingService.generateEmbedding(naturalQuery);
+
+      const results = await this.menuService.searchMenuWithRAG(queryEmbedding, options);
+
+      ConsoleLogger.debug('Векторный поиск выполнен', {
+        query: naturalQuery,
+        resultsCount: results.length,
+        maxSimilarity: results[0]?.similarity,
+      });
+
+      return results;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка векторного поиска', error as Error, { query: naturalQuery });
+      throw error;
+    }
+  };
+
+  public searchMenuWithLightRAG = async (
     naturalQuery: string,
     options?: TVectorSearchOptions,
   ): Promise<TSearchResultItem[]> => {
@@ -22,7 +47,7 @@ export class VectorSearchService {
         ids: filteredMenu.map(item => item.id),
       };
 
-      const results = await this.menuService.searchMenuWithRAG(naturalQuery, ragOptions);
+      const results = await this.menuService.searchMenuWithLightRAG(naturalQuery, ragOptions);
 
       ConsoleLogger.debug('Векторный поиск выполнен', {
         query: naturalQuery,

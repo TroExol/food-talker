@@ -14,7 +14,7 @@ export class LLMServiceFactory {
         CacheServiceFactory.getRedisInstance(),
         await NeuralRequestLoggingServiceFactory.getInstance(),
         {
-          model: 'Qwen/Qwen2.5-7B-Instruct-GGUF',
+          model: 'bartowski/Meta-Llama-3.1-8B-Instruct-GGUF',
           systemPrompt: 'Ты - помощник для поиска еды. Reasoning: low',
           timeoutMs: 40000,
         },

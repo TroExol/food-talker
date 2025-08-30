@@ -1,4 +1,5 @@
 import { LightRAGServiceFactory } from '@/services/LightRAGService/LightRAGServiceFactory';
+import { EmbeddingServiceFactory } from '@/services/EmbeddingService/EmbeddingServiceFactory';
 
 import { MenuService } from './MenuService';
 import { MenuRepositoryFactory } from '../MenuRepository/MenuRepositoryFactory';
@@ -11,6 +12,7 @@ export class MenuServiceFactory {
       MenuServiceFactory.instance = new MenuService(
         await MenuRepositoryFactory.getInstance(),
         LightRAGServiceFactory.getInstance(),
+        await EmbeddingServiceFactory.getInstance(),
       );
     }
     return MenuServiceFactory.instance;

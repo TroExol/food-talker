@@ -1,5 +1,11 @@
-export interface TSearchOptions {
+export type TSearchOptions = {
   enableLLMEnhancement?: boolean;
-  enableVectorSearch?: boolean;
   maxEnhenceMenu?: number;
-}
+} & (
+  {
+    enableVectorSearch: true;
+    searchIn: 'lightRAG' | 'RAG';
+  } | {
+    enableVectorSearch: false;
+  }
+);

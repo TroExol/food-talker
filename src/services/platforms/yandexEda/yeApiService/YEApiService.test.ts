@@ -75,7 +75,8 @@ describe('YEApiService', () => {
     } as unknown as YEDataTransformer;
 
     const mockMenuService = {
-      createMenu: vi.fn(),
+      createMenuToRAG: vi.fn(),
+      createMenuToLightRAG: vi.fn(),
     } as unknown as MenuService;
 
     const mockApiRequestLoggingService = {
@@ -489,7 +490,8 @@ describe('YEApiService', () => {
       } as unknown as YEDataTransformer;
 
       const mockMenuService = {
-        createMenu: vi.fn().mockResolvedValue(undefined),
+        createMenuToLightRAG: vi.fn().mockResolvedValue(undefined),
+        createMenuToRAG: vi.fn().mockResolvedValue(undefined),
       } as unknown as MenuService;
 
       const mockApiRequestLoggingService = {

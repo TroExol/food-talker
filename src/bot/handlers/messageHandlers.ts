@@ -303,6 +303,7 @@ export class MessageHandlers {
       const results = await this.searchService.searchFood(query, ctx.user.telegramId, {
         enableLLMEnhancement: true,
         enableVectorSearch: true,
+        searchIn: 'RAG',
       });
       const searchHistory = await this.userService.getSearchHistory(ctx.user.telegramId, 1);
 

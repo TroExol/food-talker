@@ -34,7 +34,9 @@ export class SearchService {
   public searchFood = async (
     naturalQuery: string,
     telegramId: number,
-    options: TSearchOptions = {},
+    options: TSearchOptions = {
+      enableVectorSearch: false,
+    },
   ): Promise<TSearchResultItem[]> => {
     const startTime = Date.now();
 
@@ -55,7 +57,9 @@ export class SearchService {
 
       // Используем векторный поиск вместо структурированного
       let results = options.enableVectorSearch
-        ? await this.vectorSearch(user.city, naturalQuery, structuredQuery)
+        ? options.searchIn === 'lightRAG'
+          ? await this.searchWithLightRAG(user.city, naturalQuery, structuredQuery)
+          : await this.searchWithRAG(user.city, naturalQuery, structuredQuery)
         : [];
 
       // Если векторный поиск не дал результатов, используем фильтрацию и ранжирование
@@ -107,13 +111,44 @@ export class SearchService {
   };
 
   // Векторный поиск
-  private vectorSearch = async (
+  private searchWithRAG = async (
     city: EAvailableCities,
     naturalQuery: string,
     structuredQuery: TStructuredQuery,
   ): Promise<TSearchResultItem[]> => {
     try {
-      const vectorResults = await this.vectorSearchService.searchMenu(naturalQuery, {
+      const vectorResults = await this.vectorSearchService.searchMenuWithRAG(naturalQuery, {
+        category: structuredQuery.category,
+        restaurantNames: structuredQuery.restaurants,
+        minPrice: structuredQuery.priceRange?.min,
+        maxPrice: structuredQuery.priceRange?.max,
+        limit: 200,
+        minSimilarity: 0.3,
+        city,
+      });
+
+      ConsoleLogger.debug('Векторный поиск выполнен', {
+        naturalQuery,
+        structuredQuery,
+        resultsCount: vectorResults.length,
+        maxSimilarity: vectorResults[0]?.similarity,
+      });
+
+      return vectorResults;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка векторного поиска', error as Error, { naturalQuery, structuredQuery });
+      return []; // Возвращаем пустой массив для fallback к традиционному поиску
+    }
+  };
+
+  // Векторный поиск
+  private searchWithLightRAG = async (
+    city: EAvailableCities,
+    naturalQuery: string,
+    structuredQuery: TStructuredQuery,
+  ): Promise<TSearchResultItem[]> => {
+    try {
+      const vectorResults = await this.vectorSearchService.searchMenuWithLightRAG(naturalQuery, {
         category: structuredQuery.category,
         restaurantNames: structuredQuery.restaurants,
         minPrice: structuredQuery.priceRange?.min,
