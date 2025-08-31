@@ -8,6 +8,7 @@ import type {
 import type { LLMService } from '@/services/LLMService/LLMService';
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppError } from '@/utils/AppError';
 import { EDishCategory } from '@/types/menuItem';
 import { botConfig } from '@/config/bot';
 
@@ -43,7 +44,7 @@ export class YEDataTransformer {
       return restaurant;
     } catch (error) {
       ConsoleLogger.error('Ошибка трансформации ресторана Яндекс.Еда', error as Error, { restaurantId: yeRestaurant.slug });
-      throw new Error(`Не удалось трансформировать ресторан Яндекс.Еда: ${yeRestaurant.slug}`);
+      throw AppError.systemError(`Не удалось трансформировать ресторан Яндекс.Еда: ${yeRestaurant.slug}`, error as Error);
     }
   };
 
@@ -104,7 +105,7 @@ export class YEDataTransformer {
         menuItemId: yeMenuItem.id,
         restaurantId: restaurant.id,
       });
-      throw new Error(`Не удалось трансформировать элемент меню Яндекс.Еда: ${yeMenuItem.id}`);
+      throw AppError.systemError(`Не удалось трансформировать элемент меню Яндекс.Еда: ${yeMenuItem.id}`, error as Error);
     }
   };
 
@@ -185,7 +186,7 @@ export class YEDataTransformer {
         restaurantId: restaurant.id,
         itemsCount: yeMenuItems.length,
       });
-      throw new Error(`Не удалось трансформировать меню Яндекс.Еда для ресторана: ${restaurant.id}`);
+      throw AppError.systemError(`Не удалось трансформировать меню Яндекс.Еда для ресторана: ${restaurant.id}`, error as Error);
     }
   };
 

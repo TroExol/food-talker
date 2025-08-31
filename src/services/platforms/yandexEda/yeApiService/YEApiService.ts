@@ -328,7 +328,9 @@ export class YEApiService {
         });
 
         if (!response.ok || !data) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw AppError.apiError(`HTTP ${response.status}: ${response.statusText}`, {
+            response,
+          });
         }
 
         ConsoleLogger.debug('Яндекс.Еда API запрос выполнен', {

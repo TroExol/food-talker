@@ -385,7 +385,9 @@ ${menuList}
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw AppError.llmError(`HTTP ${response.status}: ${response.statusText}`, {
+            response,
+          });
         }
 
         const data = await response.json() as TLLMResponse;
@@ -410,15 +412,16 @@ ${menuList}
               attempt: attempt + 1,
             },
             responseData: {
-              reasoning: data.choices[0].message.reasoning,
               error: 'Пустой ответ от LLM',
-              usage: data.usage,
               attempt: attempt + 1,
+              data: JSON.stringify(data),
             },
             processingTimeMs: processingTime,
           });
 
-          throw new Error('Пустой ответ от LLM');
+          throw AppError.llmError('Пустой ответ от LLM', {
+            response,
+          });
         }
 
         await this.neuralRequestLoggingService.logRequest({
@@ -484,7 +487,7 @@ ${menuList}
       }
     }
 
-    throw new Error('LLM все попытки вызова не удались');
+    throw AppError.llmError('LLM все попытки вызова не удались');
   };
 
   private parseStructuredQuery = (availableRestaurants: string[], response: string): TStructuredQuery => {

@@ -1,5 +1,6 @@
 import { sleep } from '@/utils/sleep';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppError } from '@/utils/AppError';
 
 import type {
   YandexMetricaBatch,
@@ -156,7 +157,9 @@ export class YandexMetricaService {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw AppError.apiError(`HTTP ${response.status}: ${response.statusText}`, {
+          response,
+        });
       }
     }
   };
