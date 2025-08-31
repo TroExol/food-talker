@@ -66,7 +66,7 @@ export class LLMService {
         prompt,
         '/v1/chat/completions',
         ENeuralRequestType.LLM_STRUCTURE_QUERY,
-        'openai/gpt-oss-120b',
+        'openai/gpt-oss-120b:free',
         userTelegramId,
         {
           max_tokens: 10000,
@@ -119,7 +119,7 @@ export class LLMService {
         prompt,
         '/v1/chat/completions',
         ENeuralRequestType.LLM_ENHANCE_RESULTS,
-        'openai/gpt-oss-120b',
+        'openai/gpt-oss-120b:free',
         userTelegramId,
         {
           max_tokens: 50000,
