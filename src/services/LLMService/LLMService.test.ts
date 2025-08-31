@@ -297,12 +297,14 @@ describe('LLMService', () => {
   });
 
   describe('parseStructuredQuery', () => {
-    type MockLLMService = { parseStructuredQuery: (response: string) => TStructuredQuery };
+    type MockLLMService = {
+      parseStructuredQuery: (availableRestaurants: string[], response: string) => TStructuredQuery;
+    };
 
     it('должен извлекать JSON из ответа с дополнительным текстом', () => {
       const response = 'Вот структурированный запрос: {"tags": ["пицца"]} Спасибо!';
 
-      const result = (llmService as unknown as MockLLMService).parseStructuredQuery(response);
+      const result = (llmService as unknown as MockLLMService).parseStructuredQuery([], response);
 
       expect(result).toEqual({ tags: ['пицца'] });
     });
@@ -314,7 +316,7 @@ describe('LLMService', () => {
       }
       Спасибо!`;
 
-      const result = (llmService as unknown as MockLLMService).parseStructuredQuery(response);
+      const result = (llmService as unknown as MockLLMService).parseStructuredQuery([], response);
 
       expect(result).toEqual({ tags: ['пицца'] });
     });
@@ -322,13 +324,13 @@ describe('LLMService', () => {
     it('должен выбрасывать ошибку при отсутствии JSON', () => {
       const response = 'Просто текст без JSON';
 
-      expect(() => (llmService as unknown as MockLLMService).parseStructuredQuery(response)).toThrow('JSON не найден в ответе');
+      expect(() => (llmService as unknown as MockLLMService).parseStructuredQuery([], response)).toThrow('Ошибка парсинга JSON');
     });
 
     it('должен фильтровать неверные типы данных', () => {
       const response = '{"restaurants": ["Додо", 123, null], "tags": ["пицца", 456]}';
 
-      const result = (llmService as unknown as MockLLMService).parseStructuredQuery(response);
+      const result = (llmService as unknown as MockLLMService).parseStructuredQuery(['Додо'], response);
 
       expect(result).toEqual({
         restaurants: ['додо'],
@@ -415,14 +417,16 @@ describe('LLMService', () => {
   });
 
   describe('repairQueryStructure', () => {
-    type MockLLMService = { repairQueryStructure: (query: TStructuredQuery) => TStructuredQuery };
+    type MockLLMService = {
+      repairQueryStructure: (availableRestaurants: string[], query: TStructuredQuery) => TStructuredQuery;
+    };
 
     it('должен нормализовать и удалять дубликаты в ресторанах', () => {
       const query: TStructuredQuery = {
-        restaurants: ['Додо Пицца', 'додо пицца', 'ДОДО ПИЦЦА', 'Папа Джонс'],
+        restaurants: ['Додо Пицца', 'додо пицца', 'ДОДО ПИЦЦА', 'Папа Джонс', 'вввв'],
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа Джонс'], query);
 
       expect(result).toEqual({
         restaurants: ['додо пицца', 'папа джонс'],
@@ -434,7 +438,7 @@ describe('LLMService', () => {
         tags: ['Пицца', 'пицца', 'Сыр', 'сыр', 'Томаты'],
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа Джонс'], query);
 
       expect(result).toEqual({
         tags: ['пицца', 'сыр', 'томаты'],
@@ -446,10 +450,10 @@ describe('LLMService', () => {
         restaurants: ['Додо', 123, null, 'Папа Джонс', undefined, ''],
       } as TStructuredQuery;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа Джонс'], query);
 
       expect(result).toEqual({
-        restaurants: ['додо', 'папа джонс'],
+        restaurants: ['папа джонс'],
       });
     });
 
@@ -458,7 +462,7 @@ describe('LLMService', () => {
         tags: ['Пицца', 456, null, 'Сыр', undefined, ''],
       } as TStructuredQuery;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
         tags: ['пицца', 'сыр'],
@@ -470,7 +474,7 @@ describe('LLMService', () => {
         priceRange: { min: -100, max: 500 },
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
         priceRange: { min: 0, max: 500 },
@@ -482,7 +486,7 @@ describe('LLMService', () => {
         priceRange: { min: 100, max: -50 },
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
         priceRange: { min: 100, max: Number.MAX_SAFE_INTEGER },
@@ -494,7 +498,7 @@ describe('LLMService', () => {
         priceRange: { min: 500, max: 100 },
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
         priceRange: { min: 0, max: 100 },
@@ -509,7 +513,7 @@ describe('LLMService', () => {
         },
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
         tags: ['пицца'],
@@ -527,7 +531,7 @@ describe('LLMService', () => {
         },
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
         tags: ['пицца'],
@@ -545,7 +549,7 @@ describe('LLMService', () => {
         },
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
         tags: ['пицца'],
@@ -563,7 +567,7 @@ describe('LLMService', () => {
         },
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
         tags: ['пицца'],
@@ -579,7 +583,7 @@ describe('LLMService', () => {
         tags: [],
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
         restaurants: [],
@@ -590,31 +594,31 @@ describe('LLMService', () => {
     it('должен обрабатывать пустую структуру', () => {
       const query: TStructuredQuery = {};
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({});
     });
 
     it('должен обрабатывать сложную структуру с множественными исправлениями', () => {
       const query = {
-        restaurants: ['Додо', 123, 'додо', 'Папа Джонс'],
+        restaurants: ['Додо Пицца', 123, 'додо', 'Папа Джонс'],
         tags: ['Пицца', null, 'пицца', 'Сыр'],
         priceRange: { min: -100, max: -50 },
         exclusions: {
-          restaurants: ['Додо', undefined, 'додо'],
+          restaurants: ['Додо Пицца', undefined, 'додо'],
           tags: ['Ананас', 456, 'ананас'],
           priceRange: { min: 500, max: 100 },
         },
       } as TStructuredQuery;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
-        restaurants: ['додо', 'папа джонс'],
+        restaurants: ['додо пицца', 'папа джонс'],
         tags: ['пицца', 'сыр'],
         priceRange: { min: 0, max: Number.MAX_SAFE_INTEGER },
         exclusions: {
-          restaurants: ['додо'],
+          restaurants: ['додо пицца'],
           tags: ['ананас'],
           priceRange: { min: 0, max: 100 },
         },

@@ -8,6 +8,7 @@ import type { TCacheService } from '@/services/cacheService/types';
 
 import { sleep } from '@/utils/sleep';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
+import { AppError } from '@/utils/AppError';
 import { ENeuralRequestType } from '@/types/neuralRequestLogging';
 import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 import { environment } from '@/config/environment';
@@ -59,7 +60,8 @@ export class LLMService {
         return cached;
       }
 
-      const prompt = this.buildStructureQueryPrompt(naturalQuery, restaurants.map(r => r.name));
+      const availableRestaurants = restaurants.map(r => r.name);
+      const prompt = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants);
       const response = await this.callLLMWithLogging(
         prompt,
         '/v1/chat/completions',
@@ -70,7 +72,7 @@ export class LLMService {
           max_tokens: 10000,
         },
       );
-      const structuredQuery = this.parseStructuredQuery(response);
+      const structuredQuery = this.parseStructuredQuery(availableRestaurants, response);
 
       await this.cacheService.set(cacheKey, structuredQuery, this.cacheTTL);
 
@@ -457,27 +459,31 @@ ${menuList}
     throw new Error('LLM все попытки вызова не удались');
   };
 
-  private parseStructuredQuery = (response: string): TStructuredQuery => {
+  private parseStructuredQuery = (availableRestaurants: string[], response: string): TStructuredQuery => {
     try {
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('JSON не найден в ответе');
+        throw AppError.systemError('JSON не найден в ответе');
       }
-
-      return this.repairQueryStructure(JSON.parse(jsonrepair(jsonMatch[0])) as TStructuredQuery);
+      return this.repairQueryStructure(availableRestaurants, JSON.parse(jsonrepair(jsonMatch[0])) as TStructuredQuery);
     } catch (error) {
-      throw new Error(`Ошибка парсинга JSON: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw AppError.systemError('Ошибка парсинга JSON', error as Error);
     }
   };
 
-  private repairQueryStructure = (query: TStructuredQuery): TStructuredQuery => {
+  private repairQueryStructure = (availableRestaurants: string[], query: TStructuredQuery): TStructuredQuery => {
     const repairedQuery: TStructuredQuery = {};
+    const availableRestaurantsFormed = availableRestaurants.map(r => r.toLowerCase().trim());
 
     if (query.restaurants) {
       repairedQuery.restaurants = Array.isArray(query.restaurants)
         ? [...new Set(
             query.restaurants
-              .filter((r: unknown) => typeof r === 'string' && r !== '')
+              .filter((r: unknown) =>
+                typeof r === 'string'
+                && r !== ''
+                && availableRestaurantsFormed.includes(r.toLowerCase().trim()),
+              )
               .map(r => r.toLowerCase().trim()),
           )]
         : [];
@@ -527,7 +533,11 @@ ${menuList}
         repairedQuery.exclusions.restaurants = Array.isArray(query.exclusions.restaurants)
           ? [...new Set(
               query.exclusions.restaurants
-                .filter((r: unknown) => typeof r === 'string' && r !== '')
+                .filter((r: unknown) =>
+                  typeof r === 'string'
+                  && r !== ''
+                  && availableRestaurantsFormed.includes(r.toLowerCase().trim()),
+                )
                 .map(r => r.toLowerCase().trim()),
             )]
           : [];

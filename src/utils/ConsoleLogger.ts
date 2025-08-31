@@ -36,8 +36,8 @@ export class ConsoleLogger {
         ? {
             ...(meta || {}),
             error: error.message,
-            stack: error.stack,
             details: error instanceof AppError ? error.details : undefined,
+            stack: error.stack,
           }
         : meta;
       console.error(this.formatMessage('error', message, errorMeta));
