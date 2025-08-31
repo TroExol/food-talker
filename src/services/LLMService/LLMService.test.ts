@@ -44,7 +44,6 @@ describe('LLMService', () => {
     } as unknown as NeuralRequestLoggingService;
 
     llmService = new LLMService(mockCacheService, mockNeuralRequestLoggingService, {
-      model: 'gpt-4o-mini',
       cacheTTL: 1800,
     });
   });
@@ -83,6 +82,7 @@ describe('LLMService', () => {
           headers: {
             'Authorization': 'Bearer test-llm-api-key',
             'Content-Type': 'application/json',
+            'X-Title': 'Food Talker Bot',
           },
           body: expect.stringContaining('хочу пиццу с сыром до 800 рублей') as string,
         }),
@@ -185,7 +185,6 @@ describe('LLMService', () => {
 
     it('должен обрабатывать таймауты', async () => {
       const llmService = new LLMService(mockCacheService, mockNeuralRequestLoggingService, {
-        model: 'gpt-4o-mini',
         maxRetries: 0,
         timeoutMs: 10000,
       });
@@ -257,7 +256,6 @@ describe('LLMService', () => {
 
     it('должен возвращать оригинальные результаты при ошибке', async () => {
       const llmService = new LLMService(mockCacheService, mockNeuralRequestLoggingService, {
-        model: 'gpt-4o-mini',
         maxRetries: 0,
       });
 
@@ -674,7 +672,6 @@ describe('LLMService', () => {
 
       it('должен работать без кэша если cacheService не передан', async () => {
         const llmServiceWithoutCache = new LLMService(mockCacheService, mockNeuralRequestLoggingService, {
-          model: 'gpt-4o-mini',
           cacheTTL: 1800, // 30 минут
         });
 

@@ -66,32 +66,6 @@ export class YEDataTransformer {
     return null; // Не удалось определить локально
   };
 
-  // Батчинг категоризации через LLM
-  private categorizeBatch = async (items: Array<{
-    name: string;
-    description?: string;
-    ingredients?: string[];
-  }>): Promise<EDishCategory[]> => {
-    if (items.length === 0) return [];
-
-    try {
-      // Используем параллельные запросы к существующему методу
-      const categoryPromises = items.map(item =>
-        this.llmService.categorizeDish(
-          item.name,
-          item.description,
-          item.ingredients,
-          undefined,
-        ).catch(() => EDishCategory.MAIN), // Fallback на случай ошибки
-      );
-
-      return await Promise.all(categoryPromises);
-    } catch (error) {
-      ConsoleLogger.error('Ошибка батч категоризации, используем fallback', error as Error);
-      return new Array<EDishCategory>(items.length).fill(EDishCategory.MAIN);
-    }
-  };
-
   public transformMenuItem = (
     yeMenuItem: TYEMenuItemFromServer,
     restaurant: TYERestaurant,
@@ -143,12 +117,10 @@ export class YEDataTransformer {
   ): Promise<TMenuItem[]> => {
     try {
       const menuItems: TMenuItem[] = [];
-      const itemsForLLM: Array<{
-        name: string;
-        description?: string;
-        ingredients?: string[];
+      const itemsForLLM: {
+        item: TMenuItem;
         index: number;
-      }> = [];
+      }[] = [];
 
       // Первый проход - создаем базовые элементы и собираем те, что нуждаются в LLM
       for (let i = 0; i < yeMenuItems.length; i++) {
@@ -180,9 +152,7 @@ export class YEDataTransformer {
           // Если локальная категоризация не сработала, добавляем в список для LLM
           if (!localCategory) {
             itemsForLLM.push({
-              name: yeMenuItem.name,
-              description: yeMenuItem.description,
-              ingredients,
+              item: menuItem,
               index: i,
             });
           }
@@ -197,13 +167,7 @@ export class YEDataTransformer {
       // Батч категоризация через LLM для сложных случаев
       if (itemsForLLM.length > 0) {
         try {
-          const batchItems = itemsForLLM.map(item => ({
-            name: item.name,
-            description: item.description,
-            ingredients: item.ingredients,
-          }));
-
-          const categories = await this.categorizeBatch(batchItems);
+          const categories = await this.llmService.categorizeBatch(itemsForLLM.map(item => item.item));
 
           // Обновляем категории в элементах меню
           for (let i = 0; i < itemsForLLM.length; i++) {

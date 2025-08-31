@@ -22,7 +22,6 @@ import type {
 export class LLMService {
   private readonly apiBaseUrl: string;
   private readonly apiKey: string;
-  private readonly model: string;
   private readonly maxRetries: number;
   private readonly timeoutMs: number;
   private readonly systemPrompt: string;
@@ -35,7 +34,6 @@ export class LLMService {
   ) {
     this.apiBaseUrl = environment.LLM_API_BASE_URL;
     this.apiKey = environment.LLM_API_KEY;
-    this.model = config.model;
     this.maxRetries = config?.maxRetries ?? 2;
     this.timeoutMs = config?.timeoutMs ?? 20000;
     this.systemPrompt = config?.systemPrompt ?? 'Ты - помощник для поиска еды. Reasoning: low';
@@ -66,11 +64,10 @@ export class LLMService {
         prompt,
         '/v1/chat/completions',
         ENeuralRequestType.LLM_STRUCTURE_QUERY,
+        'openai/gpt-oss-120b',
         userTelegramId,
-        undefined,
         {
-          temperature: 0.4,
-          max_tokens: 5000,
+          max_tokens: 10000,
         },
       );
       const structuredQuery = this.parseStructuredQuery(response);
@@ -93,7 +90,6 @@ export class LLMService {
     results: TSearchResultItem[],
     query: string,
     userTelegramId?: number,
-    model?: string,
   ): Promise<TSearchResultItem[]> => {
     try {
       if (results.length === 0) return results;
@@ -121,11 +117,10 @@ export class LLMService {
         prompt,
         '/v1/chat/completions',
         ENeuralRequestType.LLM_ENHANCE_RESULTS,
+        'openai/gpt-oss-120b',
         userTelegramId,
-        model,
         {
-          temperature: 0.1,
-          max_tokens: 20000,
+          max_tokens: 50000,
         },
       );
       const enhancedResults = this.parseEnhancedResults(response, results);
@@ -304,7 +299,7 @@ ${menuList}
 
 ИНСТРУКЦИЯ ПО ВЫВОДУ:
 1. НЕ показывай промежуточные расчеты
-2. НЕ добавляй комментарии или объяснения  
+2. НЕ добавляй комментарии или объяснения
 3. Верни ТОЛЬКО массив индексов в формате: [number, number, ...]
 4. Сортируй строго по убыванию релевантности
 5. Если нет релевантных блюд (все получили 0 баллов) → верни: []
@@ -316,14 +311,14 @@ ${menuList}
     prompt: string,
     url: string,
     requestType: ENeuralRequestType,
+    model: string,
     userTelegramId?: number,
-    model?: string,
     params?: TLLMParams,
   ): Promise<string> => {
     const startTime = Date.now();
 
     const request: TLLMRequest = {
-      model: model ?? this.model,
+      model,
       messages: [
         {
           role: 'system',
@@ -335,8 +330,6 @@ ${menuList}
         },
       ],
       params: {
-        temperature: 0.1,
-        max_tokens: 11000,
         ...params,
       },
     };
@@ -353,6 +346,7 @@ ${menuList}
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
+            'X-Title': 'Food Talker Bot',
           },
           body: JSON.stringify(request),
           signal: controller.signal,
@@ -461,81 +455,6 @@ ${menuList}
     }
 
     throw new Error('LLM все попытки вызова не удались');
-  };
-
-  private callLLM = async (
-    prompt: string,
-    url: string,
-    model?: string,
-    params?: TLLMParams,
-  ): Promise<string> => {
-    const request: TLLMRequest = {
-      model: model ?? this.model,
-      messages: [
-        {
-          role: 'system',
-          content: this.systemPrompt,
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.1, // Низкая температура для более предсказуемых ответов
-      max_tokens: 11000,
-      ...params,
-    };
-
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-        }, this.timeoutMs);
-
-        const response = await fetch(`${this.apiBaseUrl}${url}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(request),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json() as TLLMResponse;
-
-        if (!data.choices?.[0]?.message?.content) {
-          ConsoleLogger.warn('Получен пустой ответ от LLM', {
-            usage: data.usage,
-            attempt,
-          });
-          throw new Error('Пустой ответ от LLM');
-        }
-
-        ConsoleLogger.debug('LLM ответ получен', {
-          tokens: data.usage.total_tokens,
-          attempt,
-        });
-
-        return data.choices[0].message.content.trim();
-      } catch (error) {
-        if (attempt === this.maxRetries) {
-          throw error;
-        }
-
-        ConsoleLogger.warn(`Попытка ${attempt + 1} не удалась, повторяю...`, error as Error);
-        await sleep(1000 * attempt); // Exponential backoff
-      }
-    }
-
-    throw new Error('Все попытки вызова LLM не удались');
   };
 
   private parseStructuredQuery = (response: string): TStructuredQuery => {
@@ -732,17 +651,18 @@ ${menuList}
         prompt,
         '/v1/chat/completions',
         ENeuralRequestType.LLM_CATEGORIZE_DISHES,
+        'mistralai/mistral-small-3.1-24b-instruct',
         userTelegramId,
-        undefined,
         {
-          temperature: 0.2,
           max_tokens: 2000,
         },
       );
       const category = this.parseCategoryResponse(response);
 
       // Перманентный кэш (TTL = 0 означает "без истечения")
-      await this.cacheService.set(cacheKey, category, 0);
+      if (!category.isFallback) {
+        await this.cacheService.set(cacheKey, category.category, 0);
+      }
 
       ConsoleLogger.debug('Блюдо успешно категоризировано', {
         dishName,
@@ -751,10 +671,83 @@ ${menuList}
         category,
       });
 
-      return category;
+      return category.category;
     } catch (error) {
       ConsoleLogger.error('Ошибка категоризации блюда, возвращаю MAIN', error as Error, { dishName, description, ingredients });
       return EDishCategory.MAIN; // Fallback к основной категории
+    }
+  };
+
+  public categorizeBatch = async (
+    menu: TMenuItem[],
+    userTelegramId?: number,
+  ): Promise<EDishCategory[]> => {
+    try {
+      ConsoleLogger.debug('Начинаю категоризацию блюд', { menuItemsCount: menu.length });
+
+      const result: (EDishCategory | undefined)[] = new Array<EDishCategory | undefined>(menu.length).fill(undefined);
+      const toSend: { item: TMenuItem; index: number; cacheKey: string }[] = [];
+
+      // Fill from cache and collect uncached items
+      for (let i = 0; i < menu.length; i++) {
+        const item = menu[i];
+        const cacheKey = this.generateCacheKey('categorize', item.name, item.description, item.ingredients);
+        const cached = await this.cacheService.get<EDishCategory>(cacheKey);
+
+        if (cached) {
+          ConsoleLogger.debug('Category from cache', { dishName: item.name, category: cached });
+          result[i] = cached;
+        } else {
+          toSend.push({ item, index: i, cacheKey });
+        }
+      }
+
+      if (toSend.length === 0) {
+        return result as EDishCategory[];
+      }
+
+      // Ask LLM only for uncached items
+      const batchPrompt = this.buildCategorizationBatchPrompt(toSend.map(x => x.item));
+      const batchResponse = await this.callLLMWithLogging(
+        batchPrompt,
+        '/v1/chat/completions',
+        ENeuralRequestType.LLM_CATEGORIZE_DISHES,
+        'mistralai/mistral-small-3.1-24b-instruct',
+        userTelegramId,
+        {
+          max_tokens: 40000,
+        },
+      );
+
+      // Parse JSON block and map categories back to original order
+      let categories: Record<string, string> = {};
+      try {
+        const jsonMatch = batchResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonrepair(jsonMatch[0])) as { categories?: Record<string, string> };
+          if (parsed && parsed.categories && typeof parsed.categories === 'object') {
+            categories = parsed.categories;
+          }
+        }
+      } catch (e) {
+        ConsoleLogger.warn('Failed to parse batch categories JSON, will fallback per item', e as Error);
+      }
+
+      for (let i = 0; i < toSend.length; i++) {
+        const { index, cacheKey } = toSend[i];
+        const key = `item_${i + 1}`;
+        const rawCategory = String(categories[key] ?? '');
+        const category = this.parseCategoryResponse(rawCategory);
+        result[index] = category.category;
+        if (!category.isFallback) {
+          await this.cacheService.set(cacheKey, category.category, 0);
+        }
+      }
+
+      return result.map(c => c ?? EDishCategory.MAIN);
+    } catch (error) {
+      ConsoleLogger.error('Ошибка категоризации блюд, возвращаю MAIN', error as Error, { menuItemsCount: menu.length });
+      return new Array<EDishCategory>(menu.length).fill(EDishCategory.MAIN); // Fallback к основной категории
     }
   };
 
@@ -782,23 +775,55 @@ ${menuList}
 Ответь только одной категорией без уточнений и символов: основное/гарнир/напиток/соус/аксессуар`;
   };
 
-  private parseCategoryResponse = (response: string): EDishCategory => {
+  private buildCategorizationBatchPrompt = (menuItems: TMenuItem[]): string => {
+    return `Ты эксперт по гастрономии. Определи категорию для каждого блюда из списка, который я укажу.
+
+Категории:
+- основное: основные блюда (бургер, пицца, роллы, суши, стейк, курица, паста, суп, салаты с мясом/рыбой)
+- гарнир: гарниры, десерты, закуски (картошка, рис, салат, печенье, торт, капуста, роллы без мяса)
+- напиток: напитки (кола, сок, чай, кофе, смузи, вода)
+- соус: соусы (кетчуп, майонез, горчица, заправка, айоли)
+- аксессуар: аксессуары (салфетки, палочки, вилка, ложка)
+
+Примеры:
+"Пицца Маргарита" → основное
+"Печенье шоколадное" → гарнир
+"Сок апельсиновый" → напиток
+"Кетчуп" → соус
+"Салфетки" → аксессуар
+"Салат Цезарь с курицей" → основное
+"Ролл с авокадо" → гарнир
+
+Блюда для категоризации в формате Номер. "Название" (описание (если есть), ингредиенты):
+${menuItems.map((item, index) => `${index + 1}. "${item.name}" (${item.description ? `описание: ${item.description}, ` : ''}ингредиенты: ${item.ingredients.join(', ')})`).join('\n')}
+
+Ответь ТОЛЬКО в формате JSON, без дополнительных символов, без уточнений и комментариев:
+{
+  "categories": {
+    "item_1": "выявленная категория",
+    "item_2": "выявленная категория",
+    ...
+  }
+}`;
+  };
+
+  private parseCategoryResponse = (response: string): { category: EDishCategory; isFallback: boolean } => {
     const cleanResponse = response.trim().toLowerCase().replace(/[^А-Яа-я]/g, '');
 
     switch (cleanResponse) {
       case 'аксессуар':
-        return EDishCategory.ACCESSORY;
+        return { category: EDishCategory.ACCESSORY, isFallback: false };
       case 'гарнир':
-        return EDishCategory.SIDE;
+        return { category: EDishCategory.SIDE, isFallback: false };
       case 'напиток':
-        return EDishCategory.DRINK;
+        return { category: EDishCategory.DRINK, isFallback: false };
       case 'основное':
-        return EDishCategory.MAIN;
+        return { category: EDishCategory.MAIN, isFallback: false };
       case 'соус':
-        return EDishCategory.SAUCE;
+        return { category: EDishCategory.SAUCE, isFallback: false };
       default:
         ConsoleLogger.warn('Неизвестная категория от LLM, возвращаю MAIN', { response: cleanResponse });
-        return EDishCategory.MAIN;
+        return { category: EDishCategory.MAIN, isFallback: true };
     }
   };
 }

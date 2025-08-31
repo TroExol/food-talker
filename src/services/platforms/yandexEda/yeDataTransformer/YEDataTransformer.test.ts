@@ -19,7 +19,7 @@ import { YEDataTransformer } from './YEDataTransformer';
 
 // Мокаем LLMService
 const mockLLMService = {
-  categorizeDish: vi.fn(),
+  categorizeBatch: vi.fn(),
 } as unknown as LLMService;
 
 describe('DataTransformer', () => {
@@ -28,7 +28,7 @@ describe('DataTransformer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Мокаем categorizeDish для возврата MAIN категории
-    mockLLMService.categorizeDish = vi.fn().mockResolvedValue(EDishCategory.MAIN);
+    mockLLMService.categorizeBatch = vi.fn().mockResolvedValue([EDishCategory.MAIN]);
   });
 
   const mockRestaurant: TYERestaurant = {
@@ -254,12 +254,12 @@ describe('DataTransformer', () => {
       };
 
       // Мокаем LLM для возврата категории MAIN
-      mockLLMService.categorizeDish = vi.fn().mockResolvedValue(EDishCategory.MAIN);
+      mockLLMService.categorizeBatch = vi.fn().mockResolvedValue([EDishCategory.MAIN]);
 
       const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
       // LLM не вызывается в transformMenuItem, только локальная категоризация
-      expect(mockLLMService.categorizeDish).not.toHaveBeenCalled();
+      expect(mockLLMService.categorizeBatch).not.toHaveBeenCalled();
       expect(result.category).toBe(EDishCategory.MAIN); // Fallback значение
     });
 
@@ -281,11 +281,11 @@ describe('DataTransformer', () => {
       };
 
       // LLM не вызывается в transformMenuItem
-      mockLLMService.categorizeDish = vi.fn().mockRejectedValue(new Error('LLM Error'));
+      mockLLMService.categorizeBatch = vi.fn().mockRejectedValue(new Error('LLM Error'));
 
       const result = transformer.transformMenuItem(yeMenuItem, mockRestaurant);
 
-      expect(mockLLMService.categorizeDish).not.toHaveBeenCalled();
+      expect(mockLLMService.categorizeBatch).not.toHaveBeenCalled();
       expect(result.category).toBe(EDishCategory.MAIN); // Fallback значение
     });
   });
@@ -330,7 +330,7 @@ describe('DataTransformer', () => {
       expect(result).toHaveLength(2);
       expect(result[0].name).toBe('Блюдо 1');
       expect(result[1].name).toBe('Блюдо 2');
-      expect(mockLLMService.categorizeDish).toHaveBeenCalledTimes(2);
+      expect(mockLLMService.categorizeBatch).toHaveBeenCalledTimes(1);
     });
   });
 
