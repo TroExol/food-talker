@@ -60,8 +60,45 @@ export class MenuService {
     try {
       if (menu.length === 0) return;
 
+      const menuToCreateObj = menu.reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+      }, {} as Record<string, TMenuItem>);
+
+      const alreadyExists = await this.menuRepository.search({
+        ids: Object.keys(menuToCreateObj),
+        available: false,
+      });
+
+      const nonEmbeddingUpdates: TMenuItem[] = [];
+
+      alreadyExists.forEach(item => {
+        const menuItemToCreate = menuToCreateObj[item.id];
+        if (
+          menuItemToCreate
+          && menuItemToCreate.name === item.name
+          && menuItemToCreate.description === item.description
+          && menuItemToCreate.ingredients.toString() === item.tags.toString()
+          && menuItemToCreate.category === item.category
+        ) {
+          nonEmbeddingUpdates.push(menuItemToCreate);
+          delete menuToCreateObj[item.id];
+        }
+      });
+
+      if (nonEmbeddingUpdates.length > 0) {
+        await this.menuRepository.updateBulk(nonEmbeddingUpdates.map(item => ({
+          id: item.id,
+          updates: item,
+        })));
+      }
+
+      const menuToCreate = Object.values(menuToCreateObj);
+
+      if (menuToCreate.length === 0) return;
+
       // Подготавливаем тексты для embedding
-      const textsForEmbedding = menu.map(item =>
+      const textsForEmbedding = menuToCreate.map(item =>
         `${item.name} ${item.description} ${item.ingredients.join(', ')} ${item.category}`.trim(),
       );
 
@@ -69,7 +106,7 @@ export class MenuService {
       const embeddings = await this.embeddingService.generateEmbeddingsBatch(textsForEmbedding);
 
       // Создаем векторные элементы меню
-      const vectorMenu: TVectorMenuItem[] = menu.map((item, index) => ({
+      const vectorMenu: TVectorMenuItem[] = menuToCreate.map((item, index) => ({
         ...item,
         embedding: embeddings[index],
       }));
@@ -78,6 +115,8 @@ export class MenuService {
 
       ConsoleLogger.info('Меню создано с батч embedding', {
         menuItemCount: menu.length,
+        alreadyExistsCount: alreadyExists.length,
+        menuItemCountToCreate: menuToCreate.length,
         embeddingCount: embeddings.length,
       });
     } catch (error) {

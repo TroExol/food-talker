@@ -74,6 +74,7 @@ describe('SearchService', () => {
     orderUrl: 'https://test.com/order',
     image: 'test-image.jpg',
     category: EDishCategory.MAIN,
+    available: true,
   };
 
   beforeEach(() => {
@@ -345,6 +346,7 @@ describe('SearchService', () => {
           image: 'test-image.jpg',
           orderUrl: 'https://test.com/order',
           category: EDishCategory.MAIN,
+          available: true,
         });
       });
     });

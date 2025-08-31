@@ -1,4 +1,3 @@
-import type { TSearchResultItem } from '@/types/search';
 import type { EDishCategory, TMenuItem } from '@/types/menuItem';
 import type { TDatabaseConnection } from '@/services/database/types';
 import type { EAvailableCities } from '@/config/bot/types';
@@ -161,16 +160,18 @@ export class MenuRepository {
     }
   };
 
-  public search = async (options: TMenuSearchOptions = {}): Promise<TSearchResultItem[]> => {
+  public search = async (options: TMenuSearchOptions = {}): Promise<TVectorSearchResultItem[]> => {
     try {
       const {
         limit = 20,
+        ids,
         category,
         restaurantNames,
         minPrice,
         maxPrice,
         city,
         deliveryRadiusKm = 50,
+        available = true,
       } = options;
 
       // Строим SQL запрос с фильтрами
@@ -178,12 +179,11 @@ export class MenuRepository {
         SELECT 
           id, name, description, price, restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, available, order_url, category, image, ingredients
         FROM dishes 
-        WHERE available = true
-          AND expires_at > CURRENT_TIMESTAMP
+        WHERE expires_at > CURRENT_TIMESTAMP
       `;
 
       const params: unknown[] = [];
-      let paramIndex = 3;
+      let paramIndex = 1;
 
       // Фильтрация по городу (радиус доставки)
       if (city) {
@@ -202,6 +202,12 @@ export class MenuRepository {
           params.push(cityCoords.latitude, cityCoords.longitude, deliveryRadiusKm);
           paramIndex += 3;
         }
+      }
+
+      if (ids?.length) {
+        sql += ` AND id = ANY($${paramIndex})`;
+        params.push(ids);
+        paramIndex++;
       }
 
       if (category) {
@@ -226,6 +232,12 @@ export class MenuRepository {
       if (maxPrice) {
         sql += ` AND price <= $${paramIndex}`;
         params.push(maxPrice);
+        paramIndex++;
+      }
+
+      if (available) {
+        sql += ` AND available = $${paramIndex}`;
+        params.push(available);
         paramIndex++;
       }
 
@@ -281,6 +293,7 @@ export class MenuRepository {
         minSimilarity = 0.3,
         city,
         deliveryRadiusKm = 50,
+        available = true,
       } = options;
 
       // Строим SQL запрос с фильтрами
@@ -289,7 +302,7 @@ export class MenuRepository {
           id, name, description, price, restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, available, order_url, category, image, ingredients,
           1 - (embedding <=> $1) as similarity
         FROM dishes 
-        WHERE available = true
+        WHERE 
           AND 1 - (embedding <=> $1) >= $2
           AND expires_at > CURRENT_TIMESTAMP
       `;
@@ -338,6 +351,12 @@ export class MenuRepository {
       if (maxPrice) {
         sql += ` AND price <= $${paramIndex}`;
         params.push(maxPrice);
+        paramIndex++;
+      }
+
+      if (available) {
+        sql += ` AND available = $${paramIndex}`;
+        params.push(available);
         paramIndex++;
       }
 
@@ -452,6 +471,9 @@ export class MenuRepository {
       setParts.push(`updated_at = $${paramIndex}`);
       paramIndex++;
       values.push(new Date().toISOString());
+      setParts.push(`expires_at = $${paramIndex}`);
+      paramIndex++;
+      values.push(new Date(Date.now() + botConfig.cache.ttlMenu * 1000).toISOString());
       values.push(menuItemId);
 
       const result = await this.db.run(`
@@ -464,7 +486,7 @@ export class MenuRepository {
 
       const updatedMenuItem = await this.findById(menuItemId);
       if (!updatedMenuItem) {
-        throw AppError.systemError('MENU_ITEM_UPDATE_INCONSISTENT', 'Блюдо обновлено но не найдено');
+        throw AppError.systemError('MENU_ITEM_UPDATE_INCONSISTENT', 'Блюдо обновлено, но не найдено');
       }
 
       ConsoleLogger.info('Блюдо обновлено', { menuItemId, updates });
@@ -475,6 +497,96 @@ export class MenuRepository {
       }
       ConsoleLogger.error('Ошибка обновления блюда', error as Error, { menuItemId });
       throw AppError.databaseError('MENU_ITEM_UPDATE_FAILED', 'Не удалось обновить блюдо');
+    }
+  };
+
+  public updateBulk = async (
+    items: Array<{
+      id: string;
+      updates: Partial<Pick<TMenuItem, 'name' | 'description' | 'ingredients' | 'price' | 'image' | 'available' | 'restaurant' | 'orderUrl' | 'category'>>;
+    }>,
+  ): Promise<number> => {
+    try {
+      if (!items.length) {
+        return 0;
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + botConfig.cache.ttlMenu * 1000).toISOString();
+      const updatedAt = now.toISOString();
+
+      // Build VALUES rows: (id, name, description, ingredients, price, image, available,
+      //                    restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude,
+      //                    order_url, category, updated_at, expires_at)
+      const colsPerRow = 15;
+      const valuesSql = items
+        .map((_, i) => {
+          const base = i * colsPerRow;
+          return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15})`;
+        })
+        .join(', ');
+
+      const params: unknown[] = [];
+      for (const { id, updates } of items) {
+        // primitives or nulls for COALESCE logic
+        params.push(
+          id,
+          updates.name ?? null,
+          updates.description ?? null,
+          // store ingredients as JSON text when provided
+          updates.ingredients !== undefined ? JSON.stringify(updates.ingredients) : null,
+          updates.price ?? null,
+          updates.image ?? null,
+          updates.available ?? null,
+          updates.restaurant?.id ?? null,
+          updates.restaurant?.name ?? null,
+          updates.restaurant?.coordinates?.latitude ?? null,
+          updates.restaurant?.coordinates?.longitude ?? null,
+          updates.orderUrl ?? null,
+          updates.category ?? null,
+          updatedAt,
+          expiresAt,
+        );
+      }
+
+      const sql = `
+        UPDATE dishes AS d
+        SET
+          name = COALESCE(v.name, d.name),
+          description = COALESCE(v.description, d.description),
+          ingredients = COALESCE(v.ingredients, d.ingredients),
+          price = COALESCE(v.price, d.price),
+          image = COALESCE(v.image, d.image),
+          available = COALESCE(v.available, d.available),
+          restaurant_id = COALESCE(v.restaurant_id, d.restaurant_id),
+          restaurant_name = COALESCE(v.restaurant_name, d.restaurant_name),
+          restaurant_latitude = COALESCE(v.restaurant_latitude, d.restaurant_latitude),
+          restaurant_longitude = COALESCE(v.restaurant_longitude, d.restaurant_longitude),
+          order_url = COALESCE(v.order_url, d.order_url),
+          category = COALESCE(v.category, d.category),
+          updated_at = v.updated_at,
+          expires_at = v.expires_at
+        FROM (
+          VALUES ${valuesSql}
+        ) AS v(
+          id, name, description, ingredients, price, image, available,
+          restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude,
+          order_url, category, updated_at, expires_at
+        )
+        WHERE d.id = v.id
+      `;
+
+      const result = await this.db.run(sql, params);
+
+      ConsoleLogger.info('Блюда обновлены', {
+        itemsCount: items.length,
+        updatedRows: result.changes,
+      });
+
+      return result.changes;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка обновления блюд', error as Error, { itemsCount: items.length });
+      throw AppError.databaseError('MENU_ITEM_UPDATE_BULK_FAILED', 'Не удалось обновить блюда');
     }
   };
 
@@ -543,6 +655,7 @@ export class MenuRepository {
       orderUrl: entity.order_url,
       category: entity.category as EDishCategory,
       similarity: entity.similarity,
+      available: entity.available,
     };
   };
 }

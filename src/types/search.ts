@@ -37,4 +37,5 @@ export interface TSearchResultItem {
   image: string;
   orderUrl: string;
   category: EDishCategory;
+  available: boolean;
 }

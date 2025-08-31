@@ -36,14 +36,17 @@ export interface TVectorMenuSearchOptions {
   minSimilarity?: number;
   city?: string;
   deliveryRadiusKm?: number;
+  available?: boolean;
 }
 
 export interface TMenuSearchOptions {
   limit?: number;
+  ids?: string[];
   category?: string;
   restaurantNames?: string[];
   minPrice?: number;
   maxPrice?: number;
   city?: string;
   deliveryRadiusKm?: number;
+  available?: boolean;
 }

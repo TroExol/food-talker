@@ -278,6 +278,7 @@ describe('UserService', () => {
         orderUrl: 'https://dodo.ru/menu/pizza-margarita',
         category: EDishCategory.MAIN,
         image: 'https://dodo.ru/menu/pizza-margarita',
+        available: true,
       }];
 
       const existingUser: TUser = {

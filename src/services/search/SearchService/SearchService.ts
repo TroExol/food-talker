@@ -300,6 +300,7 @@ export class SearchService {
       price: item.price,
       image: item.image,
       orderUrl: item.orderUrl,
+      available: item.available,
     }));
   };
 

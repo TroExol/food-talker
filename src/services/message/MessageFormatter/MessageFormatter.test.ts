@@ -32,6 +32,7 @@ describe('MessageFormatterService', () => {
       image: 'https://example.com/search-image.jpg',
       orderUrl: 'https://example.com/search-order',
       category: EDishCategory.MAIN,
+      available: true,
     };
   });
 

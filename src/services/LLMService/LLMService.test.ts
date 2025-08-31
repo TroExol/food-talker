@@ -220,6 +220,7 @@ describe('LLMService', () => {
         orderUrl: 'https://example.com/1',
         category: EDishCategory.MAIN,
         image: 'https://example.com/1',
+        available: true,
       },
       {
         id: '2',
@@ -231,6 +232,7 @@ describe('LLMService', () => {
         orderUrl: 'https://example.com/2',
         category: EDishCategory.MAIN,
         image: 'https://example.com/2',
+        available: true,
       },
     ];
 
@@ -351,6 +353,7 @@ describe('LLMService', () => {
         orderUrl: '',
         category: EDishCategory.MAIN,
         image: 'https://example.com/1',
+        available: true,
       },
       {
         id: '2',
@@ -362,6 +365,7 @@ describe('LLMService', () => {
         orderUrl: '',
         category: EDishCategory.MAIN,
         image: 'https://example.com/2',
+        available: true,
       },
       {
         id: '3',
@@ -373,6 +377,7 @@ describe('LLMService', () => {
         orderUrl: '',
         category: EDishCategory.MAIN,
         image: 'https://example.com/3',
+        available: true,
       },
     ];
 
@@ -710,6 +715,7 @@ describe('LLMService', () => {
           orderUrl: 'https://example.com/1',
           category: EDishCategory.MAIN,
           image: 'https://example.com/1',
+          available: true,
         },
         {
           id: '2',
@@ -721,6 +727,7 @@ describe('LLMService', () => {
           orderUrl: 'https://example.com/2',
           category: EDishCategory.MAIN,
           image: 'https://example.com/2',
+          available: true,
         },
       ];
 

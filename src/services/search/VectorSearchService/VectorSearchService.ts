@@ -72,6 +72,7 @@ export class VectorSearchService {
       image: item.image,
       orderUrl: item.orderUrl,
       category: item.category,
+      available: item.available,
     }));
   };
 }
