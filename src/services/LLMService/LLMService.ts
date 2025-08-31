@@ -44,6 +44,8 @@ export class LLMService {
     naturalQuery: string,
     restaurants: TRestaurant[],
     userTelegramId?: number,
+    model = 'openai/gpt-oss-120b:free',
+    tryCount = 0,
   ): Promise<TStructuredQuery> => {
     try {
       ConsoleLogger.info('Начинаю структуризацию запроса через LLM', { query: naturalQuery });
@@ -66,7 +68,7 @@ export class LLMService {
         prompt,
         '/v1/chat/completions',
         ENeuralRequestType.LLM_STRUCTURE_QUERY,
-        'openai/gpt-oss-120b:free',
+        model,
         userTelegramId,
         {
           max_tokens: 10000,
@@ -84,7 +86,19 @@ export class LLMService {
       return structuredQuery;
     } catch (error) {
       ConsoleLogger.error('Ошибка структуризации запроса через LLM', error as Error, { query: naturalQuery });
-      return this.createFallbackStructuredQuery(naturalQuery);
+
+      if (tryCount >= 1) {
+        ConsoleLogger.info('Использую fallback стратегию для структуризации запроса');
+        return this.createFallbackStructuredQuery(naturalQuery);
+      }
+
+      try {
+        ConsoleLogger.info('Попытка структуризации запроса через LLM с использованием fallback модели');
+        return await this.stuctureQuery(naturalQuery, restaurants, userTelegramId, 'openai/gpt-oss-120b', tryCount + 1);
+      } catch (errorFallback) {
+        ConsoleLogger.error('Не удалось структуризовать запрос через LLM с использованием fallback модели', errorFallback as Error);
+        return this.createFallbackStructuredQuery(naturalQuery);
+      }
     }
   };
 
@@ -92,6 +106,8 @@ export class LLMService {
     results: TSearchResultItem[],
     query: string,
     userTelegramId?: number,
+    model = 'openai/gpt-oss-120b:free',
+    tryCount = 0,
   ): Promise<TSearchResultItem[]> => {
     try {
       if (results.length === 0) return results;
@@ -119,7 +135,7 @@ export class LLMService {
         prompt,
         '/v1/chat/completions',
         ENeuralRequestType.LLM_ENHANCE_RESULTS,
-        'openai/gpt-oss-120b:free',
+        model,
         userTelegramId,
         {
           max_tokens: 50000,
@@ -136,8 +152,20 @@ export class LLMService {
 
       return enhancedResults;
     } catch (error) {
-      ConsoleLogger.warn('Не удалось улучшить результаты через LLM, возвращаю оригинальные', error as Error);
-      return results; // Fallback к оригинальным результатам
+      ConsoleLogger.error('Не удалось улучшить результаты через LLM, возвращаю оригинальные', error as Error);
+
+      if (tryCount >= 1) {
+        ConsoleLogger.info('Использую fallback стратегию для улучшения результатов');
+        return results;
+      }
+
+      try {
+        ConsoleLogger.info('Попытка улучшения результатов через LLM с использованием fallback модели');
+        return await this.enhanceSearchResults(results, query, userTelegramId, 'openai/gpt-oss-120b', tryCount + 1);
+      } catch (errorFallback) {
+        ConsoleLogger.error('Не удалось улучшить результаты через LLM с использованием fallback модели', errorFallback as Error);
+        return results; // Fallback к оригинальным результатам
+      }
     }
   };
 

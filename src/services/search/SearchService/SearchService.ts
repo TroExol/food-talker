@@ -75,7 +75,7 @@ export class SearchService {
       results = this.limitResults(results, options.maxEnhenceMenu || 200);
 
       results = options.enableLLMEnhancement
-        ? await this.enhanceResultsWithLLM(results, naturalQuery)
+        ? await this.llmService.enhanceSearchResults(results, naturalQuery)
         : results;
 
       await this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, results);
@@ -206,27 +206,6 @@ export class SearchService {
     } catch (error) {
       ConsoleLogger.error('Ошибка выполнения поиска', error as Error, { structuredQuery, city });
       throw AppError.apiError('Не удалось выполнить поиск', error);
-    }
-  };
-
-  public enhanceResultsWithLLM = async (
-    searchResults: TSearchResultItem[],
-    originalQuery: string,
-  ): Promise<TSearchResultItem[]> => {
-    if (searchResults.length === 0) return searchResults;
-
-    try {
-      return await this.llmService.enhanceSearchResults(searchResults, originalQuery);
-    } catch (error) {
-      ConsoleLogger.warn('Не удалось улучшить результаты через LLM', error as Error);
-      return searchResults;
-      // TODO: Uncomment this when we have a better model
-      // try {
-      //   return await this.llmService.enhanceSearchResults(searchResults, originalQuery, 'Qwen/Qwen2.5-7B-Instruct-GGUF');
-      // } catch (errorFallback) {
-      //   ConsoleLogger.warn('Не удалось улучшить результаты через LLM', errorFallback as Error);
-      //   return searchResults; // Fallback к оригинальным результатам
-      // }
     }
   };
 

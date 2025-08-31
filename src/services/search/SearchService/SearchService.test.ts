@@ -250,40 +250,6 @@ describe('SearchService', () => {
     });
   });
 
-  describe('enhanceResultsWithLLM', () => {
-    it('должен успешно улучшить результаты через LLM', async () => {
-      const originalResults: TSearchResultItem[] = [mockSearchResult];
-      const enhancedResults: TSearchResultItem[] = [{
-        ...mockSearchResult,
-        name: 'Enhanced Test Pizza',
-      }];
-
-      (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue(enhancedResults);
-
-      const result = await searchService.enhanceResultsWithLLM(originalResults, 'хочу пиццу');
-
-      expect(result).toEqual(enhancedResults);
-      expect(mockLLMService.enhanceSearchResults).toHaveBeenCalledWith(originalResults, 'хочу пиццу');
-    });
-
-    it('должен вернуть оригинальные результаты при ошибке LLM', async () => {
-      const originalResults: TSearchResultItem[] = [mockSearchResult];
-
-      (mockLLMService.enhanceSearchResults as Mock).mockRejectedValue(new Error('LLM error'));
-
-      const result = await searchService.enhanceResultsWithLLM(originalResults, 'хочу пиццу');
-
-      expect(result).toEqual(originalResults);
-    });
-
-    it('должен вернуть пустой массив если вход пустой', async () => {
-      const result = await searchService.enhanceResultsWithLLM([], 'хочу пиццу');
-
-      expect(result).toEqual([]);
-      expect(mockLLMService.enhanceSearchResults).not.toHaveBeenCalled();
-    });
-  });
-
   describe('getSearchStats', () => {
     it('должен вернуть статистику поиска', async () => {
       const mockHistory = [

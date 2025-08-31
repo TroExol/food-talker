@@ -176,11 +176,13 @@ describe('LLMService', () => {
       const structuring = llmService.stuctureQuery('тест', []);
       await vi.advanceTimersToNextTimerAsync();
       await vi.advanceTimersToNextTimerAsync();
+      await vi.advanceTimersToNextTimerAsync();
+      await vi.advanceTimersToNextTimerAsync();
 
       const result = await structuring;
 
       expect(result).toEqual({ tags: [] });
-      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(mockFetch).toHaveBeenCalledTimes(6);
     });
 
     it('должен обрабатывать таймауты', async () => {
@@ -200,11 +202,12 @@ describe('LLMService', () => {
 
       const structuring = llmService.stuctureQuery('тест', []);
       await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(10000);
       const result = await structuring;
 
       expect(result).toEqual({ tags: [] });
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(onAbort).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(onAbort).toHaveBeenCalledTimes(2);
     });
   });
 
