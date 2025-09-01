@@ -46,7 +46,7 @@ export class LLMService {
     naturalQuery: string,
     restaurants: TRestaurant[],
     userTelegramId?: number,
-    model = 'openai/gpt-5-mini',
+    model = 'mistralai/mistral-small-3.2-24b-instruct:free',
     tryCount = 0,
   ): Promise<TStructuredQuery> => {
     try {
@@ -83,7 +83,7 @@ export class LLMService {
         },
         waitTimeoutMs: 30000,
       });
-      const structuredQuery = this.parseStructuredQuery(availableRestaurants, response);
+      const structuredQuery = this.parseStructuredQuery(naturalQuery, availableRestaurants, response);
 
       await this.cacheService.set(cacheKey, structuredQuery, this.cacheTTL);
 
@@ -115,7 +115,7 @@ export class LLMService {
     results: TSearchResultItem[],
     query: string,
     userTelegramId?: number,
-    model = 'openai/gpt-5-nano',
+    model = 'mistralai/mistral-small-3.2-24b-instruct:free',
     tryCount = 0,
   ): Promise<TSearchResultItem[]> => {
     try {
@@ -207,10 +207,11 @@ export class LLMService {
   * "вкусный/вкусная/вкусное" может быть началом названия "вкусно - и точка"
 
 Алгоритм обработки запроса:
-- Шаг 1: Найти совпадения ресторанов из availableRestaurants в naturalQuery и занести в restaurants.
-- Шаг 2: Извлечь 1–3 синонима на каждый смысловой элемент; используй основы слов без окончаний.
-- Шаг 3: Определи категорию: основное, гарнир, напиток, соус, аксессуар, десерт, закуска — по контексту.
-- Шаг 4: Извлеки исключения: "не из/кроме" → exclusions.restaurants; "без/не хочу" → exclusions.tags; "до X рублей" → priceRange.max.
+- Шаг 1: Извлеки из naturalQuery только смысловую часть про блюда/напитки/ингредиенты/вкусы/диеты/кухню и помести ее в поле semanticQuery.
+- Шаг 2: Найти совпадения ресторанов из availableRestaurants в naturalQuery и занести в restaurants.
+- Шаг 3: Извлечь 1–3 синонима на каждый смысловой элемент; используй основы слов без окончаний.
+- Шаг 4: Определи категорию: основное, гарнир, напиток, соус, аксессуар, десерт, закуска — по контексту.
+- Шаг 5: Извлеки исключения: "не из/кроме" → exclusions.restaurants; "без/не хочу" → exclusions.tags; "до X рублей" → priceRange.max.
 Если данных нет — опусти поле или верни пустой массив, не ставь вымышленных значений.`,
       prompt: `ВХОДНОЙ ЗАПРОС:
 naturalQuery: "${naturalQuery}"
@@ -225,6 +226,10 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
             type: 'object',
             additionalProperties: false,
             properties: {
+              semanticQuery: {
+                type: 'string',
+                description: 'Нормализованный поисковый запрос',
+              },
               restaurants: {
                 type: 'array',
                 items: { type: 'string', minLength: 0 },
@@ -263,6 +268,7 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
               exclusions_priceMax: { type: ['integer', 'null'], description: 'Исключить варианты дороже этой суммы' },
             },
             required: [
+              'semanticQuery',
               'restaurants',
               'tags',
               'category',
@@ -513,13 +519,18 @@ ${menuList}
     throw AppError.llmError('LLM все попытки вызова не удались');
   };
 
-  private parseStructuredQuery = (availableRestaurants: string[], response: string): TStructuredQuery => {
+  private parseStructuredQuery = (
+    naturalQuery: string,
+    availableRestaurants: string[],
+    response: string,
+  ): TStructuredQuery => {
     try {
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw AppError.systemError('JSON не найден в ответе');
       }
       return this.repairQueryStructure(
+        naturalQuery,
         availableRestaurants,
         JSON.parse(jsonrepair(jsonMatch[0])) as TLLMStructureQueryStructuredOutput,
       );
@@ -529,11 +540,18 @@ ${menuList}
   };
 
   private repairQueryStructure = (
+    naturalQuery: string,
     availableRestaurants: string[],
     query: TLLMStructureQueryStructuredOutput,
   ): TStructuredQuery => {
-    const repairedQuery: TStructuredQuery = {};
+    const repairedQuery: TStructuredQuery = {
+      semanticQuery: naturalQuery,
+    };
     const availableRestaurantsFormed = availableRestaurants.map(r => r.toLowerCase().trim());
+
+    if (query.semanticQuery && typeof query.semanticQuery === 'string') {
+      repairedQuery.semanticQuery = query.semanticQuery.toLowerCase().trim();
+    }
 
     if (query.restaurants) {
       repairedQuery.restaurants = Array.isArray(query.restaurants)
@@ -671,7 +689,7 @@ ${menuList}
     if (queryLower.includes('сладк') || queryLower.includes('sweet')) tags.push('сладкий');
 
     // Всегда возвращаем объект с tags, даже если массив пустой
-    return { tags };
+    return { semanticQuery: query, tags };
   };
 
   private parseEnhancedResults = (response: string, originalResults: TSearchResultItem[]): TSearchResultItem[] => {

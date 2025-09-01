@@ -110,6 +110,7 @@ describe('YESearchService', () => {
   describe('searchMenu', () => {
     const mockCity: EAvailableCities = 'Пермь' as EAvailableCities;
     const mockQuery: TStructuredQuery = {
+      semanticQuery: 'тест',
       restaurants: ['тест'],
       tags: ['говядина'],
       priceRange: { min: 400, max: 600 },
@@ -254,7 +255,7 @@ describe('YESearchService', () => {
     const allItems = [mockMenuItem, mockMenuItem2, mockMenuItem3];
 
     it('должен фильтровать недоступные товары', () => {
-      const query: TStructuredQuery = {};
+      const query: TStructuredQuery = { semanticQuery: 'тест' };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
       const result = (service as unknown as TMockedService).filterMenuItems(allItems, query);
 
@@ -263,6 +264,7 @@ describe('YESearchService', () => {
 
     it('должен фильтровать по ресторанам', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         restaurants: ['тест'],
       };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
@@ -273,6 +275,7 @@ describe('YESearchService', () => {
 
     it('должен исключать товары из несовпадающих ресторанов', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         restaurants: ['Другой Ресторан'],
       };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
@@ -283,6 +286,7 @@ describe('YESearchService', () => {
 
     it('должен фильтровать по тегам в ингредиентах', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         tags: ['говядина'],
       };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
@@ -293,6 +297,7 @@ describe('YESearchService', () => {
 
     it('должен фильтровать по тегам в описании', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         tags: ['котлетой'],
       };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
@@ -303,6 +308,7 @@ describe('YESearchService', () => {
 
     it('должен фильтровать по тегам в названии', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         tags: ['Бургер'],
       };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
@@ -313,6 +319,7 @@ describe('YESearchService', () => {
 
     it('должен фильтровать по ценовому диапазону', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         priceRange: { min: 400, max: 600 },
       };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
@@ -323,6 +330,7 @@ describe('YESearchService', () => {
 
     it('должен исключать товары по ресторанам', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         exclusions: {
           restaurants: ['Тест Ресторан'],
         },
@@ -335,6 +343,7 @@ describe('YESearchService', () => {
 
     it('должен исключать товары по тегам в ингредиентах', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         exclusions: {
           tags: ['говядина'],
         },
@@ -347,6 +356,7 @@ describe('YESearchService', () => {
 
     it('должен исключать товары по тегам в описании', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         exclusions: {
           tags: ['котлетой'],
         },
@@ -359,6 +369,7 @@ describe('YESearchService', () => {
 
     it('должен исключать товары по тегам в названии ресторана', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         exclusions: {
           tags: ['тест'],
         },
@@ -371,6 +382,7 @@ describe('YESearchService', () => {
 
     it('должен исключать товары по ценовому диапазону', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         exclusions: {
           priceRange: { min: 400, max: 600 },
         },
@@ -383,6 +395,7 @@ describe('YESearchService', () => {
 
     it('должен применять комбинированные фильтры', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         restaurants: ['Тест Ресторан'],
         tags: ['говядина'],
         priceRange: { min: 400, max: 600 },
@@ -397,7 +410,7 @@ describe('YESearchService', () => {
     });
 
     it('должен возвращать все товары при пустом запросе', () => {
-      const query: TStructuredQuery = {};
+      const query: TStructuredQuery = { semanticQuery: 'тест' };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
       const result = (service as unknown as TMockedService).filterMenuItems(allItems, query);
 
@@ -408,6 +421,7 @@ describe('YESearchService', () => {
   describe('buildSearchCacheKey', () => {
     it('должен генерировать стабильный ключ для простого запроса', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         restaurants: ['Ресторан А', 'Ресторан Б'],
         tags: ['тег1', 'тег2'],
       };
@@ -419,6 +433,7 @@ describe('YESearchService', () => {
 
     it('должен генерировать ключ с ценовым диапазоном', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         priceRange: { min: 100, max: 500 },
       };
       type TMockedService = { buildSearchCacheKey: (query: TStructuredQuery, coordinates: TCoordinates) => string };
@@ -429,6 +444,7 @@ describe('YESearchService', () => {
 
     it('должен генерировать ключ с исключениями', () => {
       const query: TStructuredQuery = {
+        semanticQuery: 'тест',
         exclusions: {
           restaurants: ['Исключенный Ресторан'],
           tags: ['исключенный тег'],
@@ -443,10 +459,12 @@ describe('YESearchService', () => {
 
     it('должен сортировать массивы для стабильности ключа', () => {
       const query1: TStructuredQuery = {
+        semanticQuery: 'тест',
         restaurants: ['Б', 'А'],
         tags: ['тег2', 'тег1'],
       };
       const query2: TStructuredQuery = {
+        semanticQuery: 'тест',
         restaurants: ['А', 'Б'],
         tags: ['тег1', 'тег2'],
       };
@@ -459,7 +477,7 @@ describe('YESearchService', () => {
     });
 
     it('должен обрабатывать пустые значения', () => {
-      const query: TStructuredQuery = {};
+      const query: TStructuredQuery = { semanticQuery: 'тест' };
       type TMockedService = { buildSearchCacheKey: (query: TStructuredQuery, coordinates: TCoordinates) => string };
       const result = (service as unknown as TMockedService).buildSearchCacheKey(query, mockCoordinates);
 
@@ -513,7 +531,7 @@ describe('YESearchService', () => {
   describe('sortByRelevance', () => {
     it('должен сортировать блюда по релевантности', () => {
       const items = [mockMenuItem, mockMenuItem2];
-      const query: TStructuredQuery = { tags: ['пицца'] };
+      const query: TStructuredQuery = { semanticQuery: 'тест', tags: ['пицца'] };
       const sorted = service.sortByRelevance(items, query);
       expect(sorted[0].name).toBe('Пицца Маргарита');
     });
@@ -522,7 +540,7 @@ describe('YESearchService', () => {
       const pizza1 = { ...mockMenuItem2, price: 600 };
       const pizza2 = { ...mockMenuItem2, price: 400, id: 'pizza2' };
       const items = [pizza1, pizza2];
-      const query: TStructuredQuery = { tags: ['пицца'] };
+      const query: TStructuredQuery = { semanticQuery: 'тест', tags: ['пицца'] };
       const sorted = service.sortByRelevance(items, query);
       expect(sorted[0].price).toBe(400);
     });
@@ -531,7 +549,7 @@ describe('YESearchService', () => {
   describe('filterMenuItems', () => {
     it('должен фильтровать по тегам с улучшенной логикой', () => {
       const items = [mockMenuItem, mockMenuItem2];
-      const query: TStructuredQuery = { tags: ['пицца'] };
+      const query: TStructuredQuery = { semanticQuery: 'тест', tags: ['пицца'] };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
       const filtered = (service as unknown as TMockedService).filterMenuItems(items, query);
       expect(filtered).toHaveLength(1);
@@ -540,7 +558,7 @@ describe('YESearchService', () => {
 
     it('должен исключать недоступные блюда', () => {
       const items = [mockMenuItem3];
-      const query: TStructuredQuery = {};
+      const query: TStructuredQuery = { semanticQuery: 'тест' };
       type TMockedService = { filterMenuItems: (items: TMenuItem[], query: TStructuredQuery) => TMenuItem[] };
       const filtered = (service as unknown as TMockedService).filterMenuItems(items, query);
       expect(filtered).toHaveLength(0);

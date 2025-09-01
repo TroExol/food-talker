@@ -472,16 +472,15 @@ ${description
   };
 
   private formatMenuItemText = (item: TSearchResultItem): string => {
-    const description = this.truncateText(item.description, this.formattingConfig.maxDescriptionLength);
     const tags = item.tags.join(', ');
 
     return `🍽️ <b>${this.escapeHtml(item.name)}</b>
 🏪 <i>${this.escapeHtml(item.restaurant.name)}</i>
 💰 <b>${this.formatPrice(item.price)}</b>
-${description
+${item.description
   ? `
-📝 ${this.escapeHtml(description)}`
-  : ''}${!description && tags
+📝 ${this.escapeHtml(item.description)}`
+  : ''}${!item.description && tags
   ? `
 📝 ${tags}`
   : ''}`.trim();

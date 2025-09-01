@@ -55,7 +55,7 @@ describe('LLMService', () => {
       const mockResponse = {
         choices: [{
           message: {
-            content: '{"tags": ["пицца", "сыр"], "priceMin": 200, "priceMax": 800}',
+            content: '{ "semanticQuery": "пицца с сыром", "tags": ["пицца", "сыр"], "priceMin": 200, "priceMax": 800}',
           },
         }],
         usage: {
@@ -73,6 +73,7 @@ describe('LLMService', () => {
       const result = await llmService.stuctureQuery('хочу пиццу с сыром до 800 рублей', []);
 
       expect(result).toEqual({
+        semanticQuery: 'пицца с сыром',
         tags: ['пицца', 'сыр'],
         priceRange: { min: 200, max: 800 },
       });
@@ -98,6 +99,7 @@ describe('LLMService', () => {
           message: {
             content: `{
               "restaurants": ["Додо Пицца", "Папа Джонс"],
+              "semanticQuery": "пепперони",
               "tags": ["пепперони"],
               "exclusions_tags": ["ананас"],
               "exclusions_priceMin": 0,
@@ -124,6 +126,7 @@ describe('LLMService', () => {
 
       expect(result).toEqual({
         restaurants: ['додо пицца', 'папа джонс'],
+        semanticQuery: 'пепперони',
         tags: ['пепперони'],
         exclusions: {
           tags: ['ананас'],
@@ -149,7 +152,7 @@ describe('LLMService', () => {
 
       const result = await llmService.stuctureQuery('тест', []);
 
-      expect(result).toEqual({});
+      expect(result).toEqual({ semanticQuery: 'тест' });
     });
 
     it('должен повторять попытки при ошибках сети', async () => {
@@ -159,7 +162,7 @@ describe('LLMService', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve({
-            choices: [{ message: { content: '{"tags": ["тест"]}' } }],
+            choices: [{ message: { content: '{ "semanticQuery": "тест", "tags": ["тест"] }' } }],
             usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
           }),
         });
@@ -169,7 +172,7 @@ describe('LLMService', () => {
       await vi.advanceTimersToNextTimerAsync();
       const result = await fetching;
 
-      expect(result).toEqual({ tags: ['тест'] });
+      expect(result).toEqual({ semanticQuery: 'тест', tags: ['тест'] });
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
@@ -184,7 +187,7 @@ describe('LLMService', () => {
 
       const result = await structuring;
 
-      expect(result).toEqual({ tags: [] });
+      expect(result).toEqual({ semanticQuery: 'тест', tags: [] });
       expect(mockFetch).toHaveBeenCalledTimes(6);
     });
 
@@ -209,7 +212,7 @@ describe('LLMService', () => {
       await vi.advanceTimersByTimeAsync(30000);
       const result = await structuring;
 
-      expect(result).toEqual({ tags: [] });
+      expect(result).toEqual({ semanticQuery: 'тест', tags: [] });
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(onAbort).toHaveBeenCalledTimes(2);
     });
@@ -305,41 +308,47 @@ describe('LLMService', () => {
 
   describe('parseStructuredQuery', () => {
     type MockLLMService = {
-      parseStructuredQuery: (availableRestaurants: string[], response: string) => TStructuredQuery;
+      parseStructuredQuery: (
+        naturalQuery: string,
+        availableRestaurants: string[],
+        response: string,
+      ) => TStructuredQuery;
     };
 
     it('должен извлекать JSON из ответа с дополнительным текстом', () => {
-      const response = 'Вот структурированный запрос: {"tags": ["пицца"]} Спасибо!';
+      const response = 'Вот структурированный запрос: {"semanticQuery": "пицца", "tags": ["пицца"]} Спасибо!';
 
-      const result = (llmService as unknown as MockLLMService).parseStructuredQuery([], response);
+      const result = (llmService as unknown as MockLLMService).parseStructuredQuery('тест', [], response);
 
-      expect(result).toEqual({ tags: ['пицца'] });
+      expect(result).toEqual({ semanticQuery: 'пицца', tags: ['пицца'] });
     });
 
     it('должен извлекать JSON из ответа с дополнительным текстом и новой строкой', () => {
       const response = `Вот структурированный запрос:
       {
+        "semanticQuery": "пицца",
         "tags": ["пицца"]
       }
       Спасибо!`;
 
-      const result = (llmService as unknown as MockLLMService).parseStructuredQuery([], response);
+      const result = (llmService as unknown as MockLLMService).parseStructuredQuery('тест', [], response);
 
-      expect(result).toEqual({ tags: ['пицца'] });
+      expect(result).toEqual({ semanticQuery: 'пицца', tags: ['пицца'] });
     });
 
     it('должен выбрасывать ошибку при отсутствии JSON', () => {
       const response = 'Просто текст без JSON';
 
-      expect(() => (llmService as unknown as MockLLMService).parseStructuredQuery([], response)).toThrow('Ошибка парсинга JSON');
+      expect(() => (llmService as unknown as MockLLMService).parseStructuredQuery('тест', [], response)).toThrow('Ошибка парсинга JSON');
     });
 
     it('должен фильтровать неверные типы данных', () => {
-      const response = '{"restaurants": ["Додо", 123, null], "tags": ["пицца", 456]}';
+      const response = '{"semanticQuery": "тест", "restaurants": ["Додо", 123, null], "tags": ["пицца", 456]}';
 
-      const result = (llmService as unknown as MockLLMService).parseStructuredQuery(['Додо'], response);
+      const result = (llmService as unknown as MockLLMService).parseStructuredQuery('тест', ['Додо'], response);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         restaurants: ['додо'],
         tags: ['пицца'],
       });
@@ -426,6 +435,7 @@ describe('LLMService', () => {
   describe('repairQueryStructure', () => {
     type MockLLMService = {
       repairQueryStructure: (
+        naturalQuery: string,
         availableRestaurants: string[],
         query: TLLMStructureQueryStructuredOutput,
       ) => TStructuredQuery;
@@ -433,6 +443,7 @@ describe('LLMService', () => {
 
     it('должен нормализовать и удалять дубликаты в ресторанах', () => {
       const query: TLLMStructureQueryStructuredOutput = {
+        semanticQuery: 'тест',
         restaurants: ['Додо Пицца', 'додо пицца', 'ДОДО ПИЦЦА', 'Папа Джонс', 'вввв'],
         tags: [],
         category: null,
@@ -445,9 +456,10 @@ describe('LLMService', () => {
         exclusions_priceMax: null,
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа Джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа Джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         restaurants: ['додо пицца', 'папа джонс'],
         tags: [],
         exclusions: {
@@ -459,6 +471,7 @@ describe('LLMService', () => {
 
     it('должен нормализовать и удалять дубликаты в ингредиентах', () => {
       const query: TLLMStructureQueryStructuredOutput = {
+        semanticQuery: 'тест',
         tags: ['Пицца', 'пицца', 'Сыр', 'сыр', 'Томаты'],
         restaurants: [],
         category: null,
@@ -471,9 +484,10 @@ describe('LLMService', () => {
         exclusions_priceMax: null,
       };
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа Джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа Джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         tags: ['пицца', 'сыр', 'томаты'],
         restaurants: [],
         exclusions: {
@@ -485,12 +499,14 @@ describe('LLMService', () => {
 
     it('должен исправлять некорректные типы данных в ресторанах', () => {
       const query = {
+        semanticQuery: 'тест',
         restaurants: ['Додо', 123, null, 'Папа Джонс', undefined, ''],
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа Джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа Джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         restaurants: ['папа джонс'],
       });
     });
@@ -500,9 +516,10 @@ describe('LLMService', () => {
         tags: ['Пицца', 456, null, 'Сыр', undefined, ''],
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         tags: ['пицца', 'сыр'],
       });
     });
@@ -513,9 +530,10 @@ describe('LLMService', () => {
         priceMax: 500,
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         priceRange: { min: 0, max: 500 },
       });
     });
@@ -526,9 +544,10 @@ describe('LLMService', () => {
         priceMax: -50,
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         priceRange: { min: 100, max: Number.MAX_SAFE_INTEGER },
       });
     });
@@ -539,22 +558,25 @@ describe('LLMService', () => {
         priceMax: 100,
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         priceRange: { min: 0, max: 100 },
       });
     });
 
     it('должен обрабатывать исключения с ресторанами', () => {
       const query = {
+        semanticQuery: 'тест',
         tags: ['пицца'],
         exclusions_restaurants: ['Додо Пицца', 'додо пицца', 'Папа Джонс'],
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         tags: ['пицца'],
         exclusions: {
           restaurants: ['додо пицца', 'папа джонс'],
@@ -564,13 +586,15 @@ describe('LLMService', () => {
 
     it('должен обрабатывать исключения с ингредиентами', () => {
       const query = {
+        semanticQuery: 'тест',
         tags: ['пицца'],
         exclusions_tags: ['Ананас', 'ананас', 'Оливки'],
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         tags: ['пицца'],
         exclusions: {
           tags: ['ананас', 'оливки'],
@@ -580,14 +604,16 @@ describe('LLMService', () => {
 
     it('должен исправлять ценовые диапазоны в исключениях', () => {
       const query = {
+        semanticQuery: 'тест',
         tags: ['пицца'],
         exclusions_priceMin: -50,
         exclusions_priceMax: 300,
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         tags: ['пицца'],
         exclusions: {
           priceRange: { min: 0, max: 300 },
@@ -597,14 +623,16 @@ describe('LLMService', () => {
 
     it('должен исправлять некорректные ценовые диапазоны в исключениях', () => {
       const query = {
+        semanticQuery: 'тест',
         tags: ['пицца'],
         exclusions_priceMin: 500,
         exclusions_priceMax: 100,
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         tags: ['пицца'],
         exclusions: {
           priceRange: { min: 0, max: 100 },
@@ -614,13 +642,15 @@ describe('LLMService', () => {
 
     it('должен обрабатывать пустые массивы', () => {
       const query = {
+        semanticQuery: 'тест',
         restaurants: [] as string[],
         tags: [] as string[],
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         restaurants: [],
         tags: [],
       });
@@ -629,13 +659,14 @@ describe('LLMService', () => {
     it('должен обрабатывать пустую структуру', () => {
       const query = {} as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
-      expect(result).toEqual({});
+      expect(result).toEqual({ semanticQuery: 'тест' });
     });
 
     it('должен обрабатывать сложную структуру с множественными исправлениями', () => {
       const query = {
+        semanticQuery: 'тест',
         restaurants: ['Додо Пицца', 123, 'додо', 'Папа Джонс'],
         tags: ['Пицца', null, 'пицца', 'Сыр'],
         priceMin: -100,
@@ -646,9 +677,10 @@ describe('LLMService', () => {
         exclusions_priceMax: 100,
       } as TLLMStructureQueryStructuredOutput;
 
-      const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
+      const result = (llmService as unknown as MockLLMService).repairQueryStructure('тест', ['Додо Пицца', 'Папа джонс'], query);
 
       expect(result).toEqual({
+        semanticQuery: 'тест',
         restaurants: ['додо пицца', 'папа джонс'],
         tags: ['пицца', 'сыр'],
         priceRange: { min: 0, max: Number.MAX_SAFE_INTEGER },
@@ -665,6 +697,7 @@ describe('LLMService', () => {
     describe('transformQuery with cache', () => {
       it('должен использовать кэшированный результат при наличии', async () => {
         const cachedQuery: TStructuredQuery = {
+          semanticQuery: 'тест',
           tags: ['пицца', 'сыр'],
           priceRange: { min: 200, max: 800 },
         };
@@ -722,7 +755,7 @@ describe('LLMService', () => {
         const mockResponse = {
           choices: [{
             message: {
-              content: '{"tags": ["пицца"]}',
+              content: '{"semanticQuery": "тест", "tags": ["пицца"]}',
             },
           }],
           usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
@@ -738,7 +771,7 @@ describe('LLMService', () => {
           [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
         );
 
-        expect(result).toEqual({ tags: ['пицца'] });
+        expect(result).toEqual({ semanticQuery: 'тест', tags: ['пицца'] });
       });
     });
 
@@ -828,7 +861,7 @@ describe('LLMService', () => {
         const mockResponse = {
           choices: [{
             message: {
-              content: '{"tags": ["пицца"]}',
+              content: '{"semanticQuery": "тест", "tags": ["пицца"]}',
             },
           }],
           usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
@@ -844,7 +877,7 @@ describe('LLMService', () => {
           [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
         );
 
-        expect(result).toEqual({ tags: ['пицца'] });
+        expect(result).toEqual({ semanticQuery: 'хочу пиццу', tags: ['пицца'] });
         expect(mockCacheService.get).toHaveBeenCalled();
       });
 
@@ -855,7 +888,7 @@ describe('LLMService', () => {
         const mockResponse = {
           choices: [{
             message: {
-              content: '{"tags": ["пицца"]}',
+              content: '{"semanticQuery": "тест", "tags": ["пицца"]}',
             },
           }],
           usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },
@@ -869,9 +902,12 @@ describe('LLMService', () => {
         const result = await llmService.stuctureQuery(
           'хочу пиццу',
           [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
+          undefined,
+          undefined,
+          1,
         );
 
-        expect(result).toEqual({ tags: ['пицца'] });
+        expect(result).toEqual({ semanticQuery: 'хочу пиццу', tags: ['пицца'] });
         expect(mockCacheService.set).toHaveBeenCalled();
       });
     });
@@ -883,7 +919,7 @@ describe('LLMService', () => {
         const mockResponse = {
           choices: [{
             message: {
-              content: '{"tags": ["пицца"]}',
+              content: '{"semanticQuery": "тест", "tags": ["пицца"]}',
             },
           }],
           usage: { total_tokens: 50, prompt_tokens: 30, completion_tokens: 20 },

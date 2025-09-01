@@ -294,7 +294,7 @@ describe('MessageFormatterService', () => {
       const mockHistoryItem: TSearchHistoryItem = {
         id: 'history-1',
         query: 'пицца с грибами',
-        structuredQuery: {},
+        structuredQuery: { semanticQuery: 'пицца с грибами' },
         results: [mockSearchResult],
         timestamp: new Date('2024-01-01T12:00:00Z'),
       };
@@ -321,7 +321,7 @@ describe('MessageFormatterService', () => {
       const history = Array.from({ length: 10 }, (_, i) => ({
         id: `history-${i}`,
         query: `Запрос ${i}`,
-        structuredQuery: {},
+        structuredQuery: { semanticQuery: `Запрос ${i}` },
         results: [],
         timestamp: new Date('2024-01-01T12:00:00Z'),
       }));
@@ -336,21 +336,21 @@ describe('MessageFormatterService', () => {
         {
           id: 'history-1',
           query: 'пицца',
-          structuredQuery: {},
+          structuredQuery: { semanticQuery: 'пицца' },
           results: [mockSearchResult, mockSearchResult, mockSearchResult], // 3 результата
           timestamp: new Date('2024-01-01T12:00:00Z'),
         },
         {
           id: 'history-2',
           query: 'бургер',
-          structuredQuery: {},
+          structuredQuery: { semanticQuery: 'бургер' },
           results: [mockSearchResult], // 1 результат
           timestamp: new Date('2024-01-01T13:00:00Z'),
         },
         {
           id: 'history-3',
           query: 'суши',
-          structuredQuery: {},
+          structuredQuery: { semanticQuery: 'суши' },
           results: [], // нет результатов
           timestamp: new Date('2024-01-01T14:00:00Z'),
         },

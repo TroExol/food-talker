@@ -144,7 +144,7 @@ describe('SearchService', () => {
     it('должен успешно выполнить поиск еды через векторный поиск', async () => {
       // Настройка моков для векторного поиска
       (mockYEApiService.getRestaurants as Mock).mockResolvedValue([mockRestaurant]);
-      (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ tags: ['пицца'] });
+      (mockLLMService.stuctureQuery as Mock).mockResolvedValue({ semanticQuery: 'хочу пиццу1', tags: ['пицца'] });
       (mockUserService.getUser as Mock).mockResolvedValue(mockUser);
       (mockVectorSearchService.searchMenuWithRAG as Mock).mockResolvedValue([mockSearchResult]);
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
@@ -161,7 +161,7 @@ describe('SearchService', () => {
       expect(result[0].name).toBe(mockSearchResult.name);
       expect(result[0].price).toBe(mockSearchResult.price);
       expect(mockUserService.getUser).toHaveBeenCalledWith('123456789');
-      expect(mockVectorSearchService.searchMenuWithRAG).toHaveBeenCalledWith('хочу пиццу', {
+      expect(mockVectorSearchService.searchMenuWithRAG).toHaveBeenCalledWith('хочу пиццу1', {
         limit: 200,
         category: undefined,
         restaurantNames: undefined,

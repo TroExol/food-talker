@@ -67,6 +67,7 @@ export interface TLLMCallParams {
 }
 
 export interface TLLMStructureQueryStructuredOutput {
+  semanticQuery: string;
   restaurants: string[];
   tags: string[];
   category: string | null;

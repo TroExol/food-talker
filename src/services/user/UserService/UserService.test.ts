@@ -264,7 +264,7 @@ describe('UserService', () => {
     it('должен добавить запись в историю поиска', async () => {
       const telegramId = '123456789';
       const query = 'пицца';
-      const structuredQuery = { restaurants: ['Додо'] };
+      const structuredQuery = { restaurants: ['Додо'], semanticQuery: 'пицца' };
       const results: TSearchResultItem[] = [{
         id: '1',
         name: 'Пицца Маргарита',
@@ -323,7 +323,7 @@ describe('UserService', () => {
         {
           id: 'uuid1',
           query: 'пицца',
-          structuredQuery: {},
+          structuredQuery: { semanticQuery: 'пицца' },
           results: [],
           timestamp: new Date(),
         },
@@ -368,14 +368,14 @@ describe('UserService', () => {
         {
           id: 'uuid1',
           query: 'пицца',
-          structuredQuery: {},
+          structuredQuery: { semanticQuery: 'пицца' },
           results: [],
           timestamp: new Date(),
         },
         {
           id: 'uuid2',
           query: 'суши',
-          structuredQuery: {},
+          structuredQuery: { semanticQuery: 'суши' },
           results: [],
           timestamp: new Date(),
         },
@@ -405,7 +405,7 @@ describe('UserService', () => {
       const history: TSearchHistoryItem[] = Array.from({ length: 30 }, (_, i) => ({
         id: `uuid${i}`,
         query: `поиск ${i}`,
-        structuredQuery: {},
+        structuredQuery: { semanticQuery: `поиск ${i}` },
         results: [],
         timestamp: new Date(),
       }));
@@ -444,14 +444,14 @@ describe('UserService', () => {
         {
           id: 'uuid1',
           query: 'пицца',
-          structuredQuery: {},
+          structuredQuery: { semanticQuery: 'пицца' },
           results: [],
           timestamp: new Date(),
         },
         {
           id: 'uuid2',
           query: 'суши',
-          structuredQuery: {},
+          structuredQuery: { semanticQuery: 'суши' },
           results: [],
           timestamp: new Date(),
         },

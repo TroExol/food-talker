@@ -58,14 +58,14 @@ export class SearchService {
       // Используем векторный поиск вместо структурированного
       let results = options.enableVectorSearch
         ? options.searchIn === 'lightRAG'
-          ? await this.searchWithLightRAG(user.city, naturalQuery, structuredQuery)
-          : await this.searchWithRAG(user.city, naturalQuery, structuredQuery)
+          ? await this.searchWithLightRAG(user.city, structuredQuery.semanticQuery, structuredQuery)
+          : await this.searchWithRAG(user.city, structuredQuery.semanticQuery, structuredQuery)
         : [];
 
       // Если векторный поиск не дал результатов, используем фильтрацию и ранжирование
       if (results.length === 0) {
         ConsoleLogger.info('Векторный поиск не дал результатов, используем традиционный поиск', {
-          query: naturalQuery,
+          query: structuredQuery.semanticQuery,
           structuredQuery,
         });
         results = await this.platformsSearch(structuredQuery, user.city);
@@ -75,7 +75,7 @@ export class SearchService {
       results = this.limitResults(results, options.maxEnhenceMenu || 100);
 
       results = options.enableLLMEnhancement
-        ? await this.llmService.enhanceSearchResults(results, naturalQuery)
+        ? await this.llmService.enhanceSearchResults(results, structuredQuery.semanticQuery)
         : results;
 
       await this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, results);

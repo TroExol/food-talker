@@ -6,6 +6,7 @@ interface TPriceRange {
 }
 
 export interface TStructuredQuery {
+  semanticQuery: string;
   restaurants?: string[];
   tags?: string[];
   priceRange?: TPriceRange;
