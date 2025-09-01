@@ -190,4 +190,29 @@ describe('YandexMetricaService', () => {
       );
     });
   });
+
+  describe('generateClientId', () => {
+    it('должен возвращать одинаковый Client ID для одного и того же userId', () => {
+      const userId = 'user123';
+      const clientId1 = service.generateClientId(userId);
+      const clientId2 = service.generateClientId(userId);
+      const clientId3 = service.generateClientId(userId);
+
+      expect(clientId1).toBe(clientId2);
+      expect(clientId2).toBe(clientId3);
+      expect(clientId1).toMatch(/^\d{19}$/); // Должен быть 19-значным числом
+    });
+
+    it('должен возвращать разные Client ID для разных userId', () => {
+      const userId1 = 'user123';
+      const userId2 = 'user456';
+
+      const clientId1 = service.generateClientId(userId1);
+      const clientId2 = service.generateClientId(userId2);
+
+      expect(clientId1).not.toBe(clientId2);
+      expect(clientId1).toMatch(/^\d{19}$/);
+      expect(clientId2).toMatch(/^\d{19}$/);
+    });
+  });
 });

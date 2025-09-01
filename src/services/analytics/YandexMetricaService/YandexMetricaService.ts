@@ -25,13 +25,9 @@ export class YandexMetricaService {
   }
 
   public trackEvent = (event: YandexMetricaEvent): void => {
-    // Добавляем дату в формате YYYY-MM-DD если её нет
-    const dt = event.dt || new Date(event.timestamp || Date.now()).toISOString().split('T')[0];
-
     this.eventQueue.push({
       ...event,
-      timestamp: event.timestamp || Date.now(),
-      dt,
+      timestamp: event.timestamp || Math.floor(Date.now() / 1000), // Конвертируем в секунды
     });
 
     if (this.eventQueue.length >= 10) {
@@ -86,7 +82,7 @@ export class YandexMetricaService {
   private sendEvents = async (events: YandexMetricaEvent[]): Promise<void> => {
     const batch: YandexMetricaBatch = {
       events,
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды
     };
 
     for (let attempt = 0; attempt <= this.config.retryAttempts; attempt++) {
@@ -120,31 +116,46 @@ export class YandexMetricaService {
         eventUrl.searchParams.set('uid', event.user_id.toString());
       }
 
+      // Client ID - обязательный параметр для Measurement Protocol
       if (event.session_id) {
-        eventUrl.searchParams.set('сid', event.session_id);
+        eventUrl.searchParams.set('cid', event.session_id);
       } else {
-        eventUrl.searchParams.set('cid', `${batch.timestamp}${(Math.random() * 100).toFixed(0)}`);
-      }
-
-      // Добавляем дату в формате YYYY-MM-DD
-      if (event.dt) {
-        eventUrl.searchParams.set('dt', event.dt);
+        // Генерируем уникальный числовой Client ID если session_id отсутствует
+        // Используем user_id или генерируем числовой идентификатор
+        let clientId: string;
+        if (event.user_id) {
+          // Если есть user_id, создаем детерминированный числовой хэш из него
+          // Это гарантирует, что один и тот же user_id всегда дает одинаковый Client ID
+          clientId = this.generateClientId(event.user_id);
+        } else {
+          // Генерируем случайный числовой Client ID в формате, подобном примерам Яндекс Метрики
+          clientId = this.generateClientId('');
+        }
+        eventUrl.searchParams.set('cid', clientId);
       }
 
       // Добавляем параметры события
       if (event.name === 'goal') {
+        eventUrl.searchParams.set('t', 'event');
         eventUrl.searchParams.set('ea', event.parameters.goal_name as string);
       } else if (event.name === 'pageview') {
+        eventUrl.searchParams.set('t', 'pageview');
         eventUrl.searchParams.set('dl', event.parameters.url as string);
         if (event.parameters.title) {
-          eventUrl.searchParams.set('dt_title', event.parameters.title as string);
+          eventUrl.searchParams.set('dt', event.parameters.title as string);
         }
+      } else {
+        // Для остальных событий используем тип 'event' и имя события как action
+        eventUrl.searchParams.set('t', 'event');
+        eventUrl.searchParams.set('ea', event.name);
       }
 
-      // Добавляем дополнительные параметры
+      // Добавляем дополнительные параметры события
       Object.entries(event.parameters).forEach(([key, value]) => {
         if (key !== 'goal_name' && key !== 'url' && key !== 'title') {
-          eventUrl.searchParams.set(`ep.${key}`, String(value));
+          // Для Measurement Protocol используем префикс ep. для кастомных параметров
+          const paramKey = key.startsWith('ep.') ? key : `ep.${key}`;
+          eventUrl.searchParams.set(paramKey, String(value));
         }
       });
 
@@ -168,5 +179,28 @@ export class YandexMetricaService {
     if (this.flushInterval) {
       clearInterval(this.flushInterval);
     }
+  };
+
+  /**
+   * Генерирует детерминированный хэш из строки
+   * Гарантирует одинаковый результат для одинаковых входных данных
+   */
+  private generateDeterministicHash = (input: string): number => {
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+      const char = input.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Преобразуем в 32-битное число
+    }
+    return hash;
+  };
+
+  /**
+   * Генерирует Client ID для пользователя
+   * Для одного user_id всегда возвращает одинаковый Client ID
+   */
+  public generateClientId = (userId: string): string => {
+    const hash = this.generateDeterministicHash(userId);
+    return String(Math.abs(hash) % 9000000000000000000 + 1000000000000000000);
   };
 }

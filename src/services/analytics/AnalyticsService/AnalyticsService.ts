@@ -39,9 +39,6 @@ export class AnalyticsService {
     if (!this.config.enabled) return;
 
     try {
-      // Добавляем дату в формате YYYY-MM-DD
-      const dt = new Date(event.timestamp).toISOString().split('T')[0];
-
       // Отправляем событие в Яндекс Метрику
       this.yandexMetrica.trackEvent({
         name: event.name,
@@ -49,7 +46,6 @@ export class AnalyticsService {
         timestamp: event.timestamp,
         user_id: event.user_id,
         session_id: event.session_id,
-        dt,
       });
 
       ConsoleLogger.info('Событие отправлено в аналитику', { event: event.name });
@@ -69,7 +65,7 @@ export class AnalyticsService {
         user_action: params.context.user_action || 'unknown',
         ...params.context,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.context.user_id as string,
       session_id: params.context.session_id as string,
     });
@@ -82,7 +78,7 @@ export class AnalyticsService {
         operation: params.operation,
         duration_ms: params.duration,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
     });
   };
 
@@ -98,7 +94,7 @@ export class AnalyticsService {
         total_tokens_used: params.summary.total_tokens_used,
         total_vectors_processed: params.summary.total_vectors_processed,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
     });
   };
 
@@ -134,7 +130,7 @@ export class AnalyticsService {
         user_state: params.userState,
         user_city: params.userCity,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -149,7 +145,7 @@ export class AnalyticsService {
         user_city: params.userCity,
         search_options: JSON.stringify(params.searchOptions),
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -166,7 +162,7 @@ export class AnalyticsService {
         has_llm_enhancement: params.hasLlmEnhancement,
         has_vector_search: params.hasVectorSearch,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -179,7 +175,7 @@ export class AnalyticsService {
         new_state: params.newState,
         trigger: params.trigger,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -194,7 +190,7 @@ export class AnalyticsService {
         error_message: params.errorMessage,
         user_state: params.userState,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -208,7 +204,7 @@ export class AnalyticsService {
         user_city: params.userCity,
         message_type: params.messageType,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -224,7 +220,7 @@ export class AnalyticsService {
         processing_time_ms: params.processingTimeMs,
         search_method: params.searchMethod,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -238,7 +234,7 @@ export class AnalyticsService {
         search_limit: params.searchLimit,
         remaining_searches: params.remainingSearches,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -251,7 +247,7 @@ export class AnalyticsService {
         button_data: params.buttonData,
         user_state: params.userState,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -264,7 +260,7 @@ export class AnalyticsService {
         selection_method: params.selectionMethod,
         old_city: params.oldCity,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -277,7 +273,7 @@ export class AnalyticsService {
         item_id: params.itemId,
         has_photo: params.hasPhoto,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -290,7 +286,7 @@ export class AnalyticsService {
         page_number: params.pageNumber,
         total_pages: params.totalPages,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -303,7 +299,7 @@ export class AnalyticsService {
         original_query: params.originalQuery,
         query_length: params.queryLength,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -317,7 +313,7 @@ export class AnalyticsService {
         error_message: params.errorMessage,
         retry_count: params.retryCount,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
     });
   };
 
@@ -329,7 +325,7 @@ export class AnalyticsService {
         current_requests: params.currentRequests,
         limit_value: params.limitValue,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -342,7 +338,7 @@ export class AnalyticsService {
         cache_key: params.cacheKey,
         data_type: params.dataType,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
     });
   };
 
@@ -353,7 +349,7 @@ export class AnalyticsService {
         history_items_count: params.historyItemsCount,
         viewed_items_count: params.viewedItemsCount,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -367,7 +363,7 @@ export class AnalyticsService {
         searches_this_month: params.searchesThisMonth,
         total_searches: params.totalSearches,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
       user_id: params.userId,
     });
   };
@@ -380,7 +376,7 @@ export class AnalyticsService {
         environment: params.environment,
         startup_time_ms: params.startupTimeMs,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
     });
   };
 
@@ -392,7 +388,7 @@ export class AnalyticsService {
         total_requests: params.totalRequests,
         total_errors: params.totalErrors,
       },
-      timestamp: Date.now(),
+      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
     });
   };
 }
