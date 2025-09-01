@@ -25,6 +25,7 @@ export class AppSchedulerService {
       // Добавляем задачи в планировщик
       this.setupYEDataCollectionJobs();
       this.setupCleanupJobs();
+      this.setupUnavailableExpiredDishesJobs();
 
       // Запускаем все задачи
       this.schedulerService.startAllJobs();
@@ -49,7 +50,9 @@ export class AppSchedulerService {
   public initialLoad = async (): Promise<void> => {
     try {
       await Promise.allSettled([
-        this.menuRepository.cleanupExpiredDishes(),
+        // TODO: подумать над необходимостью очистки просроченных блюд
+        // this.menuRepository.cleanupExpiredDishes(),
+        this.menuRepository.unavailableExpiredDishes(),
         this.yeDataCollectionService.updateRestaurants(),
         this.userRepository.cleanupExpiredSubscriptions(),
       ]);
@@ -80,16 +83,29 @@ export class AppSchedulerService {
     });
   };
 
-  private setupCleanupJobs = (): void => {
+  private setupUnavailableExpiredDishesJobs = (): void => {
     this.schedulerService.addJob({
-      id: 'cleanup-expired-dishes',
-      name: 'Очистка просроченных блюд',
+      id: 'unavailable-expired-dishes',
+      name: 'Установка недоступными просроченные блюда',
       cronExpression: `*/${botConfig.cache.ttlMenu / 60} * * * *`,
       task: async () => {
-        ConsoleLogger.info('Начало запланированной очистки просроченных блюд');
-        await this.menuRepository.cleanupExpiredDishes();
+        ConsoleLogger.info('Начало запланированной установки недоступными просроченных блюд');
+        await this.menuRepository.unavailableExpiredDishes();
       },
     });
+  };
+
+  private setupCleanupJobs = (): void => {
+    // TODO: подумать над необходимостью очистки просроченных блюд
+    // this.schedulerService.addJob({
+    //   id: 'cleanup-expired-dishes',
+    //   name: 'Очистка просроченных блюд',
+    //   cronExpression: `*/${botConfig.cache.ttlMenu / 60} * * * *`,
+    //   task: async () => {
+    //     ConsoleLogger.info('Начало запланированной очистки просроченных блюд');
+    //     await this.menuRepository.cleanupExpiredDishes();
+    //   },
+    // });
 
     this.schedulerService.addJob({
       id: 'cleanup-expired-subscriptions',

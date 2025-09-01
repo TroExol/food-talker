@@ -158,20 +158,17 @@ export class MenuService {
       deliveryRadiusKm: null,
     });
 
+    const restaurantsMenuObject = restaurantsMenu.reduce((acc, item) => {
+      acc[`${item.name}-${item.description}-${item.ingredients.toString()}-${item.category}`] = item;
+      return acc;
+    }, {} as Record<string, TVectorMenuItem>);
+
     const existsEmbeddings: TVectorMenuItem[] = [];
 
     // Проходим по каждому блюду из входного массива
     for (const menuItem of menu) {
       // Ищем совпадение в результатах поиска
-      const existingItem = restaurantsMenu.find(item => {
-        // Сравниваем все ключевые поля
-        const nameMatch = item.name === menuItem.name;
-        const descriptionMatch = item.description === menuItem.description;
-        const ingredientsMatch = menuItem.ingredients.toString() === item.ingredients.toString();
-        const categoryMatch = item.category === menuItem.category;
-
-        return nameMatch && descriptionMatch && ingredientsMatch && categoryMatch;
-      });
+      const existingItem = restaurantsMenuObject[`${menuItem.name}-${menuItem.description}-${menuItem.ingredients.toString()}-${menuItem.category}`];
 
       if (!existingItem) {
         continue;

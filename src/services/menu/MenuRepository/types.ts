@@ -23,7 +23,7 @@ export type TMenuItemEntityWithSimilarity = {
 } & TMenuItemEntity;
 
 export type TMenuItemEntityWithEmbedding = {
-  embedding: number[];
+  embedding: string;
 } & TMenuItemEntity;
 
 export type TVectorMenuItem = {

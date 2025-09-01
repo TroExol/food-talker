@@ -187,7 +187,7 @@ export class YEApiService {
   public getRestaurantMenu = async (
     restaurantId: string,
     city: EAvailableCities,
-    searchInCache = true,
+    shouldSearchInCache = true,
   ): Promise<TMenuItem[]> => {
     const coordinates = CityValidator.getCityCoordinates(city);
     if (!coordinates) {
@@ -199,7 +199,7 @@ export class YEApiService {
     try {
       // Проверяем кэш
       const cached = await this.cacheService.get<TMenuItem[]>(cacheKey);
-      if (cached && searchInCache) {
+      if (cached && shouldSearchInCache) {
         ConsoleLogger.debug('Кэш меню Яндекс.Еда найден', { restaurantId, coordinates, cacheKey });
         return cached;
       }

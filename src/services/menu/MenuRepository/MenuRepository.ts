@@ -640,6 +640,26 @@ export class MenuRepository {
     }
   };
 
+  public unavailableExpiredDishes = async (): Promise<number> => {
+    try {
+      const result = await this.db.run(`
+        UPDATE dishes 
+        SET available = false
+        WHERE expires_at <= CURRENT_TIMESTAMP
+      `);
+
+      const deletedCount = result.changes;
+      if (deletedCount > 0) {
+        ConsoleLogger.info('Установлены недоступные просроченные блюда', { deletedCount });
+      }
+
+      return deletedCount;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка установки недоступных просроченных блюд', error as Error);
+      throw AppError.databaseError('UNAVAILABLE_EXPIRED_DISHES_FAILED', 'Не удалось установить недоступные просроченные блюда');
+    }
+  };
+
   private entityToVectorSearchResultItem = (entity: TMenuItemEntityWithSimilarity): TVectorSearchResultItem => {
     return {
       id: entity.id,
@@ -795,7 +815,7 @@ export class MenuRepository {
         },
         orderUrl: row.order_url,
         category: row.category as EDishCategory,
-        embedding: row.embedding,
+        embedding: JSON.parse(row.embedding) as number[],
       }));
 
       ConsoleLogger.debug('Поиск меню с эмбедингами выполнен', {
