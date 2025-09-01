@@ -1,3 +1,4 @@
+import type { TSearchResultItem } from '@/types/search';
 import type { EDishCategory, TMenuItem } from '@/types/menuItem';
 import type { TDatabaseConnection } from '@/services/database/types';
 import type { EAvailableCities } from '@/config/bot/types';
@@ -9,6 +10,8 @@ import { botConfig } from '@/config/bot';
 
 import type {
   TMenuItemEntity,
+  TMenuItemEntityWithEmbedding,
+  TMenuItemEntityWithSimilarity,
   TMenuSearchOptions,
   TVectorMenuItem,
   TVectorMenuSearchOptions,
@@ -143,7 +146,7 @@ export class MenuRepository {
     }
   };
 
-  public findById = async (menuItemId: string): Promise<TVectorSearchResultItem | null> => {
+  public findById = async (menuItemId: string): Promise<TSearchResultItem | null> => {
     try {
       const menuItemEntity = await this.db.get<TMenuItemEntity>(`
         SELECT * FROM dishes WHERE id = $1 AND expires_at > CURRENT_TIMESTAMP
@@ -160,7 +163,7 @@ export class MenuRepository {
     }
   };
 
-  public search = async (options: TMenuSearchOptions = {}): Promise<TVectorSearchResultItem[]> => {
+  public search = async (options: TMenuSearchOptions = {}): Promise<TSearchResultItem[]> => {
     try {
       const {
         limit = 20,
@@ -177,8 +180,8 @@ export class MenuRepository {
       // Строим SQL запрос с фильтрами
       let sql = `
         SELECT 
-          id, name, description, price, restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, available, order_url, category, image, ingredients
-        FROM dishes 
+          id, name, description, price, restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, available, order_url, category, image, ingredients, expires_at
+        FROM dishes
         WHERE expires_at > CURRENT_TIMESTAMP
       `;
 
@@ -249,7 +252,7 @@ export class MenuRepository {
 
       const result = await this.db.query<TMenuItemEntity>(sql, params);
 
-      const menu: TVectorSearchResultItem[] = result.map(row => ({
+      const menu: TSearchResultItem[] = result.map(row => ({
         id: row.id,
         name: row.name,
         description: row.description,
@@ -264,7 +267,6 @@ export class MenuRepository {
         },
         available: row.available,
         orderUrl: row.order_url,
-        similarity: row.similarity,
         category: row.category as EDishCategory,
         image: row.image,
         tags: JSON.parse(row.ingredients) as string[] || [],
@@ -272,7 +274,6 @@ export class MenuRepository {
 
       ConsoleLogger.debug('Поиск меню выполнен', {
         resultsCount: menu.length,
-        maxSimilarity: menu[0]?.similarity,
       });
 
       return menu;
@@ -366,7 +367,7 @@ export class MenuRepository {
       sql += ` ORDER BY embedding <=> $1 LIMIT $${paramIndex}`;
       params.push(limit);
 
-      const result = await this.db.query<TMenuItemEntity>(sql, params);
+      const result = await this.db.query<TMenuItemEntityWithSimilarity>(sql, params);
 
       const menu: TVectorSearchResultItem[] = result.map(row => ({
         id: row.id,
@@ -404,7 +405,7 @@ export class MenuRepository {
   public update = async (
     menuItemId: string,
     updates: Partial<Pick<TMenuItem, 'name' | 'description' | 'ingredients' | 'price' | 'image' | 'available' | 'restaurant' | 'orderUrl' | 'category'>>,
-  ): Promise<TVectorSearchResultItem> => {
+  ): Promise<TSearchResultItem> => {
     try {
       const setParts: string[] = [];
       const values: unknown[] = [];
@@ -639,7 +640,7 @@ export class MenuRepository {
     }
   };
 
-  private entityToSearchResultItem = (entity: TMenuItemEntity): TVectorSearchResultItem => {
+  private entityToVectorSearchResultItem = (entity: TMenuItemEntityWithSimilarity): TVectorSearchResultItem => {
     return {
       id: entity.id,
       name: entity.name,
@@ -660,5 +661,152 @@ export class MenuRepository {
       similarity: entity.similarity,
       available: entity.available,
     };
+  };
+
+  private entityToSearchResultItem = (entity: TMenuItemEntity): TSearchResultItem => {
+    return {
+      id: entity.id,
+      name: entity.name,
+      description: entity.description,
+      tags: JSON.parse(entity.ingredients) as string[] || [],
+      price: entity.price,
+      image: entity.image,
+      restaurant: {
+        id: entity.restaurant_id,
+        name: entity.restaurant_name,
+        coordinates: {
+          latitude: entity.restaurant_latitude,
+          longitude: entity.restaurant_longitude,
+        },
+      },
+      orderUrl: entity.order_url,
+      category: entity.category as EDishCategory,
+      available: entity.available,
+    };
+  };
+
+  public searchWithEmbeddings = async (options: TMenuSearchOptions = {}): Promise<TVectorMenuItem[]> => {
+    try {
+      const {
+        limit = null,
+        ids,
+        category,
+        restaurantNames,
+        minPrice,
+        maxPrice,
+        city,
+        deliveryRadiusKm = 50,
+        available = null,
+      } = options;
+
+      // Строим SQL запрос с фильтрами
+      let sql = `
+        SELECT
+          id, name, description, price, restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, available, order_url, category, image, ingredients, embedding
+        FROM dishes
+        WHERE
+          embedding IS NOT NULL
+          AND expires_at > CURRENT_TIMESTAMP
+      `;
+
+      const params: unknown[] = [];
+      let paramIndex = 1;
+
+      // Фильтрация по городу (радиус доставки)
+      if (city) {
+        const cityCoords = CityValidator.getCityCoordinates(city as EAvailableCities);
+        if (cityCoords) {
+          // Используем формулу гаверсинуса для расчета расстояния
+          sql += `
+            AND (
+              6371 * acos(
+                cos(radians($${paramIndex})) * cos(radians(restaurant_latitude)) *
+                cos(radians(restaurant_longitude) - radians($${paramIndex + 1})) +
+                sin(radians($${paramIndex})) * sin(radians(restaurant_latitude))
+              )
+            ) <= $${paramIndex + 2}
+          `;
+          params.push(cityCoords.latitude, cityCoords.longitude, deliveryRadiusKm);
+          paramIndex += 3;
+        }
+      }
+
+      if (ids?.length) {
+        sql += ` AND id = ANY($${paramIndex})`;
+        params.push(ids);
+        paramIndex++;
+      }
+
+      if (restaurantNames?.length) {
+        sql += ` AND restaurant_name = ANY($${paramIndex})`;
+        params.push(restaurantNames);
+        paramIndex++;
+      }
+
+      if (category) {
+        sql += ` AND category = $${paramIndex}`;
+        params.push(category);
+        paramIndex++;
+      }
+
+      if (available !== null) {
+        sql += ` AND available = $${paramIndex}`;
+        params.push(available);
+        paramIndex++;
+      }
+
+      if (minPrice !== null && minPrice !== undefined) {
+        sql += ` AND price >= $${paramIndex}`;
+        params.push(minPrice);
+        paramIndex++;
+      }
+
+      if (maxPrice !== null && maxPrice !== undefined) {
+        sql += ` AND price <= $${paramIndex}`;
+        params.push(maxPrice);
+        paramIndex++;
+      }
+
+      if (limit !== null && limit !== undefined) {
+        sql += ` ORDER BY updated_at DESC LIMIT $${paramIndex}`;
+        params.push(limit);
+      } else {
+        sql += ` ORDER BY updated_at DESC`;
+      }
+
+      const result = await this.db.query<TMenuItemEntityWithEmbedding>(sql, params);
+
+      const menu: TVectorMenuItem[] = result.map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        ingredients: JSON.parse(row.ingredients) as string[] || [],
+        price: row.price,
+        image: row.image,
+        available: row.available,
+        restaurant: {
+          id: row.restaurant_id,
+          name: row.restaurant_name,
+          coordinates: {
+            latitude: row.restaurant_latitude,
+            longitude: row.restaurant_longitude,
+          },
+          lastUpdated: new Date(), // Используем текущее время как fallback
+        },
+        orderUrl: row.order_url,
+        category: row.category as EDishCategory,
+        embedding: row.embedding,
+      }));
+
+      ConsoleLogger.debug('Поиск меню с эмбедингами выполнен', {
+        resultsCount: menu.length,
+        restaurantNames: restaurantNames?.length,
+      });
+
+      return menu;
+    } catch (error) {
+      ConsoleLogger.error('Ошибка поиска меню с эмбедингами', error as Error);
+      throw error;
+    }
   };
 }

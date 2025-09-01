@@ -95,6 +95,16 @@ export class MenuService {
         })));
       }
 
+      const menuWithExistsEmbedding = await this.mapMenuWithExistsEmbedding(Object.values(menuToCreateObj));
+
+      menuWithExistsEmbedding.forEach(item => {
+        delete menuToCreateObj[item.id];
+      });
+
+      if (menuWithExistsEmbedding.length > 0) {
+        await this.menuRepository.createBulk(menuWithExistsEmbedding);
+      }
+
       const menuToCreate = Object.values(menuToCreateObj);
 
       if (menuToCreate.length === 0) {
@@ -103,6 +113,7 @@ export class MenuService {
           alreadyExistsCount: alreadyExists.length,
           menuItemCountToCreate: Object.values(menuToCreateObj).length,
           nonEmbeddingUpdatesCount: nonEmbeddingUpdates.length,
+          menuWithExistsEmbeddingCount: menuWithExistsEmbedding.length,
         });
         return;
       }
@@ -128,11 +139,76 @@ export class MenuService {
         alreadyExistsCount: alreadyExists.length,
         menuItemCountToCreate: menuToCreate.length,
         embeddingCount: embeddings.length,
+        menuWithExistsEmbeddingCount: menuWithExistsEmbedding.length,
       });
     } catch (error) {
       ConsoleLogger.error('Ошибка создания блюд', error as Error, { menuItemCount: menu.length });
       throw AppError.systemError('MENU_CREATION_FAILED', 'Не удалось создать блюда');
     }
+  };
+
+  private mapMenuWithExistsEmbedding = async (menu: TMenuItem[]): Promise<TVectorMenuItem[]> => {
+    if (menu.length === 0) return [];
+
+    // Получаем все блюда с эмбедингами из базы данных по названиям ресторанов
+    const restaurantsMenu = await this.menuRepository.searchWithEmbeddings({
+      restaurantNames: [...new Set(menu.map(item => item.restaurant.name))],
+      available: null,
+      limit: null,
+      deliveryRadiusKm: null,
+    });
+
+    const existsEmbeddings: TVectorMenuItem[] = [];
+
+    // Проходим по каждому блюду из входного массива
+    for (const menuItem of menu) {
+      // Ищем совпадение в результатах поиска
+      const existingItem = restaurantsMenu.find(item => {
+        // Сравниваем все ключевые поля
+        const nameMatch = item.name === menuItem.name;
+        const descriptionMatch = item.description === menuItem.description;
+        const ingredientsMatch = menuItem.ingredients.toString() === item.ingredients.toString();
+        const categoryMatch = item.category === menuItem.category;
+
+        return nameMatch && descriptionMatch && ingredientsMatch && categoryMatch;
+      });
+
+      if (!existingItem) {
+        continue;
+      }
+
+      // Преобразуем TSearchResultItem в TVectorMenuItem
+      const vectorMenuItem: TVectorMenuItem = {
+        id: menuItem.id,
+        name: menuItem.name,
+        description: menuItem.description,
+        ingredients: menuItem.ingredients, // ingredients уже в правильном формате
+        price: menuItem.price,
+        image: menuItem.image,
+        available: menuItem.available,
+        restaurant: {
+          id: menuItem.restaurant.id,
+          name: menuItem.restaurant.name,
+          coordinates: menuItem.restaurant.coordinates || {
+            latitude: 0,
+            longitude: 0,
+          },
+          lastUpdated: new Date(),
+        },
+        orderUrl: menuItem.orderUrl,
+        category: menuItem.category,
+        embedding: existingItem.embedding,
+      };
+
+      existsEmbeddings.push(vectorMenuItem);
+    }
+
+    ConsoleLogger.info('Найдено существующих эмбедингов', {
+      totalItems: menu.length,
+      foundEmbeddings: existsEmbeddings.length,
+    });
+
+    return existsEmbeddings;
   };
 
   public createMenuItemToLightRAG = async (menuItem: TMenuItem): Promise<void> => {

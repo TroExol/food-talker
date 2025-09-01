@@ -12,12 +12,19 @@ export interface TMenuItemEntity {
   restaurant_longitude: number;
   available: boolean;
   order_url: string;
-  similarity: number;
   category: string;
   image: string;
   ingredients: string;
   expires_at: string;
 }
+
+export type TMenuItemEntityWithSimilarity = {
+  similarity: number;
+} & TMenuItemEntity;
+
+export type TMenuItemEntityWithEmbedding = {
+  embedding: number[];
+} & TMenuItemEntity;
 
 export type TVectorMenuItem = {
   embedding: number[];
