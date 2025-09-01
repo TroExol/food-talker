@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 
 import type { NeuralRequestLoggingService } from '@/services/NeuralRequestLoggingService/NeuralRequestLoggingService';
 
+import { sleep } from '@/utils/sleep';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
 import { ENeuralRequestType } from '@/types/neuralRequestLogging';
@@ -19,6 +20,20 @@ export class EmbeddingService {
   private readonly openai = new OpenAI({
     apiKey: environment.OPENAI_API_KEY,
   });
+
+  // OpenAI Embedding rate limits (in-memory)
+  private static readonly OPENAI_EMB_TOKENS_PER_MIN = 1_000_000;
+  private static readonly OPENAI_EMB_REQUESTS_PER_MIN = 3_000;
+  private static readonly OPENAI_EMB_REQUESTS_PER_DAY: number | null = null;
+  private static readonly MINUTE_MS = 60_000;
+  private static readonly DAY_MS = 86_400_000;
+
+  private readonly openAiEmbReqsMinute: number[] = [];
+  private readonly openAiEmbReqsDay: number[] = [];
+  private readonly openAiEmbTokensMinute: Array<{ timestamp: number; tokens: number }> = [];
+
+  // Serialize OpenAI embedding requests
+  private openAiEmbQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly neuralRequestLoggingService: NeuralRequestLoggingService,
@@ -184,10 +199,17 @@ export class EmbeddingService {
     const startTime = Date.now();
 
     try {
-      const result = await this.openai.embeddings.create({
-        model,
-        input: text,
-        encoding_format: 'float',
+      // Enforce OpenAI embedding rate limits (serialized)
+      const estimatedTokens = this.estimateEmbeddingTokens(text);
+      const result = await this.enqueueOpenAiEmbedding(async () => {
+        const reservationTs = await this.waitForOpenAiEmbeddingLimits(estimatedTokens);
+        const request = await this.openai.embeddings.create({
+          model,
+          input: text,
+          encoding_format: 'float',
+        });
+        this.finalizeOpenAiTokenReservation(reservationTs, request.usage.prompt_tokens);
+        return request;
       });
 
       const processingTime = Date.now() - startTime;
@@ -244,10 +266,17 @@ export class EmbeddingService {
     const startTime = Date.now();
 
     try {
-      const result = await this.openai.embeddings.create({
-        model,
-        input: texts,
-        encoding_format: 'float',
+      // Enforce OpenAI embedding rate limits for batch (serialized)
+      const estimatedTokens = this.estimateEmbeddingTokens(texts);
+      const result = await this.enqueueOpenAiEmbedding(async () => {
+        const reservationTs = await this.waitForOpenAiEmbeddingLimits(estimatedTokens);
+        const request = await this.openai.embeddings.create({
+          model,
+          input: texts,
+          encoding_format: 'float',
+        });
+        this.finalizeOpenAiTokenReservation(reservationTs, request.usage.prompt_tokens);
+        return request;
       });
 
       const processingTime = Date.now() - startTime;
@@ -294,6 +323,114 @@ export class EmbeddingService {
 
       throw AppError.embeddingError('Ошибка генерации эмбеддинга', error as Error);
     }
+  };
+
+  // ---- OpenAI embedding rate limiter helpers ----
+  private enqueueOpenAiEmbedding = async <T>(task: () => Promise<T>): Promise<T> => {
+    const previous = this.openAiEmbQueue;
+    let resolveCurrent: () => void;
+    this.openAiEmbQueue = new Promise<void>(resolve => {
+      resolveCurrent = resolve;
+    });
+    try {
+      await previous;
+      const result = await task();
+      resolveCurrent!();
+      return result;
+    } catch (e) {
+      resolveCurrent!();
+      throw e;
+    }
+  };
+
+  private waitForOpenAiEmbeddingLimits = async (estimatedTokens: number): Promise<number> => {
+    while (true) {
+      const now = Date.now();
+      this.cleanupOpenAiWindows(now);
+
+      const reqsPerMinute = this.openAiEmbReqsMinute.length;
+      const reqsPerDay = this.openAiEmbReqsDay.length;
+      const tokensLastMinute = this.openAiEmbTokensMinute.reduce((sum, i) => sum + i.tokens, 0);
+
+      const okRpm = reqsPerMinute + 1 <= EmbeddingService.OPENAI_EMB_REQUESTS_PER_MIN;
+      const okRpd = EmbeddingService.OPENAI_EMB_REQUESTS_PER_DAY == null
+        ? true
+        : (reqsPerDay + 1 <= EmbeddingService.OPENAI_EMB_REQUESTS_PER_DAY);
+      const okTpm = tokensLastMinute + Math.max(0, estimatedTokens) <= EmbeddingService.OPENAI_EMB_TOKENS_PER_MIN;
+
+      if (okRpm && okRpd && okTpm) {
+        // Reserve request slot timestamps now
+        this.openAiEmbReqsMinute.push(now);
+        if (EmbeddingService.OPENAI_EMB_REQUESTS_PER_DAY != null) {
+          this.openAiEmbReqsDay.push(now);
+        }
+        // Reserve token budget provisionally
+        this.openAiEmbTokensMinute.push({ timestamp: now, tokens: Math.max(0, estimatedTokens || 0) });
+        return now;
+      }
+
+      let waitMs = 0;
+      if (!okRpm && this.openAiEmbReqsMinute.length > 0) {
+        const oldest = Math.min(...this.openAiEmbReqsMinute);
+        waitMs = Math.max(waitMs, oldest + EmbeddingService.MINUTE_MS - now);
+      }
+      if (!okRpd && EmbeddingService.OPENAI_EMB_REQUESTS_PER_DAY != null && this.openAiEmbReqsDay.length > 0) {
+        const oldest = Math.min(...this.openAiEmbReqsDay);
+        waitMs = Math.max(waitMs, oldest + EmbeddingService.DAY_MS - now);
+      }
+      if (!okTpm && this.openAiEmbTokensMinute.length > 0) {
+        const sorted = [...this.openAiEmbTokensMinute].sort((a, b) => a.timestamp - b.timestamp);
+        const overBy = tokensLastMinute + Math.max(0, estimatedTokens) - EmbeddingService.OPENAI_EMB_TOKENS_PER_MIN;
+        let cum = 0;
+        let cutoffTs = sorted[0].timestamp;
+        for (const item of sorted) {
+          cum += item.tokens;
+          if (cum > overBy) {
+            cutoffTs = item.timestamp;
+            break;
+          }
+        }
+        waitMs = Math.max(waitMs, cutoffTs + EmbeddingService.MINUTE_MS - now);
+      }
+
+      await sleep(Math.max(25, waitMs));
+    }
+  };
+
+  private finalizeOpenAiTokenReservation = (reservationTs: number, actualPromptTokens: number): void => {
+    // Replace provisional estimate with actual usage
+    const idx = this.openAiEmbTokensMinute.findIndex(i => i.timestamp === reservationTs);
+    if (idx >= 0) {
+      this.openAiEmbTokensMinute[idx] = { timestamp: reservationTs, tokens: Math.max(0, actualPromptTokens || 0) };
+    } else {
+      // Fallback: push actual if reservation missing
+      this.openAiEmbTokensMinute.push({ timestamp: Date.now(), tokens: Math.max(0, actualPromptTokens || 0) });
+    }
+  };
+
+  private cleanupOpenAiWindows = (now: number): void => {
+    const minuteStart = now - EmbeddingService.MINUTE_MS;
+    const dayStart = now - EmbeddingService.DAY_MS;
+
+    for (let i = this.openAiEmbReqsMinute.length - 1; i >= 0; i--) {
+      if (this.openAiEmbReqsMinute[i] <= minuteStart) this.openAiEmbReqsMinute.splice(i, 1);
+    }
+    if (EmbeddingService.OPENAI_EMB_REQUESTS_PER_DAY != null) {
+      for (let i = this.openAiEmbReqsDay.length - 1; i >= 0; i--) {
+        if (this.openAiEmbReqsDay[i] <= dayStart) this.openAiEmbReqsDay.splice(i, 1);
+      }
+    } else {
+      // If day limit is disabled, keep array empty to avoid growth
+      if (this.openAiEmbReqsDay.length) this.openAiEmbReqsDay.splice(0);
+    }
+    for (let i = this.openAiEmbTokensMinute.length - 1; i >= 0; i--) {
+      if (this.openAiEmbTokensMinute[i].timestamp <= minuteStart) this.openAiEmbTokensMinute.splice(i, 1);
+    }
+  };
+
+  private estimateEmbeddingTokens = (input: string | string[]): number => {
+    const estimateFor = (s: string) => Math.ceil((s?.length ?? 0) / 4);
+    return Array.isArray(input) ? input.reduce((sum, s) => sum + estimateFor(s), 0) : estimateFor(input);
   };
 
   private processEmbeddingBatch = async (

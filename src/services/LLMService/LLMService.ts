@@ -73,6 +73,7 @@ export class LLMService {
         {
           max_tokens: 20000,
         },
+        30000,
       );
       const structuredQuery = this.parseStructuredQuery(availableRestaurants, response);
 
@@ -140,6 +141,7 @@ export class LLMService {
         {
           max_tokens: 40000,
         },
+        60000,
       );
       const enhancedResults = this.parseEnhancedResults(response, results);
 
@@ -344,6 +346,7 @@ ${menuList}
     model: string,
     userTelegramId?: number,
     params?: TLLMParams,
+    waitTimeoutMs?: number,
   ): Promise<string> => {
     const startTime = Date.now();
 
@@ -369,7 +372,7 @@ ${menuList}
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
           controller.abort();
-        }, this.timeoutMs);
+        }, waitTimeoutMs || this.timeoutMs);
 
         const response = await fetch(`${this.apiBaseUrl}${url}`, {
           method: 'POST',

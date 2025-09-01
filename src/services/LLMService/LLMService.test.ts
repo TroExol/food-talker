@@ -201,8 +201,9 @@ describe('LLMService', () => {
       }));
 
       const structuring = llmService.stuctureQuery('тест', []);
-      await vi.advanceTimersByTimeAsync(10000);
-      await vi.advanceTimersByTimeAsync(10000);
+      // Таймауты определены в llmService.stuctureQuery
+      await vi.advanceTimersByTimeAsync(30000);
+      await vi.advanceTimersByTimeAsync(30000);
       const result = await structuring;
 
       expect(result).toEqual({ tags: [] });
