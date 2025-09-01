@@ -306,7 +306,7 @@ export class MenuRepository {
           id, name, description, price, restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, available, order_url, category, image, ingredients,
           1 - (embedding <=> $1) as similarity
         FROM dishes 
-        WHERE 
+        WHERE 1 = 1
           AND 1 - (embedding <=> $1) >= $2
           AND expires_at > CURRENT_TIMESTAMP
       `;

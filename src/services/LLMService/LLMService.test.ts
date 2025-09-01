@@ -14,6 +14,8 @@ import type { CacheService } from '@/services/cacheService/CacheService';
 
 import { EDishCategory } from '@/types/menuItem';
 
+import type { TLLMStructureQueryStructuredOutput } from './types';
+
 import { LLMService } from './LLMService';
 
 // Мокируем fetch
@@ -53,7 +55,7 @@ describe('LLMService', () => {
       const mockResponse = {
         choices: [{
           message: {
-            content: '{"tags": ["пицца", "сыр"], "priceRange": {"min": 200, "max": 800}}',
+            content: '{"tags": ["пицца", "сыр"], "priceMin": 200, "priceMax": 800}',
           },
         }],
         usage: {
@@ -96,9 +98,9 @@ describe('LLMService', () => {
             content: `{
               "restaurants": ["Додо Пицца", "Папа Джонс"],
               "tags": ["пепперони"],
-              "exclusions": {
-                "tags": ["ананас"],
-                "priceRange": {"min": 0, "max": 300}
+              "exclusions_tags": ["ананас"],
+              "exclusions_priceMin": 0,
+              "exclusions_priceMax": 300
               }
             }`,
           },
@@ -422,37 +424,68 @@ describe('LLMService', () => {
 
   describe('repairQueryStructure', () => {
     type MockLLMService = {
-      repairQueryStructure: (availableRestaurants: string[], query: TStructuredQuery) => TStructuredQuery;
+      repairQueryStructure: (
+        availableRestaurants: string[],
+        query: TLLMStructureQueryStructuredOutput,
+      ) => TStructuredQuery;
     };
 
     it('должен нормализовать и удалять дубликаты в ресторанах', () => {
-      const query: TStructuredQuery = {
+      const query: TLLMStructureQueryStructuredOutput = {
         restaurants: ['Додо Пицца', 'додо пицца', 'ДОДО ПИЦЦА', 'Папа Джонс', 'вввв'],
+        tags: [],
+        category: null,
+        priceMin: null,
+        priceMax: null,
+        exclusions_restaurants: [],
+        exclusions_tags: [],
+        exclusions_category: null,
+        exclusions_priceMin: null,
+        exclusions_priceMax: null,
       };
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа Джонс'], query);
 
       expect(result).toEqual({
         restaurants: ['додо пицца', 'папа джонс'],
+        tags: [],
+        exclusions: {
+          restaurants: [],
+          tags: [],
+        },
       });
     });
 
     it('должен нормализовать и удалять дубликаты в ингредиентах', () => {
-      const query: TStructuredQuery = {
+      const query: TLLMStructureQueryStructuredOutput = {
         tags: ['Пицца', 'пицца', 'Сыр', 'сыр', 'Томаты'],
+        restaurants: [],
+        category: null,
+        priceMin: null,
+        priceMax: null,
+        exclusions_restaurants: [],
+        exclusions_tags: [],
+        exclusions_category: null,
+        exclusions_priceMin: null,
+        exclusions_priceMax: null,
       };
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа Джонс'], query);
 
       expect(result).toEqual({
         tags: ['пицца', 'сыр', 'томаты'],
+        restaurants: [],
+        exclusions: {
+          tags: [],
+          restaurants: [],
+        },
       });
     });
 
     it('должен исправлять некорректные типы данных в ресторанах', () => {
       const query = {
         restaurants: ['Додо', 123, null, 'Папа Джонс', undefined, ''],
-      } as TStructuredQuery;
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа Джонс'], query);
 
@@ -462,9 +495,9 @@ describe('LLMService', () => {
     });
 
     it('должен исправлять некорректные типы данных в ингредиентах', () => {
-      const query = {
+      const query: TLLMStructureQueryStructuredOutput = {
         tags: ['Пицца', 456, null, 'Сыр', undefined, ''],
-      } as TStructuredQuery;
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -474,9 +507,10 @@ describe('LLMService', () => {
     });
 
     it('должен исправлять отрицательные цены в ценовом диапазоне', () => {
-      const query: TStructuredQuery = {
-        priceRange: { min: -100, max: 500 },
-      };
+      const query = {
+        priceMin: -100,
+        priceMax: 500,
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -486,9 +520,10 @@ describe('LLMService', () => {
     });
 
     it('должен исправлять отрицательные максимальные цены', () => {
-      const query: TStructuredQuery = {
-        priceRange: { min: 100, max: -50 },
-      };
+      const query = {
+        priceMin: 100,
+        priceMax: -50,
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -498,9 +533,10 @@ describe('LLMService', () => {
     });
 
     it('должен исправлять диапазон где min > max', () => {
-      const query: TStructuredQuery = {
-        priceRange: { min: 500, max: 100 },
-      };
+      const query = {
+        priceMin: 500,
+        priceMax: 100,
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -510,12 +546,10 @@ describe('LLMService', () => {
     });
 
     it('должен обрабатывать исключения с ресторанами', () => {
-      const query: TStructuredQuery = {
+      const query = {
         tags: ['пицца'],
-        exclusions: {
-          restaurants: ['Додо Пицца', 'додо пицца', 'Папа Джонс'],
-        },
-      };
+        exclusions_restaurants: ['Додо Пицца', 'додо пицца', 'Папа Джонс'],
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -528,12 +562,10 @@ describe('LLMService', () => {
     });
 
     it('должен обрабатывать исключения с ингредиентами', () => {
-      const query: TStructuredQuery = {
+      const query = {
         tags: ['пицца'],
-        exclusions: {
-          tags: ['Ананас', 'ананас', 'Оливки'],
-        },
-      };
+        exclusions_tags: ['Ананас', 'ананас', 'Оливки'],
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -546,12 +578,11 @@ describe('LLMService', () => {
     });
 
     it('должен исправлять ценовые диапазоны в исключениях', () => {
-      const query: TStructuredQuery = {
+      const query = {
         tags: ['пицца'],
-        exclusions: {
-          priceRange: { min: -50, max: 300 },
-        },
-      };
+        exclusions_priceMin: -50,
+        exclusions_priceMax: 300,
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -564,12 +595,11 @@ describe('LLMService', () => {
     });
 
     it('должен исправлять некорректные ценовые диапазоны в исключениях', () => {
-      const query: TStructuredQuery = {
+      const query = {
         tags: ['пицца'],
-        exclusions: {
-          priceRange: { min: 500, max: 100 },
-        },
-      };
+        exclusions_priceMin: 500,
+        exclusions_priceMax: 100,
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -582,10 +612,10 @@ describe('LLMService', () => {
     });
 
     it('должен обрабатывать пустые массивы', () => {
-      const query: TStructuredQuery = {
-        restaurants: [],
-        tags: [],
-      };
+      const query = {
+        restaurants: [] as string[],
+        tags: [] as string[],
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -596,7 +626,7 @@ describe('LLMService', () => {
     });
 
     it('должен обрабатывать пустую структуру', () => {
-      const query: TStructuredQuery = {};
+      const query = {} as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -607,13 +637,13 @@ describe('LLMService', () => {
       const query = {
         restaurants: ['Додо Пицца', 123, 'додо', 'Папа Джонс'],
         tags: ['Пицца', null, 'пицца', 'Сыр'],
-        priceRange: { min: -100, max: -50 },
-        exclusions: {
-          restaurants: ['Додо Пицца', undefined, 'додо'],
-          tags: ['Ананас', 456, 'ананас'],
-          priceRange: { min: 500, max: 100 },
-        },
-      } as TStructuredQuery;
+        priceMin: -100,
+        priceMax: -50,
+        exclusions_restaurants: ['Додо Пицца', undefined, 'додо'],
+        exclusions_tags: ['Ананас', 456, 'ананас'],
+        exclusions_priceMin: 500,
+        exclusions_priceMax: 100,
+      } as TLLMStructureQueryStructuredOutput;
 
       const result = (llmService as unknown as MockLLMService).repairQueryStructure(['Додо Пицца', 'Папа джонс'], query);
 
@@ -657,7 +687,7 @@ describe('LLMService', () => {
         const mockResponse = {
           choices: [{
             message: {
-              content: '{"tags": ["пицца", "сыр"], "priceRange": {"min": 200, "max": 800}}',
+              content: '{"tags": ["пицца", "сыр"], "priceMin": 200, "priceMax": 800}',
             },
           }],
           usage: { total_tokens: 150, prompt_tokens: 100, completion_tokens: 50 },

@@ -19,6 +19,7 @@ import type {
   TLLMConfig,
   TLLMRequest,
   TLLMResponse,
+  TLLMStructureQueryStructuredOutput,
 } from './types';
 
 export class LLMService {
@@ -210,58 +211,53 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
             properties: {
               restaurants: {
                 type: 'array',
-                items: { type: 'string', minLength: 1 },
+                items: { type: 'string', minLength: 0 },
                 description: 'Только рестораны, явно упомянутые в naturalQuery и присутствующие в availableRestaurants',
               },
               tags: {
                 type: 'array',
-                items: { type: 'string', minLength: 1 },
-                description: 'Лемматизированные/основы слов и 1-3 синонима на элемент',
-              },
-              priceRange: {
-                type: 'object',
-                additionalProperties: false,
-                properties: {
-                  min: { type: 'number' },
-                  max: { type: 'number' },
-                },
-                required: [],
-                description: 'Диапазон цен, например из \'до X рублей\'',
+                items: { type: 'string', minLength: 0 },
+                description: 'Лемматизированные/основы слов и 1–3 синонима на элемент',
               },
               category: {
-                type: 'string',
-                enum: ['основное', 'гарнир', 'напиток', 'соус', 'аксессуар', 'десерт', 'закуска'],
+                type: ['string', 'null'],
+                enum: ['основное', 'гарнир', 'напиток', 'соус', 'аксессуар', 'десерт', 'закуска', null],
                 description: 'Категория, определённая по контексту запроса',
               },
-              exclusions: {
-                type: 'object',
-                additionalProperties: false,
-                properties: {
-                  restaurants: {
-                    type: 'array',
-                    items: { type: 'string', minLength: 1 },
-                  },
-                  tags: {
-                    type: 'array',
-                    items: { type: 'string', minLength: 1 },
-                  },
-                  priceRange: {
-                    type: 'object',
-                    additionalProperties: false,
-                    properties: {
-                      min: { type: 'number' },
-                      max: { type: 'number' },
-                    },
-                    required: [],
-                  },
-                  category: {
-                    type: 'string',
-                    enum: ['основное', 'гарнир', 'напиток', 'соус', 'аксессуар', 'десерт', 'закуска'],
-                  },
-                },
+
+              priceMin: { type: ['integer', 'null'], description: 'Минимальный бюджет в рублях' },
+              priceMax: { type: ['integer', 'null'], description: 'Максимальный бюджет в рублях' },
+
+              exclusions_restaurants: {
+                type: 'array',
+                items: { type: 'string', minLength: 0 },
+                description: 'Рестораны, которые явно исключаются (\'не из\', \'кроме\')',
               },
+              exclusions_tags: {
+                type: 'array',
+                items: { type: 'string', minLength: 0 },
+                description: 'Теги/ингредиенты, которых нужно избежать (\'без\', \'не хочу\')',
+              },
+              exclusions_category: {
+                type: ['string', 'null'],
+                enum: ['основное', 'гарнир', 'напиток', 'соус', 'аксессуар', 'десерт', 'закуска', null],
+                description: 'Категория, которую нужно исключить',
+              },
+              exclusions_priceMin: { type: ['integer', 'null'], description: 'Исключить варианты дешевле этой суммы' },
+              exclusions_priceMax: { type: ['integer', 'null'], description: 'Исключить варианты дороже этой суммы' },
             },
-            required: [],
+            required: [
+              'restaurants',
+              'tags',
+              'category',
+              'priceMin',
+              'priceMax',
+              'exclusions_restaurants',
+              'exclusions_tags',
+              'exclusions_category',
+              'exclusions_priceMin',
+              'exclusions_priceMax',
+            ],
           },
         },
       },
@@ -493,7 +489,7 @@ ${menuList}
         }
 
         ConsoleLogger.warn(`LLM попытка ${attempt + 1} не удалась, повторяю...`, error as Error);
-        await sleep(1000 * attempt);
+        await sleep(1000 * (attempt + 1));
       }
     }
 
@@ -506,13 +502,19 @@ ${menuList}
       if (!jsonMatch) {
         throw AppError.systemError('JSON не найден в ответе');
       }
-      return this.repairQueryStructure(availableRestaurants, JSON.parse(jsonrepair(jsonMatch[0])) as TStructuredQuery);
+      return this.repairQueryStructure(
+        availableRestaurants,
+        JSON.parse(jsonrepair(jsonMatch[0])) as TLLMStructureQueryStructuredOutput,
+      );
     } catch (error) {
       throw AppError.systemError('Ошибка парсинга JSON', error as Error);
     }
   };
 
-  private repairQueryStructure = (availableRestaurants: string[], query: TStructuredQuery): TStructuredQuery => {
+  private repairQueryStructure = (
+    availableRestaurants: string[],
+    query: TLLMStructureQueryStructuredOutput,
+  ): TStructuredQuery => {
     const repairedQuery: TStructuredQuery = {};
     const availableRestaurantsFormed = availableRestaurants.map(r => r.toLowerCase().trim());
 
@@ -540,11 +542,11 @@ ${menuList}
         : [];
     }
 
-    if (query.priceRange) {
-      if (typeof query.priceRange.min === 'number' || typeof query.priceRange.max === 'number') {
+    if (query.priceMin || query.priceMax) {
+      if (typeof query.priceMin === 'number' || typeof query.priceMax === 'number') {
         repairedQuery.priceRange = {
-          min: query.priceRange.min ?? 0,
-          max: query.priceRange.max ?? Number.MAX_SAFE_INTEGER,
+          min: query.priceMin ?? 0,
+          max: query.priceMax ?? Number.MAX_SAFE_INTEGER,
         };
       }
     }
@@ -567,13 +569,19 @@ ${menuList}
       repairedQuery.category = query.category.toLowerCase().trim() as EDishCategory;
     }
 
-    if (query.exclusions) {
+    if (
+      query.exclusions_restaurants
+      || query.exclusions_tags
+      || query.exclusions_category
+      || query.exclusions_priceMin
+      || query.exclusions_priceMax
+    ) {
       repairedQuery.exclusions = {};
 
-      if (query.exclusions?.restaurants) {
-        repairedQuery.exclusions.restaurants = Array.isArray(query.exclusions.restaurants)
+      if (query.exclusions_restaurants) {
+        repairedQuery.exclusions.restaurants = Array.isArray(query.exclusions_restaurants)
           ? [...new Set(
-              query.exclusions.restaurants
+              query.exclusions_restaurants
                 .filter((r: unknown) =>
                   typeof r === 'string'
                   && r !== ''
@@ -584,21 +592,21 @@ ${menuList}
           : [];
       }
 
-      if (query.exclusions?.tags) {
-        repairedQuery.exclusions.tags = Array.isArray(query.exclusions.tags)
+      if (query.exclusions_tags) {
+        repairedQuery.exclusions.tags = Array.isArray(query.exclusions_tags)
           ? [...new Set(
-              query.exclusions.tags
+              query.exclusions_tags
                 .filter((i: unknown) => typeof i === 'string' && i !== '')
                 .map(i => i.toLowerCase().trim()),
             )]
           : [];
       }
 
-      if (query.exclusions?.priceRange) {
-        if (typeof query.exclusions.priceRange.min === 'number' || typeof query.exclusions.priceRange.max === 'number') {
+      if (query.exclusions_priceMin || query.exclusions_priceMax) {
+        if (typeof query.exclusions_priceMin === 'number' || typeof query.exclusions_priceMax === 'number') {
           repairedQuery.exclusions.priceRange = {
-            min: query.exclusions.priceRange.min ?? 0,
-            max: query.exclusions.priceRange.max ?? Number.MAX_SAFE_INTEGER,
+            min: query.exclusions_priceMin ?? 0,
+            max: query.exclusions_priceMax ?? Number.MAX_SAFE_INTEGER,
           };
         }
       }
@@ -617,8 +625,8 @@ ${menuList}
         }
       }
 
-      if (query.exclusions?.category) {
-        repairedQuery.exclusions.category = query.exclusions.category.toLowerCase().trim() as EDishCategory;
+      if (query.exclusions_category) {
+        repairedQuery.exclusions.category = query.exclusions_category.toLowerCase().trim() as EDishCategory;
       }
     }
 
@@ -762,7 +770,7 @@ ${menuList}
       }
 
       if (toSend.length === 0) {
-        return result as EDishCategory[];
+        return result.map(c => c ?? EDishCategory.MAIN);
       }
 
       // Ask LLM only for uncached items
@@ -780,6 +788,10 @@ ${menuList}
       for (let i = 0; i < batchResponses.length; i++) {
         const batchResponse = batchResponses[i];
         if (batchResponse.status !== 'fulfilled') {
+          ConsoleLogger.warn('Не удалось получить ответ от LLM для батча', {
+            batchIndex: i,
+            reason: batchResponse.reason as unknown,
+          });
           continue;
         }
         try {
@@ -791,8 +803,8 @@ ${menuList}
               categoryBatch[i] = parsed.categories;
             }
           }
-        } catch (e) {
-          ConsoleLogger.warn('Не удалось распарсить JSON категорий блюд, возвращаю MAIN', e as Error);
+        } catch (error) {
+          ConsoleLogger.warn('Не удалось распарсить JSON категорий блюд, возвращаю MAIN', error as Error);
         }
       }
 

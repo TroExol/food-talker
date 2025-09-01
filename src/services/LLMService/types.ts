@@ -65,3 +65,16 @@ export interface TLLMCallParams {
   params?: TLLMParams;
   waitTimeoutMs?: number;
 }
+
+export interface TLLMStructureQueryStructuredOutput {
+  restaurants: string[];
+  tags: string[];
+  category: string | null;
+  priceMin: number | null;
+  priceMax: number | null;
+  exclusions_restaurants: string[];
+  exclusions_tags: string[];
+  exclusions_category: string | null;
+  exclusions_priceMin: number | null;
+  exclusions_priceMax: number | null;
+}

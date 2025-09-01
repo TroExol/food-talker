@@ -108,7 +108,7 @@ export class MenuService {
       const menuToCreate = Object.values(menuToCreateObj);
 
       if (menuToCreate.length === 0) {
-        ConsoleLogger.info('Не создаваем блюда, так как нет новых блюд', {
+        ConsoleLogger.info('Не создаем блюда, так как нет новых блюд', {
           menuItemCount: menu.length,
           alreadyExistsCount: alreadyExists.length,
           menuItemCountToCreate: Object.values(menuToCreateObj).length,
