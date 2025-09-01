@@ -47,7 +47,7 @@ export class MigrationRunner {
    * @param tableName - имя таблицы для резервного копирования
    */
   public createBackupTable = async (tableName: string): Promise<string> => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = new Date().toISOString().replace(/[-:.]/g, '_');
     const backupTableName = `${tableName}_backup_${timestamp}`;
 
     try {
@@ -65,10 +65,11 @@ export class MigrationRunner {
 
   public createBackupTables = async (): Promise<void> => {
     try {
-      await this.copyTableWithData('users', 'users_backup');
-      await this.copyTableWithData('dishes', 'dishes_backup');
-      await this.copyTableWithData('neural_request_logs', 'neural_request_logs_backup');
-      await this.copyTableWithData('api_request_logs', 'api_request_logs_backup');
+      await this.createBackupTable('users');
+      await this.createBackupTable('dishes');
+      await this.createBackupTable('neural_request_logs');
+      await this.createBackupTable('api_request_logs');
+      await this.createBackupTable('search_history');
     } catch (error) {
       ConsoleLogger.error('Ошибка создания резервных копий таблиц', error as Error);
       throw AppError.databaseError('BACKUP_FAILED', 'Не удалось создать резервные копии таблиц');
@@ -231,7 +232,7 @@ const migrations: TMigration[] = [
           restaurant_longitude DECIMAL(11, 8) NOT NULL,
           order_url TEXT NOT NULL,
           category VARCHAR(50) NOT NULL,
-          embedding vector(1024),
+          embedding vector(3072),
           expires_at TIMESTAMP NOT NULL,
           created_at TEXT DEFAULT now(),
           updated_at TEXT DEFAULT now()

@@ -778,7 +778,6 @@ interface TEnvironment {
   DB_MAX_CONNECTIONS: string
   EMBEDDING_API_BASE_URL: string
   EMBEDDING_API_KEY: string
-  EMBEDDING_MODEL_NAME: string
 }
 ```
 
@@ -1350,7 +1349,6 @@ function validateEnvironment(): void {
     'LLM_API_KEY',
     'EMBEDDING_API_BASE_URL',
     'EMBEDDING_API_KEY',
-    'EMBEDDING_MODEL_NAME',
     'DB_HOST',
     'DB_PORT',
     'DB_NAME',

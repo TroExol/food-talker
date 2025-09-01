@@ -1,7 +1,6 @@
 export interface TEmbeddingConfig {
   baseUrl: string;
   apiKey?: string;
-  modelName?: string;
 }
 
 export interface TEmbeddingRequest {

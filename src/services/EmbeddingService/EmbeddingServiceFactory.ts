@@ -15,7 +15,6 @@ export class EmbeddingServiceFactory {
         {
           baseUrl: environment.EMBEDDING_API_BASE_URL,
           apiKey: environment.EMBEDDING_API_KEY,
-          modelName: environment.EMBEDDING_MODEL_NAME,
         },
       );
     }

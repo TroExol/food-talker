@@ -38,7 +38,7 @@ export class MenuService {
   public createMenuItemToRAG = async (menuItem: TMenuItem): Promise<TVectorMenuItem> => {
     try {
       const textForEmbedding = `${menuItem.name} ${menuItem.description} ${menuItem.ingredients.join(', ')} ${menuItem.category}`.trim();
-      const embedding = await this.embeddingService.generateEmbedding(textForEmbedding);
+      const embedding = await this.embeddingService.generateEmbeddingOpenAI(textForEmbedding);
 
       // Создаем нового пользователя с базовыми настройками
       const menuItemData = {
@@ -103,7 +103,7 @@ export class MenuService {
       );
 
       // Генерируем embedding батчем
-      const embeddings = await this.embeddingService.generateEmbeddingsBatch(textsForEmbedding);
+      const embeddings = await this.embeddingService.generateEmbeddingsBatchOpenAI(textsForEmbedding);
 
       // Создаем векторные элементы меню
       const vectorMenu: TVectorMenuItem[] = menuToCreate.map((item, index) => ({

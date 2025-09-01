@@ -30,10 +30,10 @@ vi.mock('@/config/environment', () => ({
     LLM_API_KEY: 'test-llm-api-key',
     EMBEDDING_API_BASE_URL: 'test-embedding-api-base-url',
     EMBEDDING_API_KEY: 'test-embedding-api-key',
-    EMBEDDING_MODEL_NAME: 'test-embedding-model-name',
     ADMIN_TELEGRAM_ID: '123456789',
     LIGHTRAG_BASE_URL: 'test-lightrag-base-url',
     LIGHTRAG_API_KEY: 'test-lightrag-api-key',
+    OPENAI_API_KEY: 'test-openai-api-key',
   },
 }) satisfies { environment: TEnvironment });
 

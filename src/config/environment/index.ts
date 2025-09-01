@@ -23,13 +23,13 @@ export const environment: TEnvironment = {
   LLM_API_KEY: process.env.LLM_API_KEY || '',
   EMBEDDING_API_BASE_URL: process.env.EMBEDDING_API_BASE_URL || '',
   EMBEDDING_API_KEY: process.env.EMBEDDING_API_KEY || '',
-  EMBEDDING_MODEL_NAME: process.env.EMBEDDING_MODEL_NAME || '',
   ADMIN_TELEGRAM_ID: process.env.ADMIN_TELEGRAM_ID,
   PROXY_URL: process.env.PROXY_URL,
   YANDEX_METRIKA_COUNTER_ID: process.env.YANDEX_METRIKA_COUNTER_ID,
   YANDEX_METRIKA_MS: process.env.YANDEX_METRIKA_MS,
   LIGHTRAG_BASE_URL: process.env.LIGHTRAG_BASE_URL || '',
   LIGHTRAG_API_KEY: process.env.LIGHTRAG_API_KEY || '',
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
 };
 
 export const validateEnvironment = (): void => {
@@ -39,13 +39,13 @@ export const validateEnvironment = (): void => {
     'LLM_API_KEY',
     'EMBEDDING_API_BASE_URL',
     'EMBEDDING_API_KEY',
-    'EMBEDDING_MODEL_NAME',
     'DB_HOST',
     'DB_PORT',
     'DB_NAME',
     'DB_USER',
     'LIGHTRAG_BASE_URL',
     'LIGHTRAG_API_KEY',
+    'OPENAI_API_KEY',
   ];
   const missing = required.filter(key => !environment[key as keyof TEnvironment]);
 

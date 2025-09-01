@@ -19,7 +19,7 @@ export class VectorSearchService {
   ) => {
     try {
       // Генерируем эмбеддинг для запроса
-      const queryEmbedding = await this.embeddingService.generateEmbedding(naturalQuery);
+      const queryEmbedding = await this.embeddingService.generateEmbeddingOpenAI(naturalQuery);
 
       const results = await this.menuService.searchMenuWithRAG(queryEmbedding, options);
 

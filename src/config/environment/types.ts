@@ -15,11 +15,11 @@ export interface TEnvironment {
   DB_MAX_CONNECTIONS: string;
   EMBEDDING_API_BASE_URL: string;
   EMBEDDING_API_KEY: string;
-  EMBEDDING_MODEL_NAME: string;
   ADMIN_TELEGRAM_ID?: string;
   PROXY_URL?: string;
   YANDEX_METRIKA_COUNTER_ID?: string;
   YANDEX_METRIKA_MS?: string;
   LIGHTRAG_BASE_URL: string;
   LIGHTRAG_API_KEY: string;
+  OPENAI_API_KEY: string;
 }
