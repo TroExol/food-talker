@@ -181,8 +181,8 @@ export class LLMService {
 
   private buildStructureQueryPrompt = (naturalQuery: string, availableRestaurants: string[]): TLLMBuildedQuery => {
     return {
-      systemPrompt: `Отвечай строго в формате JSON по заданной схеме. 
-Не добавляй текст вне JSON. 
+      systemPrompt: `Отвечай строго в формате JSON по заданной схеме.
+Не добавляй текст вне JSON.
 Не добавляй ключи, которых нет в схеме.
 Следуй правилам:
 1) НЕ добавляй рестораны, не упомянутые в naturalQuery.
@@ -190,7 +190,23 @@ export class LLMService {
 3) Учитывай, что пользователь может допускать ошибки в названиях ресторанов.
 4) Если пользователь просит тип блюда без названия ресторана — restaurants пуст.
 5) НЕ угадывай рестораны по типу блюда.
-Алгоритм:
+
+Алгоритм распознавания ресторанов:
+- Шаг 1: Для каждого ресторана из availableRestaurants ищем частичное совпадение в naturalQuery.
+- Шаг 2: Учитывай различные формы написания:
+  * С тире или без: "вкусно - и точка" = "вкусно и точка"
+  * С пробелами или без: "вкусноиточка" = "вкусно и точка"
+  * С точкой или без: "вкусно - и точка" = "вкусно - и точка."
+  * Морфологические вариации: "вкусный" = "вкусно"
+- Шаг 3: Если найдено совпадение хотя бы 70% слов ресторана в naturalQuery - добавляй в restaurants.
+- Шаг 4: Используй нечеткое сравнение - ресторан считается упомянутым, если:
+  * Минимум 2 ключевых слова из названия присутствуют в запросе
+  * Или основное слово ресторана + контекстные слова (еда, ресторан, кафе и т.п.)
+- Шаг 5: Обрабатывай предлоги и контекст:
+  * "из/в/от/у + название" указывает на ресторан
+  * "вкусный/вкусная/вкусное" может быть началом названия "вкусно - и точка"
+
+Алгоритм обработки запроса:
 - Шаг 1: Найти совпадения ресторанов из availableRestaurants в naturalQuery и занести в restaurants.
 - Шаг 2: Извлечь 1–3 синонима на каждый смысловой элемент; используй основы слов без окончаний.
 - Шаг 3: Определи категорию: основное, гарнир, напиток, соус, аксессуар, десерт, закуска — по контексту.
@@ -383,6 +399,7 @@ ${menuList}
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
             'X-Title': 'Food Talker Bot',
+            'HTTP-Referer': 'https://foodtalker.ru',
           },
           body: JSON.stringify(request),
           signal: controller.signal,
@@ -710,11 +727,12 @@ ${menuList}
         prompt,
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_CATEGORIZE_DISHES,
-        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
+        model: 'mistralai/mistral-small-3.1-24b-instruct',
         userTelegramId,
         params: {
           max_tokens: 3000,
         },
+        waitTimeoutMs: 15000,
       });
       const category = this.parseCategoryResponse(response);
 
@@ -779,8 +797,9 @@ ${menuList}
         prompt: this.buildCategorizationBatchPrompt(batch.map(x => x.item)),
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_CATEGORIZE_DISHES,
-        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
+        model: 'mistralai/mistral-small-3.1-24b-instruct',
         userTelegramId,
+        waitTimeoutMs: 90000,
       })));
 
       // Parse JSON block and map categories back to original order

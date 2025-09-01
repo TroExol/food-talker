@@ -70,6 +70,7 @@ export class MenuService {
         available: null,
         limit: null,
         deliveryRadiusKm: null,
+        showExpired: true,
       });
 
       const nonEmbeddingUpdates: TMenuItem[] = [];
@@ -156,6 +157,7 @@ export class MenuService {
       available: null,
       limit: null,
       deliveryRadiusKm: null,
+      showExpired: true,
     });
 
     const restaurantsMenuObject = restaurantsMenu.reduce((acc, item) => {

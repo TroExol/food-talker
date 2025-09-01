@@ -175,6 +175,7 @@ export class MenuRepository {
         city,
         deliveryRadiusKm = 50,
         available = true,
+        showExpired = false,
       } = options;
 
       // Строим SQL запрос с фильтрами
@@ -182,11 +183,15 @@ export class MenuRepository {
         SELECT 
           id, name, description, price, restaurant_id, restaurant_name, restaurant_latitude, restaurant_longitude, available, order_url, category, image, ingredients, expires_at
         FROM dishes
-        WHERE expires_at > CURRENT_TIMESTAMP
+        WHERE 1 = 1
       `;
 
       const params: unknown[] = [];
       let paramIndex = 1;
+
+      if (!showExpired) {
+        sql += ` AND expires_at > CURRENT_TIMESTAMP`;
+      }
 
       // Фильтрация по городу (радиус доставки)
       if (city) {
@@ -717,6 +722,7 @@ export class MenuRepository {
         city,
         deliveryRadiusKm = 50,
         available = null,
+        showExpired = false,
       } = options;
 
       // Строим SQL запрос с фильтрами
@@ -726,11 +732,14 @@ export class MenuRepository {
         FROM dishes
         WHERE
           embedding IS NOT NULL
-          AND expires_at > CURRENT_TIMESTAMP
       `;
 
       const params: unknown[] = [];
       let paramIndex = 1;
+
+      if (!showExpired) {
+        sql += ` AND expires_at > CURRENT_TIMESTAMP`;
+      }
 
       // Фильтрация по городу (радиус доставки)
       if (city) {

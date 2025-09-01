@@ -56,4 +56,5 @@ export interface TMenuSearchOptions {
   city?: string | null;
   deliveryRadiusKm?: number | null;
   available?: boolean | null;
+  showExpired?: boolean | null;
 }

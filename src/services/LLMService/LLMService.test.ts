@@ -85,6 +85,7 @@ describe('LLMService', () => {
             'Authorization': 'Bearer test-llm-api-key',
             'Content-Type': 'application/json',
             'X-Title': 'Food Talker Bot',
+            'HTTP-Referer': 'https://foodtalker.ru',
           },
           body: expect.stringContaining('хочу пиццу с сыром до 800 рублей') as string,
         }),

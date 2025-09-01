@@ -72,7 +72,7 @@ export class SearchService {
       }
 
       // Ограничиваем количество результатов для LLM-обработки
-      results = this.limitResults(results, options.maxEnhenceMenu || 200);
+      results = this.limitResults(results, options.maxEnhenceMenu || 100);
 
       results = options.enableLLMEnhancement
         ? await this.llmService.enhanceSearchResults(results, naturalQuery)
@@ -127,7 +127,7 @@ export class SearchService {
         city,
       });
 
-      ConsoleLogger.debug('Векторный поиск выполнен', {
+      ConsoleLogger.info('Векторный поиск выполнен', {
         naturalQuery,
         structuredQuery,
         resultsCount: vectorResults.length,
@@ -213,7 +213,7 @@ export class SearchService {
     if (searchResults.length <= maxResults) return searchResults;
 
     const limited = searchResults.slice(0, maxResults);
-    ConsoleLogger.debug('Результаты ограничены по количеству', {
+    ConsoleLogger.info('Результаты ограничены по количеству', {
       originalCount: searchResults.length,
       limitedCount: limited.length,
     });
