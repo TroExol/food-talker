@@ -14,8 +14,9 @@ import { EDishCategory, type TMenuItem } from '@/types/menuItem';
 import { environment } from '@/config/environment';
 
 import type {
+  TLLMBuildedQuery,
+  TLLMCallParams,
   TLLMConfig,
-  TLLMParams,
   TLLMRequest,
   TLLMResponse,
 } from './types';
@@ -63,18 +64,24 @@ export class LLMService {
       }
 
       const availableRestaurants = restaurants.map(r => r.name);
-      const prompt = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants);
-      const response = await this.callLLMWithLogging(
+      const {
         prompt,
-        '/v1/chat/completions',
-        ENeuralRequestType.LLM_STRUCTURE_QUERY,
+        responseFormat,
+        systemPrompt,
+      } = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants);
+      const response = await this.callLLMWithLogging({
+        prompt,
+        url: '/v1/chat/completions',
+        requestType: ENeuralRequestType.LLM_STRUCTURE_QUERY,
         model,
+        systemPrompt,
+        responseFormat,
         userTelegramId,
-        {
+        params: {
           max_tokens: 20000,
         },
-        30000,
-      );
+        waitTimeoutMs: 30000,
+      });
       const structuredQuery = this.parseStructuredQuery(availableRestaurants, response);
 
       await this.cacheService.set(cacheKey, structuredQuery, this.cacheTTL);
@@ -132,17 +139,17 @@ export class LLMService {
 
       const prompt = this.buildEnhancementPrompt(results, query);
 
-      const response = await this.callLLMWithLogging(
+      const response = await this.callLLMWithLogging({
         prompt,
-        '/v1/chat/completions',
-        ENeuralRequestType.LLM_ENHANCE_RESULTS,
+        url: '/v1/chat/completions',
+        requestType: ENeuralRequestType.LLM_ENHANCE_RESULTS,
         model,
         userTelegramId,
-        {
+        params: {
           max_tokens: 40000,
         },
-        60000,
-      );
+        waitTimeoutMs: 60000,
+      });
       const enhancedResults = this.parseEnhancedResults(response, results);
 
       await this.cacheService.set(cacheKey, enhancedResults, this.cacheTTL);
@@ -171,99 +178,94 @@ export class LLMService {
     }
   };
 
-  private buildStructureQueryPrompt = (naturalQuery: string, availableRestaurants: string[]): string => {
-    return `СИСТЕМА СТРУКТУРИРОВАНИЯ ЗАПРОСОВ ПОЛЬЗОВАТЕЛЯ
-
-ВХОДНЫЕ ДАННЫЕ:
-- naturalQuery — запрос пользователя
-- availableRestaurants — доступные рестораны
-
-КРИТИЧЕСКИ ВАЖНО - ПРАВИЛА БЕЗ ИСКЛЮЧЕНИЙ:
-1. НИКОГДА не добавляйте рестораны в restaurants, если они НЕ УПОМЯНУТЫ в naturalQuery
-2. restaurants содержит ТОЛЬКО рестораны, которые пользователь ЯВНО назвал и которые есть в availableRestaurants
-3. Если пользователь просит "пицца" без названия ресторана - restaurants должен быть ПУСТ
-4. НЕ предлагайте и НЕ угадывайте рестораны по типу блюда
-
-АЛГОРИТМ ОБРАБОТКИ:
-Шаг 1: Найти ЯВНЫЕ упоминания ресторанов
-- Искать только точные названия из availableRestaurants
-- Добавлять в restaurants ТОЛЬКО найденные совпадения
-
-Шаг 2: Извлечь теги блюд
-- Создать 1-3 синонима для каждого смыслового элемента
-- Использовать основы слов без окончаний
-
-Шаг 3: Определить категорию блюда
-- основное: бургер, пицца, роллы, суши, стейк, курица, паста, суп, шаурма
-- гарнир: картошка, рис, макароны, салат как гарнир, овощи  
-- напиток: кола, сок, чай, кофе, лимонад, вода
-- соус: кетчуп, майонез, горчица, соус, заправка
-- аксессуар: салфетки, палочки, вилка, ложка, контейнер
-
-Определяй категории по контексту запроса:
-- "хочу поесть" → основное
-- "что-нибудь попить" → напиток  
-- "гарнир к мясу" → гарнир
-- "соус к блюду" → соус
-- "салфетки/приборы" → аксессуар
-
-Шаг 4: Найти ограничения и исключения
-- "не из", "кроме" → exclusions.restaurants
-- "без", "не хочу" → exclusions.tags
-- "до X рублей" → priceRange.max
-
-ОБЯЗАТЕЛЬНЫЕ ПРИМЕРЫ:
-
-Пример 1 - БЕЗ ресторанов:
-naturalQuery: "бургер"
-availableRestaurants: ["McDonald's", "Burger King", "KFC"]
-РЕЗУЛЬТАТ:
-{
-  "tags": ["бургер", "burger"],
-  "category": "основное"
-}
-
-Пример 2 - С рестораном:
-naturalQuery: "хочу пиццу из Domino's"
-availableRestaurants: ["Domino's", "Dodo", "Papa John's"]
-РЕЗУЛЬТАТ:
-{
-  "restaurants": ["Domino's"],
-  "tags": ["пицца", "pizza"],
-  "category": "основное"
-}
-
-Пример 3 - Исключения:
-naturalQuery: "острая пицца не из McDonald's"
-availableRestaurants: ["McDonald's", "Domino's", "Dodo"]
-РЕЗУЛЬТАТ:
-{
-  "tags": ["острый", "пикант", "пицца", "pizza"],
-  "category": "основное",
-  "exclusions": {
-    "restaurants": ["McDonald's"]
-  }
-}
-
-ФИНАЛЬНАЯ СХЕМА (только валидный JSON):
-{
-  "restaurants"?: string[],
-  "tags"?: string[],
-  "priceRange"?: {"min": number, "max": number},
-  "category"?: string,
-  "exclusions"?: {
-    "restaurants"?: string[],
-    "tags"?: string[],
-    "priceRange"?: {"min": number, "max": number},
-    "category"?: string
-  }
-}
-
-ВХОДНОЙ ЗАПРОС:
+  private buildStructureQueryPrompt = (naturalQuery: string, availableRestaurants: string[]): TLLMBuildedQuery => {
+    return {
+      systemPrompt: `Отвечай строго в формате JSON по заданной схеме. 
+Не добавляй текст вне JSON. 
+Не добавляй ключи, которых нет в схеме.
+Следуй правилам:
+1) НЕ добавляй рестораны, не упомянутые в naturalQuery.
+2) restaurants содержит ТОЛЬКО явно названные пользователем рестораны, присутствующие в availableRestaurants.
+3) Учитывай, что пользователь может допускать ошибки в названиях ресторанов.
+4) Если пользователь просит тип блюда без названия ресторана — restaurants пуст.
+5) НЕ угадывай рестораны по типу блюда.
+Алгоритм:
+- Шаг 1: Найти совпадения ресторанов из availableRestaurants в naturalQuery и занести в restaurants.
+- Шаг 2: Извлечь 1–3 синонима на каждый смысловой элемент; используй основы слов без окончаний.
+- Шаг 3: Определи категорию: основное, гарнир, напиток, соус, аксессуар — по контексту.
+- Шаг 4: Извлеки исключения: "не из/кроме" → exclusions.restaurants; "без/не хочу" → exclusions.tags; "до X рублей" → priceRange.max.
+Если данных нет — опусти поле или верни пустой массив, не ставь вымышленных значений.`,
+      prompt: `ВХОДНОЙ ЗАПРОС:
 naturalQuery: "${naturalQuery}"
 availableRestaurants: ${JSON.stringify(availableRestaurants)}
-
-ВЕРНИ ТОЛЬКО JSON БЕЗ ДОПОЛНИТЕЛЬНОГО ТЕКСТА.`;
+Верни только JSON.`,
+      responseFormat: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'restaurant_query_structured',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              restaurants: {
+                type: 'array',
+                items: { type: 'string', minLength: 1 },
+                description: 'Только рестораны, явно упомянутые в naturalQuery и присутствующие в availableRestaurants',
+              },
+              tags: {
+                type: 'array',
+                items: { type: 'string', minLength: 1 },
+                description: 'Лемматизированные/основы слов и 1-3 синонима на элемент',
+              },
+              priceRange: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  min: { type: 'number' },
+                  max: { type: 'number' },
+                },
+                required: [],
+                description: 'Диапазон цен, например из \'до X рублей\'',
+              },
+              category: {
+                type: 'string',
+                enum: ['основное', 'гарнир', 'напиток', 'соус', 'аксессуар'],
+                description: 'Категория, определённая по контексту запроса',
+              },
+              exclusions: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  restaurants: {
+                    type: 'array',
+                    items: { type: 'string', minLength: 1 },
+                  },
+                  tags: {
+                    type: 'array',
+                    items: { type: 'string', minLength: 1 },
+                  },
+                  priceRange: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                      min: { type: 'number' },
+                      max: { type: 'number' },
+                    },
+                    required: [],
+                  },
+                  category: {
+                    type: 'string',
+                    enum: ['основное', 'гарнир', 'напиток', 'соус', 'аксессуар'],
+                  },
+                },
+              },
+            },
+            required: [],
+          },
+        },
+      },
+    };
   };
 
   private buildEnhancementPrompt = (menuItems: TSearchResultItem[], naturalQuery: string): string => {
@@ -339,15 +341,17 @@ ${menuList}
 РЕЗУЛЬТАТ:`;
   };
 
-  private callLLMWithLogging = async (
-    prompt: string,
-    url: string,
-    requestType: ENeuralRequestType,
-    model: string,
-    userTelegramId?: number,
-    params?: TLLMParams,
-    waitTimeoutMs?: number,
-  ): Promise<string> => {
+  private callLLMWithLogging = async ({
+    prompt,
+    url,
+    requestType,
+    model,
+    systemPrompt,
+    responseFormat,
+    userTelegramId,
+    params,
+    waitTimeoutMs,
+  }: TLLMCallParams): Promise<string> => {
     const startTime = Date.now();
 
     const request: TLLMRequest = {
@@ -355,7 +359,7 @@ ${menuList}
       messages: [
         {
           role: 'system',
-          content: this.systemPrompt,
+          content: systemPrompt || this.systemPrompt,
         },
         {
           role: 'user',
@@ -365,6 +369,7 @@ ${menuList}
       params: {
         ...params,
       },
+      response_format: responseFormat,
     };
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -691,16 +696,16 @@ ${menuList}
       }
 
       const prompt = this.buildCategorizationPrompt(dishName, description, ingredients);
-      const response = await this.callLLMWithLogging(
+      const response = await this.callLLMWithLogging({
         prompt,
-        '/v1/chat/completions',
-        ENeuralRequestType.LLM_CATEGORIZE_DISHES,
-        'mistralai/mistral-small-3.2-24b-instruct:free',
+        url: '/v1/chat/completions',
+        requestType: ENeuralRequestType.LLM_CATEGORIZE_DISHES,
+        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
         userTelegramId,
-        {
+        params: {
           max_tokens: 3000,
         },
-      );
+      });
       const category = this.parseCategoryResponse(response);
 
       // Перманентный кэш (TTL = 0 означает "без истечения")
@@ -754,13 +759,13 @@ ${menuList}
 
       // Ask LLM only for uncached items
       const batches = this.chunkArray(toSend, BATCH_SIZE);
-      const batchResponses = await Promise.allSettled(batches.map(batch => this.callLLMWithLogging(
-        this.buildCategorizationBatchPrompt(batch.map(x => x.item)),
-        '/v1/chat/completions',
-        ENeuralRequestType.LLM_CATEGORIZE_DISHES,
-        'mistralai/mistral-small-3.2-24b-instruct:free',
+      const batchResponses = await Promise.allSettled(batches.map(batch => this.callLLMWithLogging({
+        prompt: this.buildCategorizationBatchPrompt(batch.map(x => x.item)),
+        url: '/v1/chat/completions',
+        requestType: ENeuralRequestType.LLM_CATEGORIZE_DISHES,
+        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
         userTelegramId,
-      )));
+      })));
 
       // Parse JSON block and map categories back to original order
       const categoryBatch: Record<string, string>[] = new Array<Record<string, string>>(batchResponses.length).fill({});

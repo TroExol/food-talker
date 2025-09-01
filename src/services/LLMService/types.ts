@@ -1,3 +1,11 @@
+import type {
+  ResponseFormatJSONObject,
+  ResponseFormatJSONSchema,
+  ResponseFormatText,
+} from 'openai/resources/index';
+
+import type { ENeuralRequestType } from '@/types/neuralRequestLogging';
+
 export interface TLLMConfig {
   maxRetries?: number;
   timeoutMs?: number;
@@ -17,6 +25,9 @@ export interface TLLMRequest {
     content: string;
   }>;
   params?: TLLMParams;
+  response_format?: ResponseFormatText
+    | ResponseFormatJSONSchema
+    | ResponseFormatJSONObject;
 }
 
 export interface TLLMResponse {
@@ -31,4 +42,26 @@ export interface TLLMResponse {
     prompt_tokens: number;
     completion_tokens: number;
   };
+}
+
+export interface TLLMBuildedQuery {
+  systemPrompt: string;
+  responseFormat: ResponseFormatText
+    | ResponseFormatJSONSchema
+    | ResponseFormatJSONObject;
+  prompt: string;
+}
+
+export interface TLLMCallParams {
+  prompt: string;
+  url: string;
+  requestType: ENeuralRequestType;
+  model: string;
+  systemPrompt?: string;
+  responseFormat?: ResponseFormatText
+    | ResponseFormatJSONSchema
+    | ResponseFormatJSONObject;
+  userTelegramId?: number;
+  params?: TLLMParams;
+  waitTimeoutMs?: number;
 }
