@@ -55,15 +55,16 @@ export class Validator {
     };
   }
 
-  public static validateTelegramId(telegramId: number): TValidationResult {
+  public static validateTelegramId(telegramId: string): TValidationResult {
     const errors: string[] = [];
 
-    if (typeof telegramId !== 'number' || !Number.isInteger(telegramId)) {
-      errors.push('Telegram ID должен быть целым числом');
-    }
+    const parsedTelegramId = Number.parseInt(telegramId, 10);
 
-    if (typeof telegramId === 'number' && telegramId <= 0) {
-      errors.push('Telegram ID должен быть положительным числом');
+    if (typeof telegramId !== 'string'
+      || Number.isNaN(parsedTelegramId)
+      || !Number.isInteger(parsedTelegramId)
+      || parsedTelegramId <= 0) {
+      errors.push('Telegram ID должен быть целым положительным числом');
     }
 
     return {
@@ -73,10 +74,15 @@ export class Validator {
     };
   }
 
-  public static validateChatId(chatId: number): TValidationResult {
+  public static validateChatId(chatId: string): TValidationResult {
     const errors: string[] = [];
 
-    if (typeof chatId !== 'number' || !Number.isInteger(chatId) || chatId <= 0) {
+    const parsedChatId = Number.parseInt(chatId, 10);
+
+    if (typeof chatId !== 'string'
+      || Number.isNaN(parsedChatId)
+      || !Number.isInteger(parsedChatId)
+      || parsedChatId <= 0) {
       errors.push('Chat ID должен быть целым положительным числом');
     }
 

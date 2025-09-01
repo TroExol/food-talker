@@ -10,7 +10,7 @@ import type { EAvailableCities } from '@/config/bot/types';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { CityValidator } from '@/utils/CityValidator';
 import { AppError } from '@/utils/AppError';
-import { EDishCategory, type TMenuItem } from '@/types/menuItem';
+import { type TMenuItem } from '@/types/menuItem';
 import { EApiRequestType } from '@/types/apiRequestLogging';
 import { environment } from '@/config/environment';
 import { botConfig } from '@/config/bot';
@@ -121,7 +121,7 @@ export class YEApiService {
 
       if (cached && searchInCache) {
         ConsoleLogger.debug('Кэш ресторанов Яндекс.Еда найден', { coordinates, cacheKey });
-        return cached;
+        return cached.slice(0, 3);
       }
 
       // Загружаем из API
@@ -141,7 +141,7 @@ export class YEApiService {
         cacheKey,
       });
 
-      return restaurants;
+      return restaurants.slice(0, 3);
     } catch (error) {
       ConsoleLogger.error('Не удалось загрузить рестораны Яндекс.Еда', error as Error, { coordinates });
       throw AppError.apiError(`Не удалось загрузить рестораны Яндекс.Еда для ${city}`, error);
@@ -215,8 +215,7 @@ export class YEApiService {
       const yeMenu = await this.requestRestaurantMenu(restaurantId, coordinates, restaurant.additionalInfo.brandSlug);
 
       // Трансформируем данные
-      const menuItems = (await this.yeDataTransformer.transformMenu(yeMenu, restaurant))
-        .filter(item => item.category !== EDishCategory.ACCESSORY);
+      const menuItems = await this.yeDataTransformer.transformMenu(yeMenu, restaurant);
 
       void this.menuService.createMenuToRAG(menuItems).catch(error => {
         ConsoleLogger.error('Не удалось сохранить меню в RAG', error as Error, { restaurantId, coordinates });
@@ -320,7 +319,7 @@ export class YEApiService {
           method: options.method || 'GET',
           statusCode: response.status,
           requestData: this.sanitizeRequestData(options.body as string | undefined),
-          responseData: response.ok ? this.truncateResponseData(await response.text()) : undefined,
+          responseData: response.ok ? this.truncateResponseData(data) : undefined,
           processingTimeMs,
           errorMessage: response.ok ? undefined : `${response.status}: ${response.statusText}`,
         }).catch(error => {

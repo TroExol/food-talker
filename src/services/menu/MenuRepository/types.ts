@@ -40,13 +40,13 @@ export interface TVectorMenuSearchOptions {
 }
 
 export interface TMenuSearchOptions {
-  limit?: number;
-  ids?: string[];
-  category?: string;
-  restaurantNames?: string[];
-  minPrice?: number;
-  maxPrice?: number;
-  city?: string;
-  deliveryRadiusKm?: number;
-  available?: boolean;
+  limit?: number | null;
+  ids?: string[] | null;
+  category?: string | null;
+  restaurantNames?: string[] | null;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+  city?: string | null;
+  deliveryRadiusKm?: number | null;
+  available?: boolean | null;
 }

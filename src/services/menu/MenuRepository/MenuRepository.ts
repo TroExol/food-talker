@@ -241,8 +241,11 @@ export class MenuRepository {
         paramIndex++;
       }
 
-      sql += ` LIMIT $${paramIndex}`;
-      params.push(limit);
+      if (limit) {
+        sql += ` LIMIT $${paramIndex}`;
+        params.push(limit);
+        paramIndex++;
+      }
 
       const result = await this.db.query<TMenuItemEntity>(sql, params);
 
@@ -420,7 +423,7 @@ export class MenuRepository {
       if (updates.ingredients !== undefined) {
         setParts.push(`ingredients = $${paramIndex}`);
         paramIndex++;
-        values.push(updates.ingredients);
+        values.push(JSON.stringify(updates.ingredients));
       }
       if (updates.price !== undefined) {
         setParts.push(`price = $${paramIndex}`);
@@ -522,7 +525,7 @@ export class MenuRepository {
       const valuesSql = items
         .map((_, i) => {
           const base = i * colsPerRow;
-          return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15})`;
+          return `($${base + 1}::varchar, $${base + 2}::text, $${base + 3}::text, $${base + 4}::text, $${base + 5}::integer, $${base + 6}::text, $${base + 7}::boolean, $${base + 8}::varchar, $${base + 9}::text, $${base + 10}::decimal(10,8), $${base + 11}::decimal(11,8), $${base + 12}::text, $${base + 13}::varchar(50), $${base + 14}::text, $${base + 15}::timestamp)`;
         })
         .join(', ');
 

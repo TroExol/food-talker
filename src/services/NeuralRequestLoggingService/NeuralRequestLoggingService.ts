@@ -67,7 +67,7 @@ export class NeuralRequestLoggingService {
     }
   };
 
-  public getUserTokenStats = async (userTelegramId: number, days = 30): Promise<TTokenUsageStats> => {
+  public getUserTokenStats = async (userTelegramId: string, days = 30): Promise<TTokenUsageStats> => {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -88,7 +88,7 @@ export class NeuralRequestLoggingService {
   };
 
   public getUserTokenStatsByType = async (
-    userTelegramId: number,
+    userTelegramId: string,
     requestType: ENeuralRequestType,
     days = 30,
   ): Promise<TTokenUsageStats> => {
@@ -111,7 +111,7 @@ export class NeuralRequestLoggingService {
     }
   };
 
-  public getRecentLogs = async (userTelegramId: number, limit = 10): Promise<TNeuralRequestLog[]> => {
+  public getRecentLogs = async (userTelegramId: string, limit = 10): Promise<TNeuralRequestLog[]> => {
     try {
       const entities = await this.db.query<TNeuralRequestLogEntity>(`
         SELECT * FROM neural_request_logs

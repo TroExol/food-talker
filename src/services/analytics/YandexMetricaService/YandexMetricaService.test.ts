@@ -41,7 +41,7 @@ describe('YandexMetricaService', () => {
         name: 'test_event',
         parameters: { test: 'value' },
         timestamp: Date.now(),
-        user_id: 123,
+        user_id: '123',
       };
 
       service.trackEvent(event);
@@ -147,7 +147,7 @@ describe('YandexMetricaService', () => {
           value: 100,
         },
         timestamp: Date.now(),
-        user_id: 123,
+        user_id: '123',
       };
 
       service.trackEvent(event);

@@ -124,7 +124,7 @@ describe('NeuralRequestLoggingService', () => {
       const mockLogs = [
         {
           id: '1',
-          user_telegram_id: 123456789,
+          user_telegram_id: '123456789',
           request_type: ENeuralRequestType.LLM_STRUCTURE_QUERY,
           model: 'llama-3.1-8b',
           input_tokens: 120,
@@ -137,7 +137,7 @@ describe('NeuralRequestLoggingService', () => {
         },
         {
           id: '2',
-          user_telegram_id: 123456789,
+          user_telegram_id: '123456789',
           request_type: ENeuralRequestType.EMBEDDING,
           model: 'sentence-transformers',
           input_tokens: 8,
@@ -152,7 +152,7 @@ describe('NeuralRequestLoggingService', () => {
 
       mockQuery.mockResolvedValue(mockLogs);
 
-      const stats = await service.getUserTokenStats(123456789, 30);
+      const stats = await service.getUserTokenStats('123456789', 30);
 
       expect(stats).toEqual({
         totalTokens: 158,
@@ -188,7 +188,7 @@ describe('NeuralRequestLoggingService', () => {
     it('должен возвращать пустую статистику для пользователя без запросов', async () => {
       mockQuery.mockResolvedValue([]);
 
-      const stats = await service.getUserTokenStats(123456789, 30);
+      const stats = await service.getUserTokenStats('123456789', 30);
 
       expect(stats).toEqual({
         totalTokens: 0,
@@ -227,7 +227,7 @@ describe('NeuralRequestLoggingService', () => {
       const mockLogs = [
         {
           id: '1',
-          user_telegram_id: 123456789,
+          user_telegram_id: '123456789',
           request_type: ENeuralRequestType.LLM_STRUCTURE_QUERY,
           model: 'llama-3.1-8b',
           input_tokens: 120,
@@ -243,7 +243,7 @@ describe('NeuralRequestLoggingService', () => {
       mockQuery.mockResolvedValue(mockLogs);
 
       const stats = await service.getUserTokenStatsByType(
-        123456789,
+        '123456789',
         ENeuralRequestType.LLM_STRUCTURE_QUERY,
         30,
       );
@@ -258,7 +258,7 @@ describe('NeuralRequestLoggingService', () => {
       const mockLogs = [
         {
           id: '1',
-          user_telegram_id: 123456789,
+          user_telegram_id: '123456789',
           request_type: ENeuralRequestType.LLM_STRUCTURE_QUERY,
           model: 'llama-3.1-8b',
           input_tokens: 120,
@@ -273,11 +273,11 @@ describe('NeuralRequestLoggingService', () => {
 
       mockQuery.mockResolvedValue(mockLogs);
 
-      const logs = await service.getRecentLogs(123456789, 10);
+      const logs = await service.getRecentLogs('123456789', 10);
 
       expect(logs).toHaveLength(1);
       expect(logs[0]).toMatchObject({
-        userTelegramId: 123456789,
+        userTelegramId: '123456789',
         requestType: ENeuralRequestType.LLM_STRUCTURE_QUERY,
         model: 'llama-3.1-8b',
         totalTokens: 150,

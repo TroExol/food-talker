@@ -1,14 +1,14 @@
 import type { TBotContext, TRateLimitConfig } from '@/types/telegram';
 
 export class RateLimitMiddleware {
-  private readonly userLimits = new Map<number, { requests: number[]; lastReset: number }>();
+  private readonly userLimits = new Map<string, { requests: number[]; lastReset: number }>();
 
   constructor(
     private readonly config: TRateLimitConfig,
   ) {}
 
   public checkRateLimit = async (ctx: TBotContext, next: () => Promise<void>): Promise<void> => {
-    const telegramId = ctx.from?.id;
+    const telegramId = ctx.from?.id.toString();
 
     if (!telegramId) {
       await next();

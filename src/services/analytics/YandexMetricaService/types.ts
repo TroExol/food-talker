@@ -11,7 +11,7 @@ export interface YandexMetricaEvent {
   name: string;
   parameters: Record<string, unknown>;
   timestamp: number;
-  user_id?: number;
+  user_id?: string;
   session_id?: string;
   dt?: string; // формат 'YYYY-MM-DD'
 }

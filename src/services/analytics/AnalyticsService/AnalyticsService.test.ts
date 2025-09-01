@@ -55,7 +55,7 @@ describe('AnalyticsService', () => {
         name: 'test_event',
         parameters: { test: 'value' },
         timestamp: Date.now(),
-        user_id: 123,
+        user_id: '123',
       };
 
       analyticsService.trackEvent(event);
@@ -90,7 +90,7 @@ describe('AnalyticsService', () => {
       const context = {
         component: 'test',
         user_action: 'test_action',
-        user_id: 123,
+        user_id: '123',
       };
 
       analyticsService.trackError({ error, context });
@@ -109,7 +109,7 @@ describe('AnalyticsService', () => {
 
   describe('trackBotCommand', () => {
     it('должен отправлять событие выполнения команды бота', () => {
-      analyticsService.trackBotCommand({ command: '/start', userState: 'idle', userCity: 'Moscow', userId: 123 });
+      analyticsService.trackBotCommand({ command: '/start', userState: 'idle', userCity: 'Moscow', userId: '123' });
 
       expect(analyticsService).toBeDefined();
     });
@@ -128,7 +128,7 @@ describe('AnalyticsService', () => {
         query: 'пицца',
         userCity: 'Moscow',
         searchOptions,
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -145,7 +145,7 @@ describe('AnalyticsService', () => {
         searchMethod: 'hybrid',
         hasLlmEnhancement: true,
         hasVectorSearch: true,
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -158,7 +158,7 @@ describe('AnalyticsService', () => {
         oldState: 'idle',
         newState: 'waiting_for_search_query',
         trigger: 'command',
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -172,7 +172,7 @@ describe('AnalyticsService', () => {
         errorType: 'validation_error',
         errorMessage: 'Invalid query',
         userState: 'waiting_for_search_query',
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -186,7 +186,7 @@ describe('AnalyticsService', () => {
         userState: 'idle',
         userCity: 'Moscow',
         messageType: 'text',
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -202,7 +202,7 @@ describe('AnalyticsService', () => {
         errorMessage: 'API unavailable',
         processingTimeMs: 1000,
         searchMethod: 'hybrid',
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -216,7 +216,7 @@ describe('AnalyticsService', () => {
         searchesToday: 10,
         searchLimit: 10,
         remainingSearches: 0,
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -229,7 +229,7 @@ describe('AnalyticsService', () => {
         buttonType: 'city_selection',
         buttonData: 'moscow',
         userState: 'waiting_for_city',
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -242,7 +242,7 @@ describe('AnalyticsService', () => {
         selectedCity: 'Moscow',
         selectionMethod: 'callback',
         oldCity: 'St. Petersburg',
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -255,7 +255,7 @@ describe('AnalyticsService', () => {
         searchHistoryId: 'history_123',
         itemId: 'item_456',
         hasPhoto: true,
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -268,7 +268,7 @@ describe('AnalyticsService', () => {
         searchHistoryId: 'history_123',
         pageNumber: 2,
         totalPages: 5,
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -281,7 +281,7 @@ describe('AnalyticsService', () => {
         historyItemId: 'history_123',
         originalQuery: 'пицца',
         queryLength: 5,
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -307,7 +307,7 @@ describe('AnalyticsService', () => {
         limitType: 'per_minute',
         currentRequests: 60,
         limitValue: 60,
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -331,7 +331,7 @@ describe('AnalyticsService', () => {
       analyticsService.trackSearchHistoryViewed({
         historyItemsCount: 10,
         viewedItemsCount: 5,
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();
@@ -345,7 +345,7 @@ describe('AnalyticsService', () => {
         searchesToday: 5,
         searchesThisMonth: 50,
         totalSearches: 200,
-        userId: 123,
+        userId: '123',
       });
 
       expect(analyticsService).toBeDefined();

@@ -25,7 +25,7 @@ export class UserService {
     private readonly neuralRequestLoggingService: NeuralRequestLoggingService,
   ) {}
 
-  public createUser = async (telegramId: number, chatId: number): Promise<TUser> => {
+  public createUser = async (telegramId: string, chatId: string): Promise<TUser> => {
     // Валидация входных данных
     const telegramIdValidation = Validator.validateTelegramId(telegramId);
     if (!telegramIdValidation.isValid) {
@@ -66,7 +66,7 @@ export class UserService {
     }
   };
 
-  public getUser = async (telegramId: number): Promise<TUser | null> => {
+  public getUser = async (telegramId: string): Promise<TUser | null> => {
     const validation = Validator.validateTelegramId(telegramId);
     if (!validation.isValid) {
       throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
@@ -83,7 +83,7 @@ export class UserService {
     }
   };
 
-  public updateUserCity = async (telegramId: number, city: EAvailableCities): Promise<TUser> => {
+  public updateUserCity = async (telegramId: string, city: EAvailableCities): Promise<TUser> => {
     // Валидация данных
     const telegramIdValidation = Validator.validateTelegramId(telegramId);
     if (!telegramIdValidation.isValid) {
@@ -116,7 +116,7 @@ export class UserService {
     }
   };
 
-  public updateSubscription = async (telegramId: number, subscription: ESubscriptionType): Promise<TUser> => {
+  public updateSubscription = async (telegramId: string, subscription: ESubscriptionType): Promise<TUser> => {
     // Валидация данных
     const telegramIdValidation = Validator.validateTelegramId(telegramId);
     if (!telegramIdValidation.isValid) {
@@ -169,7 +169,7 @@ export class UserService {
   };
 
   public addToSearchHistory = async (
-    telegramId: number,
+    telegramId: string,
     query: string,
     structuredQuery: TStructuredQuery,
     results: TSearchResultItem[],
@@ -208,7 +208,7 @@ export class UserService {
     }
   };
 
-  public getSearchHistory = async (telegramId: number, limit = 10): Promise<TSearchHistoryItem[]> => {
+  public getSearchHistory = async (telegramId: string, limit = 10): Promise<TSearchHistoryItem[]> => {
     const validation = Validator.validateTelegramId(telegramId);
     if (!validation.isValid) {
       throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
@@ -225,7 +225,7 @@ export class UserService {
     }
   };
 
-  public getSearchHistoryItemById = async (telegramId: number, id: string): Promise<TSearchHistoryItem | null> => {
+  public getSearchHistoryItemById = async (telegramId: string, id: string): Promise<TSearchHistoryItem | null> => {
     const validation = Validator.validateTelegramId(telegramId);
     if (!validation.isValid) {
       throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
@@ -249,7 +249,7 @@ export class UserService {
     }
   };
 
-  public clearSearchHistory = async (telegramId: number): Promise<void> => {
+  public clearSearchHistory = async (telegramId: string): Promise<void> => {
     const validation = Validator.validateTelegramId(telegramId);
     if (!validation.isValid) {
       throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
@@ -266,7 +266,7 @@ export class UserService {
     }
   };
 
-  public deleteUser = async (telegramId: number): Promise<boolean> => {
+  public deleteUser = async (telegramId: string): Promise<boolean> => {
     const validation = Validator.validateTelegramId(telegramId);
     if (!validation.isValid) {
       throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
@@ -305,7 +305,7 @@ export class UserService {
     return `user_service:${createHash('sha256').update(data).digest('hex')}`;
   };
 
-  public checkSearchLimit = async (telegramId: number): Promise<boolean> => {
+  public checkSearchLimit = async (telegramId: string): Promise<boolean> => {
     const validation = Validator.validateTelegramId(telegramId);
     if (!validation.isValid) {
       throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
@@ -340,7 +340,7 @@ export class UserService {
     }
   };
 
-  public getSearchStats = async (telegramId: number): Promise<TSearchStats> => {
+  public getSearchStats = async (telegramId: string): Promise<TSearchStats> => {
     const validation = Validator.validateTelegramId(telegramId);
     if (!validation.isValid) {
       throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
@@ -379,7 +379,7 @@ export class UserService {
     }
   };
 
-  private getSearchesToday = async (telegramId: number): Promise<number> => {
+  private getSearchesToday = async (telegramId: string): Promise<number> => {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -399,7 +399,7 @@ export class UserService {
     }
   };
 
-  private getSearchesThisMonth = async (telegramId: number): Promise<number> => {
+  private getSearchesThisMonth = async (telegramId: string): Promise<number> => {
     try {
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -418,7 +418,7 @@ export class UserService {
     }
   };
 
-  private getTotalSearches = async (telegramId: number): Promise<number> => {
+  private getTotalSearches = async (telegramId: string): Promise<number> => {
     try {
       const history = await this.userRepository.getSearchHistory(telegramId, 1000);
       return history.length;
@@ -428,7 +428,7 @@ export class UserService {
     }
   };
 
-  private getLastSearchDate = async (telegramId: number): Promise<Date | null> => {
+  private getLastSearchDate = async (telegramId: string): Promise<Date | null> => {
     try {
       const history = await this.userRepository.getSearchHistory(telegramId, 1);
       return history.length > 0 ? new Date(history[0].timestamp) : null;
@@ -438,7 +438,7 @@ export class UserService {
     }
   };
 
-  public getTokenUsageStats = async (telegramId: number, days = 30): Promise<TTokenUsageStats | null> => {
+  public getTokenUsageStats = async (telegramId: string, days = 30): Promise<TTokenUsageStats | null> => {
     const validation = Validator.validateTelegramId(telegramId);
     if (!validation.isValid) {
       throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);

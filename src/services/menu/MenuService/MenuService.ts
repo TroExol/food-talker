@@ -67,7 +67,9 @@ export class MenuService {
 
       const alreadyExists = await this.menuRepository.search({
         ids: Object.keys(menuToCreateObj),
-        available: false,
+        available: null,
+        limit: null,
+        deliveryRadiusKm: null,
       });
 
       const nonEmbeddingUpdates: TMenuItem[] = [];
@@ -95,7 +97,15 @@ export class MenuService {
 
       const menuToCreate = Object.values(menuToCreateObj);
 
-      if (menuToCreate.length === 0) return;
+      if (menuToCreate.length === 0) {
+        ConsoleLogger.info('Не создаваем блюда, так как нет новых блюд', {
+          menuItemCount: menu.length,
+          alreadyExistsCount: alreadyExists.length,
+          menuItemCountToCreate: Object.values(menuToCreateObj).length,
+          nonEmbeddingUpdatesCount: nonEmbeddingUpdates.length,
+        });
+        return;
+      }
 
       // Подготавливаем тексты для embedding
       const textsForEmbedding = menuToCreate.map(item =>

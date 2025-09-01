@@ -15,6 +15,9 @@ export class ErrorHandlerMiddleware {
   ) {}
 
   public handleError = async (ctx: TBotContext, next: () => Promise<void>): Promise<void> => {
+    const userId = ctx.from?.id.toString();
+    const chatId = ctx.chat?.id.toString();
+
     try {
       await next();
     } catch (error) {
@@ -26,8 +29,8 @@ export class ErrorHandlerMiddleware {
         context: {
           component: 'bot_middleware',
           user_action: 'unknown',
-          user_id: ctx.from?.id,
-          chat_id: ctx.chat?.id,
+          user_id: userId,
+          chat_id: chatId,
           username: ctx.from?.username,
         },
       });
@@ -37,16 +40,16 @@ export class ErrorHandlerMiddleware {
         // Отправляем уведомление для всех критических ошибок, кроме пользовательских
         if (this.isCriticalError(error)) {
           await this.adminNotificationService.notifyAdmin(error, {
-            userId: ctx.from?.id,
-            chatId: ctx.chat?.id,
+            userId,
+            chatId,
             username: ctx.from?.username,
           });
         }
       } else if (error instanceof Error) {
         // Отправляем уведомление для всех системных ошибок
         await this.adminNotificationService.notifySystemError(error, {
-          userId: ctx.from?.id,
-          chatId: ctx.chat?.id,
+          userId,
+          chatId,
           username: ctx.from?.username,
         });
       }

@@ -57,9 +57,10 @@ export class MessageHandlers {
     _ctx: TBotContext,
   ): Promise<void> => {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
     if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
+      throw AppError.userNotFound(userId);
     }
 
     const callbackData = ctx.callbackQuery.data;
@@ -92,7 +93,7 @@ export class MessageHandlers {
         buttonType: 'city_selection',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       // Обновляем город пользователя
@@ -107,7 +108,7 @@ export class MessageHandlers {
         selectedCity,
         selectionMethod: 'callback',
         oldCity,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       // Отслеживаем изменение состояния пользователя
@@ -115,7 +116,7 @@ export class MessageHandlers {
         oldState,
         newState: EUserState.IDLE,
         trigger: 'city_selection',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       await ctx.answerCbQuery(`Город изменен на: ${selectedCity}`);
@@ -134,7 +135,7 @@ export class MessageHandlers {
       });
     } catch (error) {
       ConsoleLogger.error('Ошибка при обновлении города', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
         city: selectedCity,
       });
       await ctx.answerCbQuery('Ошибка при обновлении города');
@@ -143,9 +144,10 @@ export class MessageHandlers {
 
   private handleTextMessage = async (_ctx: TBotContext): Promise<void> => {
     const ctx = _ctx as TBotContext<Update.MessageUpdate<Message.TextMessage>>;
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
     if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
+      throw AppError.userNotFound(userId);
     }
 
     const messageText = ctx.message?.text;
@@ -159,7 +161,7 @@ export class MessageHandlers {
       userState: ctx.user.state,
       userCity: ctx.user.city,
       messageType: 'text',
-      userId: ctx.from?.id ?? 0,
+      userId,
     });
 
     // Если пользователь ожидает выбора города
@@ -184,6 +186,7 @@ export class MessageHandlers {
   ): Promise<void> => {
     const supportedCities: EAvailableCities[] = Object.values(EAvailableCities);
     const normalizedCity = cityText.trim();
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
     if (!supportedCities.includes(normalizedCity as EAvailableCities)) {
       await ctx.reply(
@@ -208,7 +211,7 @@ export class MessageHandlers {
         selectedCity: normalizedCity,
         selectionMethod: 'text_input',
         oldCity,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       // Отслеживаем изменение состояния пользователя
@@ -216,7 +219,7 @@ export class MessageHandlers {
         oldState,
         newState: EUserState.IDLE,
         trigger: 'text_input',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       const userName = ctx.from?.first_name;
@@ -228,7 +231,7 @@ export class MessageHandlers {
       });
     } catch (error) {
       ConsoleLogger.error('Ошибка при установке города', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
         city: normalizedCity,
       });
       await ctx.reply('Ошибка при установке города. Попробуйте еще раз.');
@@ -239,6 +242,8 @@ export class MessageHandlers {
     ctx: TBotContext<Update.MessageUpdate<Message.TextMessage>>,
     query: string,
   ): Promise<void> => {
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
+
     if (!ctx.user?.city) {
       await ctx.reply(
         'Сначала выберите город для доставки командой /address',
@@ -273,7 +278,7 @@ export class MessageHandlers {
         searchesToday: stats.searchesToday,
         searchLimit: stats.searchLimit,
         remainingSearches: stats.remainingSearches,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.');
@@ -289,7 +294,7 @@ export class MessageHandlers {
       oldState,
       newState: EUserState.WAITING_FOR_SEARCH_QUERY,
       trigger: 'text_message',
-      userId: ctx.from?.id ?? 0,
+      userId,
     });
 
     try {
@@ -330,7 +335,7 @@ export class MessageHandlers {
       });
     } catch (error) {
       ConsoleLogger.error('Ошибка при поиске', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
         city: ctx.user.city,
         query,
       });
@@ -343,9 +348,10 @@ export class MessageHandlers {
   // Обработчики callback'ов для inline кнопок
   private handleItemSelection = async (_ctx: TBotContext): Promise<void> => {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
     if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
+      throw AppError.userNotFound(userId);
     }
 
     const callbackData = ctx.callbackQuery.data;
@@ -369,7 +375,7 @@ export class MessageHandlers {
         buttonType: 'item_selection',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       await ctx.answerCbQuery('Загружаем информацию о блюде...');
@@ -390,7 +396,7 @@ export class MessageHandlers {
         searchHistoryId,
         itemId,
         hasPhoto: !!searchResultItem.image,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       const formattedMessage = this.messageFormatter.formatMenuItem(searchResultItem);
@@ -411,7 +417,7 @@ export class MessageHandlers {
       }
     } catch (error) {
       ConsoleLogger.error('Ошибка при получении информации о блюде', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
         itemId,
       });
       await ctx.answerCbQuery('Ошибка при загрузке информации о блюде');
@@ -420,9 +426,10 @@ export class MessageHandlers {
 
   private handleHistoryItemSelection = async (_ctx: TBotContext): Promise<void> => {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
     if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
+      throw AppError.userNotFound(userId);
     }
 
     const callbackData = ctx.callbackQuery.data;
@@ -445,7 +452,7 @@ export class MessageHandlers {
         buttonType: 'history_item',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       await ctx.answerCbQuery('Повторяем поиск...');
@@ -462,7 +469,7 @@ export class MessageHandlers {
         historyItemId,
         originalQuery: historyItem.query,
         queryLength: historyItem.query.length,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       await this.handleSearchQuery(
@@ -471,7 +478,7 @@ export class MessageHandlers {
       );
     } catch (error) {
       ConsoleLogger.error('Ошибка при повторном поиске', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
         historyItemId,
       });
       await ctx.answerCbQuery('Ошибка при повторном поиске');
@@ -480,9 +487,10 @@ export class MessageHandlers {
 
   private handlePageNavigation = async (_ctx: TBotContext): Promise<void> => {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
     if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
+      throw AppError.userNotFound(userId);
     }
 
     const callbackData = ctx.callbackQuery.data;
@@ -506,7 +514,7 @@ export class MessageHandlers {
         buttonType: 'page_navigation',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       await ctx.answerCbQuery(`Переходим на страницу ${pageNumber}...`);
@@ -526,7 +534,7 @@ export class MessageHandlers {
         searchHistoryId,
         pageNumber,
         totalPages,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       // Форматируем результаты для указанной страницы
@@ -551,7 +559,7 @@ export class MessageHandlers {
       }
     } catch (error) {
       ConsoleLogger.error('Ошибка при навигации по страницам', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
         searchHistoryId,
         pageNumber,
       });
@@ -561,9 +569,10 @@ export class MessageHandlers {
 
   private handleDeleteMessage = async (_ctx: TBotContext): Promise<void> => {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
     if (!ctx.user) {
-      throw AppError.userNotFound(ctx.from?.id ?? 0);
+      throw AppError.userNotFound(userId);
     }
 
     const callbackData = ctx.callbackQuery.data;
@@ -578,7 +587,7 @@ export class MessageHandlers {
         buttonType: 'delete_message',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       await ctx.answerCbQuery('Удаляем сообщение...');
@@ -589,7 +598,7 @@ export class MessageHandlers {
       }
     } catch (error) {
       ConsoleLogger.error('Ошибка при удалении сообщения', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
         messageId: ctx.callbackQuery.message?.message_id,
       });
       await ctx.answerCbQuery('Ошибка при удалении сообщения');

@@ -34,7 +34,7 @@ describe('SearchService', () => {
   let mockAnalyticsService: AnalyticsService;
 
   const mockUser = {
-    telegramId: 123456789,
+    telegramId: '123456789',
     city: EAvailableCities.PERM,
   };
 
@@ -150,7 +150,7 @@ describe('SearchService', () => {
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
-      const result = await searchService.searchFood('хочу пиццу', 123456789, {
+      const result = await searchService.searchFood('хочу пиццу', '123456789', {
         enableVectorSearch: true,
         searchIn: 'RAG',
       });
@@ -160,7 +160,7 @@ describe('SearchService', () => {
       expect(result[0].id).toBe(mockSearchResult.id);
       expect(result[0].name).toBe(mockSearchResult.name);
       expect(result[0].price).toBe(mockSearchResult.price);
-      expect(mockUserService.getUser).toHaveBeenCalledWith(123456789);
+      expect(mockUserService.getUser).toHaveBeenCalledWith('123456789');
       expect(mockVectorSearchService.searchMenuWithRAG).toHaveBeenCalledWith('хочу пиццу', {
         limit: 200,
         category: undefined,
@@ -184,7 +184,7 @@ describe('SearchService', () => {
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
       (mockCacheService.set as Mock).mockResolvedValue(undefined);
 
-      const result = await searchService.searchFood('хочу пиццу', 123456789, {
+      const result = await searchService.searchFood('хочу пиццу', '123456789', {
         enableVectorSearch: true,
         searchIn: 'RAG',
       });
@@ -210,7 +210,7 @@ describe('SearchService', () => {
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue(mockResults);
       (mockUserService.addToSearchHistory as Mock).mockResolvedValue(undefined);
 
-      const result = await searchService.searchFood('хочу пиццу', 123456789, {
+      const result = await searchService.searchFood('хочу пиццу', '123456789', {
         enableVectorSearch: true,
         searchIn: 'RAG',
       });
@@ -221,13 +221,13 @@ describe('SearchService', () => {
     it('должен обрабатывать ошибку если пользователь не найден', async () => {
       (mockUserService.getUser as Mock).mockResolvedValue(null);
 
-      await expect(searchService.searchFood('хочу пиццу', 123456789))
+      await expect(searchService.searchFood('хочу пиццу', '123456789'))
         .rejects
         .toThrow('Пользователь не найден');
     });
 
     it('должен обрабатывать ошибку валидации поискового запроса', async () => {
-      await expect(searchService.searchFood('', 123456789))
+      await expect(searchService.searchFood('', '123456789'))
         .rejects
         .toThrow('INVALID_SEARCH_QUERY');
     });
@@ -240,7 +240,7 @@ describe('SearchService', () => {
       (mockLLMService.enhanceSearchResults as Mock).mockResolvedValue([mockSearchResult]);
       (mockUserService.addToSearchHistory as Mock).mockRejectedValue(new Error('Database error'));
 
-      const result = await searchService.searchFood('хочу пиццу', 123456789, {
+      const result = await searchService.searchFood('хочу пиццу', '123456789', {
         enableVectorSearch: true,
         searchIn: 'RAG',
       });
@@ -271,7 +271,7 @@ describe('SearchService', () => {
 
       (mockUserService.getSearchHistory as Mock).mockResolvedValue(mockHistory);
 
-      const stats = await searchService.getSearchStats(123456789);
+      const stats = await searchService.getSearchStats('123456789');
 
       expect(stats).toEqual({
         totalSearches: 2,
@@ -283,7 +283,7 @@ describe('SearchService', () => {
     it('должен вернуть нулевую статистику если истории нет', async () => {
       (mockUserService.getSearchHistory as Mock).mockResolvedValue([]);
 
-      const stats = await searchService.getSearchStats(123456789);
+      const stats = await searchService.getSearchStats('123456789');
 
       expect(stats).toEqual({
         totalSearches: 0,

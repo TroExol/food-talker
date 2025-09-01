@@ -94,7 +94,7 @@ describe('MessageHandlers', () => {
   describe('text message handler', () => {
     it('должен проверять лимит поиска перед обработкой текстового сообщения', async () => {
       const mockContext = {
-        user: { telegramId: 123456789, city: 'Пермь', state: 'idle' },
+        user: { telegramId: '123456789', city: 'Пермь', state: 'idle' },
         message: { text: 'хочу пиццу' },
         reply: vi.fn(),
         chat: { id: 123 },
@@ -114,8 +114,8 @@ describe('MessageHandlers', () => {
         lastSearchDate: new Date(),
       });
       vi.mocked(mockUserService.getUser).mockResolvedValue({
-        telegramId: 123456789,
-        chatId: 123456789,
+        telegramId: '123456789',
+        chatId: '123456789',
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: new Date(),
         city: EAvailableCities.PERM,
@@ -129,7 +129,7 @@ describe('MessageHandlers', () => {
       if (textHandler) {
         await textHandler.handler(mockContext as unknown as TBotContext);
 
-        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith(123456789);
+        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith('123456789');
         expect(mockAnalyticsService.trackMessageReceived).toHaveBeenCalled();
         expect(mockAnalyticsService.trackSearchLimitExceeded).toHaveBeenCalled();
         expect(mockContext.reply).toHaveBeenCalledWith(
@@ -140,7 +140,7 @@ describe('MessageHandlers', () => {
 
     it('должен выполнять поиск если лимит не превышен', async () => {
       const mockContext = {
-        user: { telegramId: 123456789, city: 'Пермь', state: 'idle' },
+        user: { telegramId: '123456789', city: 'Пермь', state: 'idle' },
         message: { text: 'хочу пиццу' },
         reply: vi.fn(),
         chat: { id: 123 },
@@ -160,8 +160,8 @@ describe('MessageHandlers', () => {
       if (textHandler) {
         await textHandler.handler(mockContext as unknown as TBotContext);
 
-        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith(123456789);
-        expect(mockSearchService.searchFood).toHaveBeenCalledWith('хочу пиццу', 123456789, {
+        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith('123456789');
+        expect(mockSearchService.searchFood).toHaveBeenCalledWith('хочу пиццу', '123456789', {
           enableLLMEnhancement: true,
           enableVectorSearch: true,
           searchIn: 'RAG',
@@ -171,7 +171,7 @@ describe('MessageHandlers', () => {
 
     it('должен обрабатывать ошибки при поиске', async () => {
       const mockContext = {
-        user: { telegramId: 123456789, city: 'Пермь', state: 'idle' },
+        user: { telegramId: '123456789', city: 'Пермь', state: 'idle' },
         message: { text: 'хочу пиццу' },
         reply: vi.fn(),
         chat: { id: 123 },
@@ -200,17 +200,17 @@ describe('MessageHandlers', () => {
   describe('callback query handler', () => {
     it('должен обрабатывать выбор города', async () => {
       const mockContext = {
-        user: { telegramId: 123456789 },
+        user: { telegramId: '123456789' },
         callbackQuery: { data: 'city:Пермь' },
         reply: vi.fn(),
         answerCbQuery: vi.fn(),
-        from: { id: 123456789 },
-        chat: { id: 123 },
+        from: { id: '123456789' },
+        chat: { id: '123' },
         telegram: { deleteMessage: vi.fn() },
       };
 
       const mockUser = {
-        telegramId: 123456789,
+        telegramId: '123456789',
         city: 'Пермь',
       };
 
@@ -222,18 +222,18 @@ describe('MessageHandlers', () => {
       if (callbackHandler) {
         await callbackHandler.handler(mockContext as unknown as TBotContext);
 
-        expect(mockUserService.updateUserCity).toHaveBeenCalledWith(123456789, 'Пермь');
+        expect(mockUserService.updateUserCity).toHaveBeenCalledWith('123456789', 'Пермь');
         expect(mockContext.answerCbQuery).toHaveBeenCalledWith('Город изменен на: Пермь');
       }
     });
 
     it('должен обрабатывать ошибки при обновлении города', async () => {
       const mockContext = {
-        user: { telegramId: 123456789 },
+        user: { telegramId: '123456789' },
         callbackQuery: { data: 'city:НеизвестныйГород' },
         reply: vi.fn(),
         answerCbQuery: vi.fn(),
-        from: { id: 123456789 },
+        from: { id: '123456789' },
       };
 
       // Не нужно мокать updateUserCity, так как город не поддерживается и вызов не происходит

@@ -65,7 +65,7 @@ export class AppError extends Error {
     return new AppError(EErrorType.SYSTEM_ERROR, 'SYSTEM_FAILED', message, false, details);
   }
 
-  static userNotFound(telegramId: number): AppError {
+  static userNotFound(telegramId: string): AppError {
     return new AppError(
       EErrorType.USER_NOT_FOUND,
       'USER_NOT_FOUND',

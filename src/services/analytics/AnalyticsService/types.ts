@@ -2,7 +2,7 @@ export interface AnalyticsEvent {
   name: string;
   parameters: Record<string, unknown>;
   timestamp: number;
-  user_id?: number;
+  user_id?: string;
   session_id?: string;
 }
 
@@ -43,7 +43,7 @@ export interface TTrackBotCommandParams {
   command: string;
   userState: string;
   userCity?: string;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackSearchQueryStartedParams {
@@ -51,7 +51,7 @@ export interface TTrackSearchQueryStartedParams {
   query: string;
   userCity: string;
   searchOptions: Record<string, unknown>;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackSearchQueryCompletedParams {
@@ -62,14 +62,14 @@ export interface TTrackSearchQueryCompletedParams {
   searchMethod: string;
   hasLlmEnhancement: boolean;
   hasVectorSearch: boolean;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackUserStateChangedParams {
   oldState: string;
   newState: string;
   trigger: string;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackBotCommandErrorParams {
@@ -77,7 +77,7 @@ export interface TTrackBotCommandErrorParams {
   errorType: string;
   errorMessage: string;
   userState: string;
-  userId?: number;
+  userId?: string;
 }
 
 export interface TTrackMessageReceivedParams {
@@ -85,7 +85,7 @@ export interface TTrackMessageReceivedParams {
   userState: string;
   userCity?: string;
   messageType: string;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackSearchQueryErrorParams {
@@ -95,7 +95,7 @@ export interface TTrackSearchQueryErrorParams {
   errorMessage: string;
   processingTimeMs: number;
   searchMethod: string;
-  userId?: number;
+  userId?: string;
 }
 
 export interface TTrackSearchLimitExceededParams {
@@ -103,42 +103,42 @@ export interface TTrackSearchLimitExceededParams {
   searchesToday: number;
   searchLimit: number;
   remainingSearches: number;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackCallbackButtonClickedParams {
   buttonType: string;
   buttonData: string;
   userState: string;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackCitySelectionCompletedParams {
   selectedCity: string;
   selectionMethod: string;
   oldCity?: string;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackItemSelectionCompletedParams {
   searchHistoryId: string;
   itemId: string;
   hasPhoto: boolean;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackPageNavigationCompletedParams {
   searchHistoryId: string;
   pageNumber: number;
   totalPages: number;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackHistoryItemRepeatedParams {
   historyItemId: string;
   originalQuery: string;
   queryLength: number;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackNeuralServiceErrorParams {
@@ -152,7 +152,7 @@ export interface TTrackRateLimitExceededParams {
   limitType: string;
   currentRequests: number;
   limitValue: number;
-  userId?: number;
+  userId?: string;
 }
 
 export interface TTrackCacheMissParams {
@@ -164,7 +164,7 @@ export interface TTrackCacheMissParams {
 export interface TTrackSearchHistoryViewedParams {
   historyItemsCount: number;
   viewedItemsCount: number;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackUserStatsViewedParams {
@@ -172,7 +172,7 @@ export interface TTrackUserStatsViewedParams {
   searchesToday: number;
   searchesThisMonth: number;
   totalSearches: number;
-  userId: number;
+  userId: string;
 }
 
 export interface TTrackBotStartedParams {

@@ -10,8 +10,8 @@ export const SEARCH_LIMITS_PER_DAY = {
 } as const;
 
 export interface TUser {
-  telegramId: number;
-  chatId: number;
+  telegramId: string;
+  chatId: string;
   city: EAvailableCities;
   subscription: ESubscriptionType;
   subscriptionExpiry: Date | null;
@@ -20,8 +20,8 @@ export interface TUser {
 }
 
 export interface TUserEntity {
-  telegram_id: number;
-  chat_id: number;
+  telegram_id: string;
+  chat_id: string;
   city: EAvailableCities;
   subscription_type: string;
   subscription_expiry: string | null; // ISO string
@@ -39,7 +39,7 @@ export interface TSearchHistoryItem {
 
 export interface TSearchHistoryEntity {
   id: string;
-  user_telegram_id: number;
+  user_telegram_id: string;
   query: string;
   structured_query: TStructuredQuery;
   results: TSearchResultItem[];

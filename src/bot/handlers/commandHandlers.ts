@@ -60,6 +60,7 @@ export class CommandHandlers {
 
   private handleStart = async (ctx: TBotContext): Promise<void> => {
     const startTime = Date.now();
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
     try {
       // Отслеживаем выполнение команды
@@ -67,11 +68,11 @@ export class CommandHandlers {
         command: '/start',
         userState: ctx.user?.state ?? '',
         userCity: ctx.user?.city ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       if (!ctx.user) {
-        throw AppError.userNotFound(ctx.from?.id ?? 0);
+        throw AppError.userNotFound(userId);
       }
 
       if (ctx.user.state === EUserState.WAITING_FOR_CITY) {
@@ -96,7 +97,7 @@ export class CommandHandlers {
         context: {
           component: 'command_handler',
           user_action: 'start_command',
-          user_id: ctx.from?.id,
+          user_id: userId,
           command: '/start',
         },
       });
@@ -105,13 +106,15 @@ export class CommandHandlers {
   };
 
   private handleHelp = async (ctx: TBotContext): Promise<void> => {
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
+
     try {
       // Отслеживаем выполнение команды
       this.analyticsService.trackBotCommand({
         command: '/help',
         userState: ctx.user?.state ?? '',
         userCity: ctx.user?.city ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       const formattedMessage = this.messageFormatter.formatHelpMessage();
@@ -127,24 +130,26 @@ export class CommandHandlers {
         errorType: 'execution_error',
         errorMessage: (error as Error).message,
         userState: ctx.user?.state ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
       throw error;
     }
   };
 
   private handleAddress = async (ctx: TBotContext): Promise<void> => {
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
+
     try {
       // Отслеживаем выполнение команды
       this.analyticsService.trackBotCommand({
         command: '/address',
         userState: ctx.user?.state ?? '',
         userCity: ctx.user?.city ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       if (!ctx.user) {
-        throw AppError.userNotFound(ctx.from?.id ?? 0);
+        throw AppError.userNotFound(userId);
       }
 
       const oldState = ctx.user.state;
@@ -155,7 +160,7 @@ export class CommandHandlers {
         oldState,
         newState: EUserState.WAITING_FOR_CITY,
         trigger: 'command',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       await this.showCitySelection(ctx);
@@ -166,24 +171,26 @@ export class CommandHandlers {
         errorType: 'execution_error',
         errorMessage: (error as Error).message,
         userState: ctx.user?.state ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
       throw error;
     }
   };
 
   private handleHistory = async (ctx: TBotContext): Promise<void> => {
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
+
     try {
       // Отслеживаем выполнение команды
       this.analyticsService.trackBotCommand({
         command: '/history',
         userState: ctx.user?.state ?? '',
         userCity: ctx.user?.city ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       if (!ctx.user) {
-        throw AppError.userNotFound(ctx.from?.id ?? 0);
+        throw AppError.userNotFound(userId);
       }
 
       const history = await this.userService.getSearchHistory(ctx.user.telegramId, 10);
@@ -192,7 +199,7 @@ export class CommandHandlers {
       this.analyticsService.trackSearchHistoryViewed({
         historyItemsCount: history.length,
         viewedItemsCount: Math.min(history.length, 10),
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       if (history.length === 0) {
@@ -217,11 +224,11 @@ export class CommandHandlers {
         errorType: 'execution_error',
         errorMessage: (error as Error).message,
         userState: ctx.user?.state ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       ConsoleLogger.error('Ошибка при получении истории поиска', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
       });
       await ctx.reply('Не удалось загрузить историю поиска. Попробуйте позже.');
     }
@@ -229,11 +236,12 @@ export class CommandHandlers {
 
   private handleSearch = async (ctx: TBotContext): Promise<void> => {
     const startTime = Date.now();
-    const searchId = `search_${Date.now()}_${ctx.from?.id ?? 0}`;
+    const searchId = `search_${Date.now()}_${ctx.from?.id ? ctx.from.id.toString() : '0'}`;
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
     try {
       if (!ctx.user) {
-        throw AppError.userNotFound(ctx.from?.id ?? 0);
+        throw AppError.userNotFound(userId);
       }
 
       if (!ctx.message || !('text' in ctx.message)) {
@@ -276,7 +284,7 @@ export class CommandHandlers {
           searchesToday: stats.searchesToday,
           searchLimit: stats.searchLimit,
           remainingSearches: stats.remainingSearches,
-          userId: ctx.from?.id ?? 0,
+          userId,
         });
 
         await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.');
@@ -297,7 +305,7 @@ export class CommandHandlers {
           enableLLMEnhancement: searchOptions.enableLLMEnhancement,
           enableVectorSearch: searchOptions.enableVectorSearch,
         },
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       // Устанавливаем состояние ожидания обработки запроса
@@ -341,7 +349,7 @@ export class CommandHandlers {
           searchMethod: 'hybrid',
           hasLlmEnhancement: searchOptions.enableLLMEnhancement,
           hasVectorSearch: searchOptions.enableVectorSearch,
-          userId: ctx.from?.id ?? 0,
+          userId,
         });
         return;
       }
@@ -368,7 +376,7 @@ export class CommandHandlers {
         searchMethod: 'hybrid',
         hasLlmEnhancement: true,
         hasVectorSearch: true,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
     } catch (error) {
       // Отслеживаем ошибку поиска
@@ -377,14 +385,14 @@ export class CommandHandlers {
         context: {
           component: 'search_handler',
           user_action: 'search_query',
-          user_id: ctx.from?.id,
+          user_id: userId,
           search_id: searchId,
           query: ctx.message && 'text' in ctx.message ? ctx.message.text.replace(/^\/search(?:@\w+)?\s*/, '').trim() : '',
         },
       });
 
       ConsoleLogger.error('Ошибка при поиске', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
         city: ctx.user?.city,
         query: ctx.message && 'text' in ctx.message ? ctx.message.text.replace(/^\/search(?:@\w+)?\s*/, '').trim() : '',
       });
@@ -397,13 +405,15 @@ export class CommandHandlers {
   };
 
   private handleSupport = async (ctx: TBotContext): Promise<void> => {
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
+
     try {
       // Отслеживаем выполнение команды
       this.analyticsService.trackBotCommand({
         command: '/support',
         userState: ctx.user?.state ?? '',
         userCity: ctx.user?.city ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       const text = `🆘 <b>Поддержка</b>
@@ -424,24 +434,26 @@ export class CommandHandlers {
         errorType: 'execution_error',
         errorMessage: (error as Error).message,
         userState: ctx.user?.state ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
       throw error;
     }
   };
 
   private handleStats = async (ctx: TBotContext): Promise<void> => {
+    const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
+
     try {
       // Отслеживаем выполнение команды
       this.analyticsService.trackBotCommand({
         command: '/stats',
         userState: ctx.user?.state ?? '',
         userCity: ctx.user?.city ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       if (!ctx.user) {
-        throw AppError.userNotFound(ctx.from?.id ?? 0);
+        throw AppError.userNotFound(userId);
       }
 
       const stats = await this.userService.getSearchStats(ctx.user.telegramId);
@@ -457,7 +469,7 @@ export class CommandHandlers {
         searchesToday: stats.searchesToday,
         searchesThisMonth: stats.searchesThisMonth,
         totalSearches: stats.totalSearches,
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       const subscriptionText = user.subscription === ESubscriptionType.BASIC ? 'Базовая' : 'Премиум';
@@ -488,11 +500,11 @@ ${stats.remainingSearches > 0
         errorType: 'execution_error',
         errorMessage: (error as Error).message,
         userState: ctx.user?.state ?? '',
-        userId: ctx.from?.id ?? 0,
+        userId,
       });
 
       ConsoleLogger.error('Ошибка при получении статистики', error as Error, {
-        telegramId: ctx.from?.id,
+        telegramId: userId,
       });
       await ctx.reply('Не удалось загрузить статистику. Попробуйте позже.');
     }

@@ -33,7 +33,7 @@ export class SearchService {
 
   public searchFood = async (
     naturalQuery: string,
-    telegramId: number,
+    telegramId: string,
     options: TSearchOptions = {
       enableVectorSearch: false,
     },
@@ -221,7 +221,7 @@ export class SearchService {
     return limited;
   };
 
-  public getSearchStats = async (telegramId: number): Promise<{
+  public getSearchStats = async (telegramId: string): Promise<{
     totalSearches: number;
     averageResults: number;
     lastSearchDate: Date | null;
@@ -253,7 +253,7 @@ export class SearchService {
     }
   };
 
-  private validateSearchInput = (query: string, telegramId: number): void => {
+  private validateSearchInput = (query: string, telegramId: string): void => {
     const queryValidation = Validator.validateSearchQuery(query);
     if (!queryValidation.isValid) {
       throw AppError.validationError('INVALID_SEARCH_QUERY', queryValidation.errors[0]);
@@ -284,7 +284,7 @@ export class SearchService {
   };
 
   private saveSearchHistory = async (
-    telegramId: number,
+    telegramId: string,
     query: string,
     structuredQuery: TStructuredQuery,
     results: TSearchResultItem[],

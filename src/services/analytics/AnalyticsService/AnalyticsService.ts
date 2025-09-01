@@ -70,7 +70,7 @@ export class AnalyticsService {
         ...params.context,
       },
       timestamp: Date.now(),
-      user_id: params.context.user_id as number,
+      user_id: params.context.user_id as string,
       session_id: params.context.session_id as string,
     });
   };

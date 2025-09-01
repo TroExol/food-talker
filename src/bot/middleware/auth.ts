@@ -10,8 +10,8 @@ export class AuthMiddleware {
   ) {}
 
   public authenticate = async (ctx: TBotContext, next: () => Promise<void>): Promise<void> => {
-    const telegramId = ctx.from?.id;
-    const chatId = ctx.chat?.id;
+    const telegramId = ctx.from?.id ? ctx.from.id.toString() : undefined;
+    const chatId = ctx.chat?.id ? ctx.chat.id.toString() : undefined;
 
     if (!telegramId || !chatId) {
       throw AppError.validationError('Неверные данные пользователя');

@@ -34,8 +34,8 @@ export enum EUserState {
 // Bot middleware context extension
 export interface TBotContext<T extends Update = Update> extends TTelegrafContext<T> {
   user?: {
-    telegramId: number;
-    chatId: number;
+    telegramId: string;
+    chatId: string;
     state: EUserState;
     city?: string;
   };

@@ -190,8 +190,8 @@ const migrations: TMigration[] = [
       // Users table
       await db.run(`
         CREATE TABLE IF NOT EXISTS users (
-          telegram_id INTEGER PRIMARY KEY,
-          chat_id INTEGER NOT NULL,
+          telegram_id TEXT PRIMARY KEY,
+          chat_id TEXT NOT NULL,
           city TEXT NOT NULL,
           subscription_type TEXT NOT NULL DEFAULT 'basic',
           subscription_expiry TEXT,
@@ -204,7 +204,7 @@ const migrations: TMigration[] = [
       await db.run(`
         CREATE TABLE IF NOT EXISTS search_history (
           id TEXT PRIMARY KEY,
-          user_telegram_id INTEGER NOT NULL,
+          user_telegram_id TEXT NOT NULL,
           query TEXT NOT NULL,
           structured_query JSONB NOT NULL,
           results JSONB NOT NULL,
@@ -242,7 +242,7 @@ const migrations: TMigration[] = [
       await db.run(`
         CREATE TABLE IF NOT EXISTS neural_request_logs (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_telegram_id INTEGER,
+          user_telegram_id TEXT,
           request_type TEXT NOT NULL,
           model TEXT NOT NULL,
           input_tokens INTEGER NOT NULL,
@@ -259,7 +259,7 @@ const migrations: TMigration[] = [
       await db.run(`
         CREATE TABLE IF NOT EXISTS api_request_logs (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_telegram_id INTEGER,
+          user_telegram_id TEXT,
           request_type TEXT NOT NULL,
           endpoint TEXT NOT NULL,
           method TEXT NOT NULL,

@@ -46,7 +46,7 @@ export class UserRepository {
     }
   };
 
-  public findByTelegramId = async (telegramId: number): Promise<TUser | null> => {
+  public findByTelegramId = async (telegramId: string): Promise<TUser | null> => {
     try {
       const userEntity = await this.db.get<TUserEntity>(`
         SELECT * FROM users WHERE telegram_id = $1
@@ -63,7 +63,7 @@ export class UserRepository {
     }
   };
 
-  public update = async (telegramId: number, updates: Partial<Pick<TUser, 'city' | 'subscription' | 'subscriptionExpiry'>>): Promise<TUser> => {
+  public update = async (telegramId: string, updates: Partial<Pick<TUser, 'city' | 'subscription' | 'subscriptionExpiry'>>): Promise<TUser> => {
     try {
       const setParts: string[] = [];
       const values: unknown[] = [];
@@ -118,7 +118,7 @@ export class UserRepository {
     }
   };
 
-  public delete = async (telegramId: number): Promise<boolean> => {
+  public delete = async (telegramId: string): Promise<boolean> => {
     try {
       // Сначала удаляем историю поиска
       await this.db.run(`DELETE FROM search_history WHERE user_telegram_id = $1`, [telegramId]);
@@ -171,7 +171,7 @@ export class UserRepository {
     }
   };
 
-  public addSearchHistory = async (telegramId: number, historyItem: Omit<TSearchHistoryItem, 'id' | 'timestamp'>): Promise<TSearchHistoryItem> => {
+  public addSearchHistory = async (telegramId: string, historyItem: Omit<TSearchHistoryItem, 'id' | 'timestamp'>): Promise<TSearchHistoryItem> => {
     try {
       const id = uuidv4();
       const timestamp = new Date();
@@ -202,7 +202,7 @@ export class UserRepository {
     }
   };
 
-  public getSearchHistory = async (telegramId: number, limit = 10): Promise<TSearchHistoryItem[]> => {
+  public getSearchHistory = async (telegramId: string, limit = 10): Promise<TSearchHistoryItem[]> => {
     try {
       const entities = await this.db.query<TSearchHistoryEntity>(`
         SELECT * FROM search_history
@@ -218,7 +218,7 @@ export class UserRepository {
     }
   };
 
-  public getSearchHistoryItemById = async (telegramId: number, id: string): Promise<TSearchHistoryItem | null> => {
+  public getSearchHistoryItemById = async (telegramId: string, id: string): Promise<TSearchHistoryItem | null> => {
     try {
       const entity = await this.db.get<TSearchHistoryEntity>(`
         SELECT * FROM search_history WHERE id = $1 AND user_telegram_id = $2
@@ -245,7 +245,7 @@ export class UserRepository {
     };
   };
 
-  public clearSearchHistory = async (telegramId: number): Promise<void> => {
+  public clearSearchHistory = async (telegramId: string): Promise<void> => {
     try {
       await this.db.run(`DELETE FROM search_history WHERE user_telegram_id = $1`, [telegramId]);
       ConsoleLogger.info('История поиска очищена', { telegramId });

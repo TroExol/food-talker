@@ -53,8 +53,8 @@ describe('UserService', () => {
 
   describe('createUser', () => {
     it('должен создать нового пользователя', async () => {
-      const telegramId = 123456789;
-      const chatId = 987654321;
+      const telegramId = '123456789';
+      const chatId = '987654321';
 
       const mockUser: TUser = {
         telegramId,
@@ -84,8 +84,8 @@ describe('UserService', () => {
     });
 
     it('должен вернуть существующего пользователя', async () => {
-      const telegramId = 123456789;
-      const chatId = 987654321;
+      const telegramId = '123456789';
+      const chatId = '987654321';
 
       const existingUser: TUser = {
         telegramId,
@@ -106,20 +106,20 @@ describe('UserService', () => {
     });
 
     it('должен выбросить ошибку при невалидном telegramId', async () => {
-      await expect(userService.createUser(-1, 123)).rejects.toThrow(AppError);
+      await expect(userService.createUser('-1', '123')).rejects.toThrow(AppError);
     });
 
     it('должен выбросить ошибку при невалидном chatId', async () => {
-      await expect(userService.createUser(123, -1)).rejects.toThrow(AppError);
+      await expect(userService.createUser('123', '-1')).rejects.toThrow(AppError);
     });
   });
 
   describe('getUser', () => {
     it('должен вернуть пользователя по telegramId', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
       const mockUser: TUser = {
         telegramId,
-        chatId: 987654321,
+        chatId: '987654321',
         city: EAvailableCities.PERM,
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: new Date(),
@@ -136,7 +136,7 @@ describe('UserService', () => {
     });
 
     it('должен вернуть null если пользователь не найден', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
 
       vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(null);
 
@@ -146,18 +146,18 @@ describe('UserService', () => {
     });
 
     it('должен выбросить ошибку при невалидном telegramId', async () => {
-      await expect(userService.getUser(-1)).rejects.toThrow(AppError);
+      await expect(userService.getUser('-1')).rejects.toThrow(AppError);
     });
   });
 
   describe('updateUserCity', () => {
     it('должен обновить город пользователя', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
       const newCity = EAvailableCities.PERM;
 
       const existingUser: TUser = {
         telegramId,
-        chatId: 987654321,
+        chatId: '987654321',
         city: EAvailableCities.PERM,
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: new Date(),
@@ -181,7 +181,7 @@ describe('UserService', () => {
     });
 
     it('должен выбросить ошибку если пользователь не найден', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
 
       vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(null);
 
@@ -193,7 +193,7 @@ describe('UserService', () => {
     });
 
     it('должен выбросить ошибку при невалидном городе', async () => {
-      await expect(userService.updateUserCity(123456789, 'НеизвестныйГород' as EAvailableCities)).rejects.toThrow(
+      await expect(userService.updateUserCity('123456789', 'НеизвестныйГород' as EAvailableCities)).rejects.toThrow(
         AppError,
       );
     });
@@ -201,12 +201,12 @@ describe('UserService', () => {
 
   describe('updateSubscription', () => {
     it('должен обновить подписку пользователя', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
       const subscription = ESubscriptionType.BASIC;
 
       const existingUser: TUser = {
         telegramId,
-        chatId: 987654321,
+        chatId: '987654321',
         city: EAvailableCities.PERM,
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: new Date(),
@@ -241,8 +241,8 @@ describe('UserService', () => {
     it('должен вернуть пользователей с просроченными подписками', async () => {
       const expiredUsers: TUser[] = [
         {
-          telegramId: 123456789,
-          chatId: 987654321,
+          telegramId: '123456789',
+          chatId: '987654321',
           city: EAvailableCities.PERM,
           subscription: ESubscriptionType.BASIC,
           subscriptionExpiry: new Date(Date.now() - 24 * 60 * 60 * 1000), // вчера
@@ -262,7 +262,7 @@ describe('UserService', () => {
 
   describe('addToSearchHistory', () => {
     it('должен добавить запись в историю поиска', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
       const query = 'пицца';
       const structuredQuery = { restaurants: ['Додо'] };
       const results: TSearchResultItem[] = [{
@@ -283,7 +283,7 @@ describe('UserService', () => {
 
       const existingUser: TUser = {
         telegramId,
-        chatId: 987654321,
+        chatId: '987654321',
         city: EAvailableCities.PERM,
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: new Date(),
@@ -318,7 +318,7 @@ describe('UserService', () => {
 
   describe('getSearchHistory', () => {
     it('должен вернуть историю поиска пользователя', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
       const history: TSearchHistoryItem[] = [
         {
           id: 'uuid1',
@@ -340,7 +340,7 @@ describe('UserService', () => {
 
   describe('deleteUser', () => {
     it('должен удалить пользователя', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
 
       vi.mocked(mockUserRepository.delete).mockResolvedValue(true);
 
@@ -353,10 +353,10 @@ describe('UserService', () => {
 
   describe('checkSearchLimit', () => {
     it('должен вернуть true если лимит не превышен', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
       const user: TUser = {
         telegramId,
-        chatId: 987654321,
+        chatId: '987654321',
         city: EAvailableCities.PERM,
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: null,
@@ -390,10 +390,10 @@ describe('UserService', () => {
     });
 
     it('должен вернуть false если лимит превышен', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
       const user: TUser = {
         telegramId,
-        chatId: 987654321,
+        chatId: '987654321',
         city: EAvailableCities.PERM,
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: null,
@@ -419,7 +419,7 @@ describe('UserService', () => {
     });
 
     it('должен выбросить ошибку если пользователь не найден', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
 
       vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(null);
 
@@ -429,10 +429,10 @@ describe('UserService', () => {
 
   describe('getSearchStats', () => {
     it('должен вернуть статистику поиска', async () => {
-      const telegramId = 123456789;
+      const telegramId = '123456789';
       const user: TUser = {
         telegramId,
-        chatId: 987654321,
+        chatId: '987654321',
         city: EAvailableCities.PERM,
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: null,

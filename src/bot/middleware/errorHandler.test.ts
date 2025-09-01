@@ -67,8 +67,8 @@ describe('ErrorHandlerMiddleware', () => {
       expect(mockAdminNotificationService.notifyAdmin).toHaveBeenCalledWith(
         criticalError,
         {
-          userId: 123,
-          chatId: 456,
+          userId: '123',
+          chatId: '456',
           username: 'testuser',
         },
       );
@@ -92,8 +92,8 @@ describe('ErrorHandlerMiddleware', () => {
       expect(mockAdminNotificationService.notifySystemError).toHaveBeenCalledWith(
         systemError,
         {
-          userId: 123,
-          chatId: 456,
+          userId: '123',
+          chatId: '456',
           username: 'testuser',
         },
       );
@@ -148,7 +148,7 @@ describe('ErrorHandlerMiddleware', () => {
     it('не должен определять пользовательские ошибки как критические', () => {
       const userErrors = [
         AppError.validationError('Неверный ввод'),
-        AppError.userNotFound(123),
+        AppError.userNotFound('123'),
         AppError.cityNotSupported('Город не поддерживается'),
         AppError.rateLimitError('Превышен лимит запросов'),
       ];

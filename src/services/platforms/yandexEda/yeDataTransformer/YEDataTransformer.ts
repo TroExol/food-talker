@@ -20,6 +20,8 @@ export class YEDataTransformer {
     main: ['бургер', 'пицца', 'ролл', 'суши', 'стейк', 'курица', 'паста', 'суп', 'шашлык', 'котлета', 'рыба', 'мясо'],
     sauce: ['кетчуп', 'майонез', 'горчица', 'соус', 'заправка', 'аджика', 'хрен'],
     side: ['картошка', 'рис', 'макароны', 'салат', 'овощи', 'гарнир', 'пюре'],
+    dessert: ['печенье', 'торт', 'мороженое', 'десерт'],
+    snack: ['салат', 'закуска'],
   };
 
   constructor(
@@ -56,6 +58,7 @@ export class YEDataTransformer {
       if (keywords.some(keyword => text.includes(keyword))) {
         switch (category) {
           case 'accessory': return EDishCategory.ACCESSORY;
+          case 'dessert': return EDishCategory.DESSERT;
           case 'drink': return EDishCategory.DRINK;
           case 'main': return EDishCategory.MAIN;
           case 'sauce': return EDishCategory.SAUCE;
