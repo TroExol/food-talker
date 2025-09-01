@@ -44,7 +44,7 @@ export class LLMService {
     naturalQuery: string,
     restaurants: TRestaurant[],
     userTelegramId?: number,
-    model = 'openai/gpt-oss-120b:free',
+    model = 'openai/gpt-5-mini',
     tryCount = 0,
   ): Promise<TStructuredQuery> => {
     try {
@@ -71,7 +71,7 @@ export class LLMService {
         model,
         userTelegramId,
         {
-          max_tokens: 10000,
+          max_tokens: 20000,
         },
       );
       const structuredQuery = this.parseStructuredQuery(availableRestaurants, response);
@@ -94,7 +94,7 @@ export class LLMService {
 
       try {
         ConsoleLogger.info('Попытка структуризации запроса через LLM с использованием fallback модели');
-        return await this.stuctureQuery(naturalQuery, restaurants, userTelegramId, 'openai/gpt-oss-120b', tryCount + 1);
+        return await this.stuctureQuery(naturalQuery, restaurants, userTelegramId, 'openai/gpt-5-mini', tryCount + 1);
       } catch (errorFallback) {
         ConsoleLogger.error('Не удалось структуризовать запрос через LLM с использованием fallback модели', errorFallback as Error);
         return this.createFallbackStructuredQuery(naturalQuery);
@@ -106,7 +106,7 @@ export class LLMService {
     results: TSearchResultItem[],
     query: string,
     userTelegramId?: number,
-    model = 'openai/gpt-oss-120b:free',
+    model = 'openai/gpt-5-nano',
     tryCount = 0,
   ): Promise<TSearchResultItem[]> => {
     try {
@@ -138,7 +138,7 @@ export class LLMService {
         model,
         userTelegramId,
         {
-          max_tokens: 50000,
+          max_tokens: 40000,
         },
       );
       const enhancedResults = this.parseEnhancedResults(response, results);
@@ -161,7 +161,7 @@ export class LLMService {
 
       try {
         ConsoleLogger.info('Попытка улучшения результатов через LLM с использованием fallback модели');
-        return await this.enhanceSearchResults(results, query, userTelegramId, 'openai/gpt-oss-120b', tryCount + 1);
+        return await this.enhanceSearchResults(results, query, userTelegramId, 'openai/gpt-5-nano', tryCount + 1);
       } catch (errorFallback) {
         ConsoleLogger.error('Не удалось улучшить результаты через LLM с использованием fallback модели', errorFallback as Error);
         return results; // Fallback к оригинальным результатам
@@ -692,10 +692,10 @@ ${menuList}
         prompt,
         '/v1/chat/completions',
         ENeuralRequestType.LLM_CATEGORIZE_DISHES,
-        'mistralai/mistral-small-3.1-24b-instruct',
+        'mistralai/mistral-small-3.2-24b-instruct:free',
         userTelegramId,
         {
-          max_tokens: 2000,
+          max_tokens: 3000,
         },
       );
       const category = this.parseCategoryResponse(response);
@@ -726,6 +726,8 @@ ${menuList}
     try {
       ConsoleLogger.debug('Начинаю категоризацию блюд', { menuItemsCount: menu.length });
 
+      // Максимальная длина запроса 1 блюда - 900 токенов, средняя - 500 токенов
+      const BATCH_SIZE = 120;
       const result: (EDishCategory | undefined)[] = new Array<EDishCategory | undefined>(menu.length).fill(undefined);
       const toSend: { item: TMenuItem; index: number; cacheKey: string }[] = [];
 
@@ -736,7 +738,7 @@ ${menuList}
         const cached = await this.cacheService.get<EDishCategory>(cacheKey);
 
         if (cached) {
-          ConsoleLogger.debug('Category from cache', { dishName: item.name, category: cached });
+          ConsoleLogger.debug('Категория блюда из кэша', { dishName: item.name, category: cached });
           result[i] = cached;
         } else {
           toSend.push({ item, index: i, cacheKey });
@@ -748,40 +750,49 @@ ${menuList}
       }
 
       // Ask LLM only for uncached items
-      const batchPrompt = this.buildCategorizationBatchPrompt(toSend.map(x => x.item));
-      const batchResponse = await this.callLLMWithLogging(
-        batchPrompt,
+      const batches = this.chunkArray(toSend, BATCH_SIZE);
+      const batchResponses = await Promise.allSettled(batches.map(batch => this.callLLMWithLogging(
+        this.buildCategorizationBatchPrompt(batch.map(x => x.item)),
         '/v1/chat/completions',
         ENeuralRequestType.LLM_CATEGORIZE_DISHES,
-        'mistralai/mistral-small-3.1-24b-instruct',
+        'mistralai/mistral-small-3.2-24b-instruct:free',
         userTelegramId,
-        {
-          max_tokens: 40000,
-        },
-      );
+      )));
 
       // Parse JSON block and map categories back to original order
-      let categories: Record<string, string> = {};
-      try {
-        const jsonMatch = batchResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonrepair(jsonMatch[0])) as { categories?: Record<string, string> };
-          if (parsed && parsed.categories && typeof parsed.categories === 'object') {
-            categories = parsed.categories;
-          }
+      const categoryBatch: Record<string, string>[] = new Array<Record<string, string>>(batchResponses.length).fill({});
+      for (let i = 0; i < batchResponses.length; i++) {
+        const batchResponse = batchResponses[i];
+        if (batchResponse.status !== 'fulfilled') {
+          continue;
         }
-      } catch (e) {
-        ConsoleLogger.warn('Failed to parse batch categories JSON, will fallback per item', e as Error);
+        try {
+          const jsonMatch = batchResponse.value.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            // { categories: { item_1: 'выявленная категория', item_2: 'выявленная категория', ... } }
+            const parsed = JSON.parse(jsonrepair(jsonMatch[0])) as { categories?: Record<string, string> };
+            if (parsed && parsed.categories && typeof parsed.categories === 'object') {
+              categoryBatch[i] = parsed.categories;
+            }
+          }
+        } catch (e) {
+          ConsoleLogger.warn('Не удалось распарсить JSON категорий блюд, возвращаю MAIN', e as Error);
+        }
       }
 
-      for (let i = 0; i < toSend.length; i++) {
-        const { index, cacheKey } = toSend[i];
-        const key = `item_${i + 1}`;
-        const rawCategory = String(categories[key] ?? '');
-        const category = this.parseCategoryResponse(rawCategory);
-        result[index] = category.category;
-        if (!category.isFallback) {
-          await this.cacheService.set(cacheKey, category.category, 0);
+      for (let b = 0; b < batches.length; b++) {
+        const batch = batches[b];
+        const categories = categoryBatch[b] || {};
+
+        for (let i = 0; i < batch.length; i++) {
+          const key = `item_${i + 1}`;
+          const rawCategory = String(categories[key] ?? '');
+          const { index, cacheKey } = batch[i];
+          const category = this.parseCategoryResponse(rawCategory);
+          result[index] = category.category;
+          if (!category.isFallback) {
+            await this.cacheService.set(cacheKey, category.category, 0);
+          }
         }
       }
 
@@ -866,5 +877,13 @@ ${menuItems.map((item, index) => `${index + 1}. "${item.name}" (${item.descripti
         ConsoleLogger.warn('Неизвестная категория от LLM, возвращаю MAIN', { response: cleanResponse });
         return { category: EDishCategory.MAIN, isFallback: true };
     }
+  };
+
+  private chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+      chunks.push(array.slice(i, i + chunkSize));
+    }
+    return chunks;
   };
 }

@@ -320,7 +320,7 @@ export class YEApiService {
           method: options.method || 'GET',
           statusCode: response.status,
           requestData: this.sanitizeRequestData(options.body as string | undefined),
-          responseData: response.ok ? this.truncateResponseData(response) : undefined,
+          responseData: response.ok ? this.truncateResponseData(await response.text()) : undefined,
           processingTimeMs,
           errorMessage: response.ok ? undefined : `${response.status}: ${response.statusText}`,
         }).catch(error => {

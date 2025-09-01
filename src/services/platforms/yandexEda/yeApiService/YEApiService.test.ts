@@ -123,6 +123,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
+        text: () => Promise.resolve(JSON.stringify(mockResponse)),
       } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
@@ -145,6 +146,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: {} }),
+        text: () => Promise.resolve(JSON.stringify({ data: {} })),
       } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
@@ -158,6 +160,7 @@ describe('YEApiService', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
+        text: () => Promise.resolve(JSON.stringify({ data: {} })),
       } as unknown as Response);
 
       await expect(service.requestRestaurants(mockCoordinates)).rejects.toThrow(AppError);
@@ -171,6 +174,7 @@ describe('YEApiService', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve(mockResponse),
+          text: () => Promise.resolve(JSON.stringify(mockResponse)),
         } as unknown as Response);
 
       const sendingRequest = service.requestRestaurants(mockCoordinates);
@@ -193,6 +197,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
+        text: () => Promise.resolve(JSON.stringify(mockResponse)),
       } as unknown as Response);
 
       await service.requestRestaurants(mockCoordinates);
@@ -214,6 +219,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockResponse),
+        text: () => Promise.resolve(JSON.stringify(mockResponse)),
       } as unknown as Response);
 
       await service.requestRestaurants(mockCoordinates);
@@ -263,6 +269,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockMenuResponse),
+        text: () => Promise.resolve(JSON.stringify(mockMenuResponse)),
       } as unknown as Response);
 
       const result = await service.requestRestaurantMenu('test-place', mockCoordinates, 'test-brand');
@@ -283,6 +290,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockMenuResponse),
+        text: () => Promise.resolve(JSON.stringify(mockMenuResponse)),
       } as unknown as Response);
 
       await service.requestRestaurantMenu('test-place', mockCoordinates, '');
@@ -304,9 +312,24 @@ describe('YEApiService', () => {
         ok: false,
         status: 404,
         statusText: 'Not Found',
+        text: () => Promise.resolve(JSON.stringify({ data: {} })),
       } as unknown as Response);
 
       await expect(service.requestRestaurantMenu('test-place', mockCoordinates, 'test-brand')).rejects.toThrow(AppError);
+    });
+  });
+
+  describe('truncateResponseData', () => {
+    type TService = { truncateResponseData: (data: unknown) => unknown };
+
+    it('должен вернуть объект если длина строки меньше 1000', () => {
+      const result = (service as unknown as TService).truncateResponseData({});
+      expect(result).toEqual({});
+    });
+
+    it('должен вернуть объект если длина строки больше 1000', () => {
+      const result = (service as unknown as TService).truncateResponseData(new Array(1001).fill('a').join(''));
+      expect(result).toEqual({ truncated: true, size: 1003 });
     });
   });
 
@@ -338,6 +361,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        text: () => Promise.resolve(JSON.stringify({ data: { places_v2_lists: [] } })),
       } as unknown as Response);
 
       const firstRequest = service.requestRestaurants(mockCoordinates);
@@ -348,6 +372,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        text: () => Promise.resolve(JSON.stringify({ data: { places_v2_lists: [] } })),
       } as unknown as Response);
 
       const secondRequest = service.requestRestaurants(mockCoordinates);
@@ -367,6 +392,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        text: () => Promise.resolve(JSON.stringify({ data: { places_v2_lists: [] } })),
       } as unknown as Response);
 
       const firstRequest = service.requestRestaurants(mockCoordinates);
@@ -388,6 +414,7 @@ describe('YEApiService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: { places_v2_lists: [] } }),
+        text: () => Promise.resolve(JSON.stringify({ data: { places_v2_lists: [] } })),
       } as unknown as Response);
 
       const result = await service.requestRestaurants(mockCoordinates);
