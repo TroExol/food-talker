@@ -182,13 +182,11 @@ describe('LLMService', () => {
       const structuring = llmService.stuctureQuery('тест', []);
       await vi.advanceTimersToNextTimerAsync();
       await vi.advanceTimersToNextTimerAsync();
-      await vi.advanceTimersToNextTimerAsync();
-      await vi.advanceTimersToNextTimerAsync();
 
       const result = await structuring;
 
       expect(result).toEqual({ semanticQuery: 'тест', tags: [] });
-      expect(mockFetch).toHaveBeenCalledTimes(6);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
     it('должен обрабатывать таймауты', async () => {
@@ -209,12 +207,11 @@ describe('LLMService', () => {
       const structuring = llmService.stuctureQuery('тест', []);
       // Таймауты определены в llmService.stuctureQuery
       await vi.advanceTimersByTimeAsync(30000);
-      await vi.advanceTimersByTimeAsync(30000);
       const result = await structuring;
 
       expect(result).toEqual({ semanticQuery: 'тест', tags: [] });
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(onAbort).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(onAbort).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -903,8 +900,6 @@ describe('LLMService', () => {
           'хочу пиццу',
           [{ id: '1', name: 'Додо', coordinates: { latitude: 0, longitude: 0 }, lastUpdated: new Date() }],
           undefined,
-          undefined,
-          1,
         );
 
         expect(result).toEqual({ semanticQuery: 'хочу пиццу', tags: ['пицца'] });

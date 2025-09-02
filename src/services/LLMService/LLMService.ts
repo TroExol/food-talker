@@ -46,8 +46,6 @@ export class LLMService {
     naturalQuery: string,
     restaurants: TRestaurant[],
     userTelegramId?: number,
-    model = 'mistralai/mistral-small-3.2-24b-instruct:free',
-    tryCount = 0,
   ): Promise<TStructuredQuery> => {
     try {
       ConsoleLogger.info('Начинаю структуризацию запроса через LLM', { query: naturalQuery });
@@ -64,18 +62,27 @@ export class LLMService {
         return cached;
       }
 
+      const MODEL = 'mistralai/mistral-small-3.2-24b-instruct:free';
+      const FALLBACK_MODEL = 'openai/gpt-5-mini';
+
       const availableRestaurants = restaurants.map(r => r.name);
       const {
         prompt,
         responseFormat,
         systemPrompt,
-      } = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants, model);
+      } = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants, MODEL);
+      const {
+        systemPrompt: fallbackSystemPrompt,
+      } = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants, FALLBACK_MODEL);
+
       const response = await this.callLLMWithLogging({
         prompt,
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_STRUCTURE_QUERY,
-        model,
+        model: MODEL,
+        fallbackModel: FALLBACK_MODEL,
         systemPrompt,
+        fallbackSystemPrompt,
         responseFormat,
         userTelegramId,
         params: {
@@ -94,20 +101,8 @@ export class LLMService {
 
       return structuredQuery;
     } catch (error) {
-      ConsoleLogger.error('Ошибка структуризации запроса через LLM', error as Error, { query: naturalQuery });
-
-      if (tryCount >= 1) {
-        ConsoleLogger.info('Использую fallback стратегию для структуризации запроса');
-        return this.createFallbackStructuredQuery(naturalQuery);
-      }
-
-      try {
-        ConsoleLogger.info('Попытка структуризации запроса через LLM с использованием fallback модели');
-        return await this.stuctureQuery(naturalQuery, restaurants, userTelegramId, 'openai/gpt-5-mini', tryCount + 1);
-      } catch (errorFallback) {
-        ConsoleLogger.error('Не удалось структуризовать запрос через LLM с использованием fallback модели', errorFallback as Error);
-        return this.createFallbackStructuredQuery(naturalQuery);
-      }
+      ConsoleLogger.error('Ошибка структуризации запроса через LLM, возвращаю fallback', error as Error, { query: naturalQuery });
+      return this.createFallbackStructuredQuery(naturalQuery);
     }
   };
 
@@ -115,8 +110,6 @@ export class LLMService {
     results: TSearchResultItem[],
     query: string,
     userTelegramId?: number,
-    model = 'mistralai/mistral-small-3.2-24b-instruct:free',
-    tryCount = 0,
   ): Promise<TSearchResultItem[]> => {
     try {
       if (results.length === 0) return results;
@@ -144,7 +137,8 @@ export class LLMService {
         prompt,
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_ENHANCE_RESULTS,
-        model,
+        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
+        fallbackModel: 'openai/gpt-5-nano',
         userTelegramId,
         params: {
           max_tokens: 40000,
@@ -162,20 +156,8 @@ export class LLMService {
 
       return enhancedResults;
     } catch (error) {
-      ConsoleLogger.error('Не удалось улучшить результаты через LLM', error as Error);
-
-      if (tryCount >= 1) {
-        ConsoleLogger.info('Использую fallback стратегию для улучшения результатов');
-        return results;
-      }
-
-      try {
-        ConsoleLogger.info('Попытка улучшения результатов через LLM с использованием fallback модели');
-        return await this.enhanceSearchResults(results, query, userTelegramId, 'openai/gpt-5-nano', tryCount + 1);
-      } catch (errorFallback) {
-        ConsoleLogger.error('Не удалось улучшить результаты через LLM с использованием fallback модели', errorFallback as Error);
-        return results; // Fallback к оригинальным результатам
-      }
+      ConsoleLogger.error('Не удалось улучшить результаты через LLM, возвращаю fallback', error as Error);
+      return results;
     }
   };
 
@@ -370,12 +352,15 @@ ${menuList}
     url,
     requestType,
     model,
+    fallbackModel,
     systemPrompt,
+    fallbackSystemPrompt,
     responseFormat,
     userTelegramId,
     params,
     waitTimeoutMs,
     provider,
+    fallbackProvider,
   }: TLLMCallParams): Promise<string> => {
     const startTime = Date.now();
 
@@ -399,6 +384,15 @@ ${menuList}
     };
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      if (attempt >= 1) {
+        request.model = fallbackModel || request.model;
+        request.provider = fallbackProvider || request.provider;
+        request.messages.unshift({
+          role: 'system',
+          content: fallbackSystemPrompt || request.messages[0].content,
+        });
+      }
+
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
@@ -837,10 +831,11 @@ ${menuList}
         prompt: this.buildCategorizationBatchPrompt(batch.map(x => x.item)),
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_CATEGORIZE_DISHES,
-        model: 'mistralai/mistral-small-3.1-24b-instruct',
+        model: 'mistralai/mistral-small-3.1-24b-instruct:free',
+        fallbackModel: 'mistralai/mistral-small-3.1-24b-instruct',
         userTelegramId,
         waitTimeoutMs: 90000,
-        provider: {
+        fallbackProvider: {
           order: ['deepinfra/fp8', 'nebius/fp8'],
         },
       })));

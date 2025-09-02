@@ -58,7 +58,9 @@ export interface TLLMCallParams {
   url: string;
   requestType: ENeuralRequestType;
   model: string;
+  fallbackModel?: string;
   systemPrompt?: string;
+  fallbackSystemPrompt?: string;
   responseFormat?: ResponseFormatText
     | ResponseFormatJSONSchema
     | ResponseFormatJSONObject;
@@ -66,6 +68,7 @@ export interface TLLMCallParams {
   params?: TLLMParams;
   waitTimeoutMs?: number;
   provider?: Record<string, unknown>;
+  fallbackProvider?: Record<string, unknown>;
 }
 
 export interface TLLMStructureQueryStructuredOutput {
