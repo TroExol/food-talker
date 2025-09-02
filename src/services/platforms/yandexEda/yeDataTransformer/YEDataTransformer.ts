@@ -139,7 +139,7 @@ export class YEDataTransformer {
           const localCategory = this.categorizeLocally(yeMenuItem.name, yeMenuItem.description);
 
           const menuItem: TMenuItem = {
-            id: `ye_${yeMenuItem.id}`,
+            id: `ye_${yeMenuItem.publicId}`,
             name: yeMenuItem.name,
             description: yeMenuItem.description || '',
             ingredients,
@@ -147,7 +147,7 @@ export class YEDataTransformer {
             image: imageUrl || botConfig.fallbackFoodImage,
             available: yeMenuItem.available && (yeMenuItem.inStock !== false),
             restaurant,
-            orderUrl: `https://eda.yandex.ru/r/${restaurant.additionalInfo.brandSlug}?placeSlug=${restaurant.id}&search=${yeMenuItem.name}`,
+            orderUrl: `https://eda.yandex.ru/r/${restaurant.additionalInfo.brandSlug}?category=&item=${yeMenuItem.publicId}&placeSlug=${restaurant.id}`,
             category: localCategory || EDishCategory.MAIN, // Временное значение
           };
 
