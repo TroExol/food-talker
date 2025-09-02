@@ -829,6 +829,8 @@ ${menuList}
         return result.map(c => c ?? EDishCategory.MAIN);
       }
 
+      ConsoleLogger.info('Необходима категоризация блюд через LLM', { menuItemsCount: menu.length, toSendLLMCount: toSend.length, cachedCount: menu.length - toSend.length });
+
       // Ask LLM only for uncached items
       const batches = this.chunkArray(toSend, BATCH_SIZE);
       const batchResponses = await Promise.allSettled(batches.map(batch => this.callLLMWithLogging({

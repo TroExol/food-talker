@@ -109,7 +109,8 @@ export class MenuService {
       const menuToCreate = Object.values(menuToCreateObj);
 
       if (menuToCreate.length === 0) {
-        ConsoleLogger.info('Не создаем блюда, так как нет новых блюд', {
+        ConsoleLogger.debug('Не создаем блюда, так как нет новых блюд', {
+          restaurantNames: menuToCreate.map(item => item.restaurant.name),
           menuItemCount: menu.length,
           alreadyExistsCount: alreadyExists.length,
           menuItemCountToCreate: Object.values(menuToCreateObj).length,
@@ -136,6 +137,7 @@ export class MenuService {
       await this.menuRepository.createBulk(vectorMenu);
 
       ConsoleLogger.info('Меню создано с батч embedding', {
+        restaurantNames: [...new Set(menuToCreate.map(item => item.restaurant.name))],
         menuItemCount: menu.length,
         alreadyExistsCount: alreadyExists.length,
         menuItemCountToCreate: menuToCreate.length,
@@ -202,7 +204,7 @@ export class MenuService {
       existsEmbeddings.push(vectorMenuItem);
     }
 
-    ConsoleLogger.info('Найдено существующих эмбедингов', {
+    ConsoleLogger.debug('Найдено существующих эмбедингов', {
       totalItems: menu.length,
       foundEmbeddings: existsEmbeddings.length,
     });
