@@ -89,6 +89,10 @@ export class LLMService {
           max_tokens: 20000,
         },
         waitTimeoutMs: 30000,
+        provider: {
+          order: ['venice/fp8'],
+        },
+        fallbackProvider: {},
       });
       const structuredQuery = this.parseStructuredQuery(naturalQuery, availableRestaurants, response);
 
@@ -144,6 +148,10 @@ export class LLMService {
           max_tokens: 40000,
         },
         waitTimeoutMs: 60000,
+        provider: {
+          order: ['venice/fp8'],
+        },
+        fallbackProvider: {},
       });
       const enhancedResults = this.parseEnhancedResults(response, results);
 
@@ -728,8 +736,6 @@ ${menuList}
     description?: string,
     ingredients?: string[],
     userTelegramId?: number,
-    model = 'mistralai/mistral-small-3.1-24b-instruct:free',
-    tryCount = 0,
   ): Promise<EDishCategory> => {
     try {
       ConsoleLogger.debug('Начинаю категоризацию блюда', { dishName });
@@ -747,12 +753,19 @@ ${menuList}
         prompt,
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_CATEGORIZE_DISHES,
-        model,
+        model: 'mistralai/mistral-small-3.1-24b-instruct:free',
+        fallbackModel: 'mistralai/mistral-small-3.1-24b-instruct',
         userTelegramId,
         params: {
           max_tokens: 3000,
         },
         waitTimeoutMs: 15000,
+        provider: {
+          order: ['venice/fp8'],
+        },
+        fallbackProvider: {
+          order: ['deepinfra/fp8', 'nebius/fp8'],
+        },
       });
       const category = this.parseCategoryResponse(response);
 
@@ -776,20 +789,8 @@ ${menuList}
 
       return category.category;
     } catch (error) {
-      ConsoleLogger.error('Не удалось улучшить результаты через LLM', error as Error);
-
-      if (tryCount >= 1) {
-        ConsoleLogger.info('Использую fallback стратегию для категоризации блюда');
-        return EDishCategory.MAIN;
-      }
-
-      try {
-        ConsoleLogger.info('Попытка категоризации блюда через LLM с использованием fallback модели');
-        return await this.categorizeDish(dishName, description, ingredients, userTelegramId, 'mistralai/mistral-small-3.1-24b-instruct', tryCount + 1);
-      } catch (errorFallback) {
-        ConsoleLogger.error('Не удалось категоризировать блюдо через LLM с использованием fallback модели', errorFallback as Error);
-        return EDishCategory.MAIN;
-      }
+      ConsoleLogger.error('Не удалось улучшить результаты через LLM, возвращаю fallback', error as Error);
+      return EDishCategory.MAIN;
     }
   };
 
@@ -835,6 +836,9 @@ ${menuList}
         fallbackModel: 'mistralai/mistral-small-3.1-24b-instruct',
         userTelegramId,
         waitTimeoutMs: 90000,
+        provider: {
+          order: ['venice/fp8'],
+        },
         fallbackProvider: {
           order: ['deepinfra/fp8', 'nebius/fp8'],
         },
@@ -943,8 +947,8 @@ ${menuList}
 6. Если это сладкое - это десерт
 7. Если это салат, закуска - это закуска
 
-Блюда для категоризации в формате Номер. "Название" (описание (если есть), ингредиенты):
-${menuItems.map((item, index) => `${index + 1}. "${item.name}" (${item.description ? `описание: ${item.description}, ` : ''}ингредиенты: ${item.ingredients.join(', ')})`).join('\n')}
+Блюда для категоризации в формате Номер. "Название" (описание: ...; ингредиенты: ...):
+${menuItems.map((item, index) => `item_${index + 1}. "${item.name}" (описание: ${item.description || '-'}; ингредиенты: ${item.ingredients.join(', ')})`).join('\n')}
 
 Ответь ТОЛЬКО в формате JSON, без дополнительных символов, без уточнений и комментариев:
 {
