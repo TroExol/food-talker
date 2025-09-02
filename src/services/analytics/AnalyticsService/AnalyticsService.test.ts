@@ -253,7 +253,7 @@ describe('AnalyticsService', () => {
     it('должен отправлять событие выбора блюда', () => {
       analyticsService.trackItemSelectionCompleted({
         searchHistoryId: 'history_123',
-        itemId: 'item_456',
+        itemIndex: 456,
         hasPhoto: true,
         userId: '123',
       });

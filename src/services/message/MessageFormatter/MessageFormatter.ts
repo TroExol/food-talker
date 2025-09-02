@@ -342,7 +342,7 @@ ${itemsText}
       buttons.push([
         {
           text: `${startIndex + index + 1}. ${this.truncateText(item.name, 30)}`,
-          callback_data: `item:${searchHistoryId}:${item.id}`,
+          callback_data: `item:${searchHistoryId}:${startIndex + index}`,
         },
       ]);
     });

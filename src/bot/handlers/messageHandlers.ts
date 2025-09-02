@@ -367,7 +367,7 @@ export class MessageHandlers {
     }
 
     const searchHistoryId = match[1];
-    const itemId = match[2];
+    const itemIndex = parseInt(match[2], 10);
 
     try {
       // Отслеживаем нажатие на callback кнопку
@@ -385,7 +385,7 @@ export class MessageHandlers {
         await ctx.answerCbQuery('История поиска не найдена');
         return;
       }
-      const searchResultItem = searchHistory.results.find(result => result.id === itemId);
+      const searchResultItem = searchHistory.results[itemIndex];
       if (!searchResultItem) {
         await ctx.answerCbQuery('Блюдо не найдено');
         return;
@@ -394,7 +394,7 @@ export class MessageHandlers {
       // Отслеживаем выбор блюда
       this.analyticsService.trackItemSelectionCompleted({
         searchHistoryId,
-        itemId,
+        itemIndex,
         hasPhoto: !!searchResultItem.image,
         userId,
       });
@@ -418,7 +418,7 @@ export class MessageHandlers {
     } catch (error) {
       ConsoleLogger.error('Ошибка при получении информации о блюде', error as Error, {
         telegramId: userId,
-        itemId,
+        itemIndex,
       });
       await ctx.answerCbQuery('Ошибка при загрузке информации о блюде');
     }

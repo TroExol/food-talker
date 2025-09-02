@@ -267,7 +267,7 @@ describe('MessageFormatterService', () => {
 
       expect(keyboard.inline_keyboard).toHaveLength(1);
       expect(keyboard.inline_keyboard[0][0].text).toBe('1. Тестовый результат поиска');
-      expect((keyboard.inline_keyboard[0][0] as any).callback_data).toBe('item:search-history-1:search-1');
+      expect((keyboard.inline_keyboard[0][0] as any).callback_data).toBe('item:search-history-1:0');
     });
 
     it('должен добавлять кнопки пагинации для полной страницы', () => {

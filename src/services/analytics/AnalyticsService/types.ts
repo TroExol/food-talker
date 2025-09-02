@@ -122,7 +122,7 @@ export interface TTrackCitySelectionCompletedParams {
 
 export interface TTrackItemSelectionCompletedParams {
   searchHistoryId: string;
-  itemId: string;
+  itemIndex: number;
   hasPhoto: boolean;
   userId: string;
 }

@@ -270,7 +270,7 @@ export class AnalyticsService {
       name: 'item_selection_completed',
       parameters: {
         search_history_id: params.searchHistoryId,
-        item_id: params.itemId,
+        item_index: params.itemIndex,
         has_photo: params.hasPhoto,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
