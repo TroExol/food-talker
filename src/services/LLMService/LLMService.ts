@@ -39,7 +39,7 @@ export class LLMService {
     this.apiKey = environment.LLM_API_KEY;
     this.maxRetries = config?.maxRetries ?? 2;
     this.timeoutMs = config?.timeoutMs ?? 20000;
-    this.systemPrompt = config?.systemPrompt ?? 'Ты - помощник для поиска еды. Reasoning: low';
+    this.systemPrompt = config?.systemPrompt ?? 'Ты - помощник для поиска еды';
   }
 
   public stuctureQuery = async (
@@ -437,7 +437,7 @@ ${menuList}
               model: request.model,
               temperature: request.params?.temperature,
               max_tokens: request.params?.max_tokens,
-              system_prompt: this.systemPrompt,
+              system_prompt: systemPrompt ?? this.systemPrompt,
               attempt: attempt + 1,
             },
             responseData: {
@@ -465,7 +465,7 @@ ${menuList}
             model: request.model,
             temperature: request.params?.temperature,
             max_tokens: request.params?.max_tokens,
-            system_prompt: this.systemPrompt,
+            system_prompt: systemPrompt ?? this.systemPrompt,
           },
           responseData: {
             content: data.choices[0].message.content,
@@ -497,7 +497,7 @@ ${menuList}
             model: request.model,
             temperature: request.params?.temperature,
             max_tokens: request.params?.max_tokens,
-            system_prompt: this.systemPrompt,
+            system_prompt: systemPrompt ?? this.systemPrompt,
             attempt: attempt + 1,
           },
           responseData: {
