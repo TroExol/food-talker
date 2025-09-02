@@ -209,7 +209,7 @@ export class YEDataTransformer {
 
     // Проверяем описания на схожесть со списком ингредиентов
     compositionDescs.push(...yeMenuItem.descriptions.filter(desc => {
-      if (!desc.text) return false;
+      if (!desc.text || compositionDescs.includes(desc)) return false;
 
       // Проверяем что текст похож на список ингредиентов:
       // - содержит запятые
@@ -229,7 +229,7 @@ export class YEDataTransformer {
       return [];
     }
 
-    const ingredients: string[] = [];
+    const ingredients = new Set<string>();
 
     for (const compositionDesc of compositionDescs) {
       let ingredientsText = compositionDesc.text;
@@ -262,11 +262,11 @@ export class YEDataTransformer {
 
           if (!excludePatterns.some(pattern => lowercased.includes(pattern))
                && ingredient.length > 1) {
-            ingredients.push(lowercased);
+            ingredients.add(lowercased);
           }
         });
     }
 
-    return ingredients;
+    return Array.from(ingredients);
   };
 }

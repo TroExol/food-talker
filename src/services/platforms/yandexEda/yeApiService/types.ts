@@ -24,7 +24,6 @@ export interface TYEIcon {
 }
 
 export interface TYEPicture {
-  image: string;
   uri?: string;
   ratio?: number;
   scale?: string;
