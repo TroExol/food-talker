@@ -283,7 +283,7 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
   private buildEnhancementPrompt = (menuItems: TSearchResultItem[], naturalQuery: string): string => {
     const menuList = menuItems.map((menuItem, index) => {
       const category = (menuItem as unknown as TMenuItem).category || 'неизвестно';
-      return `${index + 1}. ${menuItem.name} [${category}] - ${menuItem.description ? `- ${menuItem.description.substring(0, 80)}` : ''} - ${menuItem.price}₽`;
+      return `${index + 1}. ${menuItem.name} [${category}] ${menuItem.description ? `- ${menuItem.description.substring(0, 80)}` : ''} - ${menuItem.price}₽`;
     }).join('\n');
 
     return `СИСТЕМА РАНЖИРОВАНИЯ БЛЮД ПО РЕЛЕВАНТНОСТИ

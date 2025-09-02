@@ -122,7 +122,7 @@ export class MenuService {
 
       // Подготавливаем тексты для embedding
       const textsForEmbedding = menuToCreate.map(item =>
-        `${item.name} ${item.description} ${item.ingredients.join(', ')} ${item.category}`.trim(),
+        `${item.name}${item.description ? ` ${item.description}` : ''} ${item.ingredients.join(', ')} ${item.category}`.trim(),
       );
 
       // Генерируем embedding батчем

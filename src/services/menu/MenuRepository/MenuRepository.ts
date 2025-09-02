@@ -351,13 +351,13 @@ export class MenuRepository {
         paramIndex++;
       }
 
-      if (minPrice) {
+      if (typeof minPrice === 'number' && !isNaN(minPrice)) {
         sql += ` AND price >= $${paramIndex}`;
         params.push(minPrice);
         paramIndex++;
       }
 
-      if (maxPrice) {
+      if (typeof maxPrice === 'number' && !isNaN(maxPrice)) {
         sql += ` AND price <= $${paramIndex}`;
         params.push(maxPrice);
         paramIndex++;
