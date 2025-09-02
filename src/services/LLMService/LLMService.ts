@@ -69,7 +69,7 @@ export class LLMService {
         prompt,
         responseFormat,
         systemPrompt,
-      } = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants);
+      } = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants, model);
       const response = await this.callLLMWithLogging({
         prompt,
         url: '/v1/chat/completions',
@@ -162,7 +162,7 @@ export class LLMService {
 
       return enhancedResults;
     } catch (error) {
-      ConsoleLogger.error('Не удалось улучшить результаты через LLM, возвращаю оригинальные', error as Error);
+      ConsoleLogger.error('Не удалось улучшить результаты через LLM', error as Error);
 
       if (tryCount >= 1) {
         ConsoleLogger.info('Использую fallback стратегию для улучшения результатов');
@@ -179,9 +179,13 @@ export class LLMService {
     }
   };
 
-  private buildStructureQueryPrompt = (naturalQuery: string, availableRestaurants: string[]): TLLMBuildedQuery => {
+  private buildStructureQueryPrompt = (
+    naturalQuery: string,
+    availableRestaurants: string[],
+    model: string,
+  ): TLLMBuildedQuery => {
     return {
-      systemPrompt: `Отвечай строго в формате JSON по заданной схеме.
+      systemPrompt: `${model.includes('openai/') ? 'Reasoning: low' : ''} Отвечай строго в формате JSON по заданной схеме.
 Не добавляй текст вне JSON.
 Не добавляй ключи, которых нет в схеме.
 Следуй правилам:
@@ -728,6 +732,8 @@ ${menuList}
     description?: string,
     ingredients?: string[],
     userTelegramId?: number,
+    model = 'mistralai/mistral-small-3.1-24b-instruct:free',
+    tryCount = 0,
   ): Promise<EDishCategory> => {
     try {
       ConsoleLogger.debug('Начинаю категоризацию блюда', { dishName });
@@ -745,7 +751,7 @@ ${menuList}
         prompt,
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_CATEGORIZE_DISHES,
-        model: 'mistralai/mistral-small-3.1-24b-instruct',
+        model,
         userTelegramId,
         params: {
           max_tokens: 3000,
@@ -774,8 +780,20 @@ ${menuList}
 
       return category.category;
     } catch (error) {
-      ConsoleLogger.error('Ошибка категоризации блюда, возвращаю MAIN', error as Error, { dishName, description, ingredients });
-      return EDishCategory.MAIN; // Fallback к основной категории
+      ConsoleLogger.error('Не удалось улучшить результаты через LLM', error as Error);
+
+      if (tryCount >= 1) {
+        ConsoleLogger.info('Использую fallback стратегию для категоризации блюда');
+        return EDishCategory.MAIN;
+      }
+
+      try {
+        ConsoleLogger.info('Попытка категоризации блюда через LLM с использованием fallback модели');
+        return await this.categorizeDish(dishName, description, ingredients, userTelegramId, 'mistralai/mistral-small-3.1-24b-instruct', tryCount + 1);
+      } catch (errorFallback) {
+        ConsoleLogger.error('Не удалось категоризировать блюдо через LLM с использованием fallback модели', errorFallback as Error);
+        return EDishCategory.MAIN;
+      }
     }
   };
 
