@@ -375,6 +375,7 @@ ${menuList}
     userTelegramId,
     params,
     waitTimeoutMs,
+    provider,
   }: TLLMCallParams): Promise<string> => {
     const startTime = Date.now();
 
@@ -393,6 +394,7 @@ ${menuList}
       params: {
         ...params,
       },
+      provider,
       response_format: responseFormat,
     };
 
@@ -836,6 +838,9 @@ ${menuList}
         model: 'mistralai/mistral-small-3.1-24b-instruct',
         userTelegramId,
         waitTimeoutMs: 90000,
+        provider: {
+          order: ['deepinfra/fp8', 'nebius/fp8'],
+        },
       })));
 
       // Parse JSON block and map categories back to original order

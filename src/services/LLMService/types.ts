@@ -28,6 +28,7 @@ export interface TLLMRequest {
   response_format?: ResponseFormatText
     | ResponseFormatJSONSchema
     | ResponseFormatJSONObject;
+  provider?: Record<string, unknown>;
 }
 
 export interface TLLMResponse {
@@ -64,6 +65,7 @@ export interface TLLMCallParams {
   userTelegramId?: number;
   params?: TLLMParams;
   waitTimeoutMs?: number;
+  provider?: Record<string, unknown>;
 }
 
 export interface TLLMStructureQueryStructuredOutput {
