@@ -51,6 +51,10 @@ export class SearchService {
         throw AppError.userNotFound(telegramId);
       }
 
+      if (!user.city) {
+        throw AppError.validationError('USER_CITY_NOT_FOUND', 'Город пользователя не найден');
+      }
+
       // Параллельно получаем рестораны и структурируем запрос через менеджер
       const restaurants = await this.getRestaurants(user.city);
       const structuredQuery = await this.llmService.stuctureQuery(naturalQuery, restaurants);

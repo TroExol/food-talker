@@ -37,7 +37,7 @@ export interface TBotContext<T extends Update = Update> extends TTelegrafContext
     telegramId: string;
     chatId: string;
     state: EUserState;
-    city?: string;
+    city: string | null;
   };
   rateLimit?: {
     requests: number;

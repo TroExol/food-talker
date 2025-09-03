@@ -77,7 +77,7 @@ describe('UserService', () => {
         expect.objectContaining({
           telegramId,
           chatId,
-          city: EAvailableCities.PERM,
+          city: null,
           subscription: ESubscriptionType.BASIC,
         }),
       );

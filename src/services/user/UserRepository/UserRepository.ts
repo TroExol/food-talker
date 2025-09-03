@@ -25,7 +25,7 @@ export class UserRepository {
       `, [
         userData.telegramId,
         userData.chatId,
-        userData.city,
+        userData.city ?? null,
         userData.subscription,
         userData.subscriptionExpiry?.toISOString() ?? null,
         now,

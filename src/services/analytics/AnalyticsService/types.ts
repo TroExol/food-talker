@@ -42,7 +42,7 @@ export interface TTrackNeuralSummaryParams {
 export interface TTrackBotCommandParams {
   command: string;
   userState: string;
-  userCity?: string;
+  userCity: string | null;
   userId: string;
 }
 
@@ -83,7 +83,7 @@ export interface TTrackBotCommandErrorParams {
 export interface TTrackMessageReceivedParams {
   messageLength: number;
   userState: string;
-  userCity?: string;
+  userCity: string | null;
   messageType: string;
   userId: string;
 }
@@ -116,7 +116,7 @@ export interface TTrackCallbackButtonClickedParams {
 export interface TTrackCitySelectionCompletedParams {
   selectedCity: string;
   selectionMethod: string;
-  oldCity?: string;
+  oldCity: string | null;
   userId: string;
 }
 

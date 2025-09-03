@@ -6,7 +6,6 @@ import type { MenuRepository } from '@/services/menu/MenuRepository/MenuReposito
 
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
-import { botConfig } from '@/config/bot';
 
 import type { SchedulerService } from '../SchedulerService/SchedulerService';
 
@@ -75,7 +74,7 @@ export class AppSchedulerService {
     this.schedulerService.addJob({
       id: 'ye-restaurants-update',
       name: 'Обновление данных ресторанов Яндекс.Еда',
-      cronExpression: '*/40 * * * *', // каждые 40 минут
+      cronExpression: '*/30 * * * *', // 00:00, 00:30, 01:00, 01:30
       task: async () => {
         ConsoleLogger.info('Начало запланированного обновления данных ресторанов Яндекс.Еда');
         await this.yeDataCollectionService.updateRestaurants();
@@ -87,7 +86,7 @@ export class AppSchedulerService {
     this.schedulerService.addJob({
       id: 'unavailable-expired-dishes',
       name: 'Установка недоступными просроченные блюда',
-      cronExpression: `*/${botConfig.cache.ttlMenu / 60} * * * *`,
+      cronExpression: `20,50 * * * *`, // 00:20, 00:50, 01:20, 01:50
       task: async () => {
         ConsoleLogger.info('Начало запланированной установки недоступными просроченных блюд');
         await this.menuRepository.unavailableExpiredDishes();

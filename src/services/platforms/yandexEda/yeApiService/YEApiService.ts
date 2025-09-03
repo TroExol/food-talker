@@ -121,7 +121,7 @@ export class YEApiService {
 
       if (cached && searchInCache) {
         ConsoleLogger.debug('Кэш ресторанов Яндекс.Еда найден', { coordinates, cacheKey });
-        return cached;
+        return cached.slice(0, 1);
       }
 
       // Загружаем из API
@@ -141,7 +141,7 @@ export class YEApiService {
         cacheKey,
       });
 
-      return restaurants;
+      return restaurants.slice(0, 1);
     } catch (error) {
       ConsoleLogger.error('Не удалось загрузить рестораны Яндекс.Еда', error as Error, { coordinates });
       throw AppError.apiError(`Не удалось загрузить рестораны Яндекс.Еда для ${city}`, error);

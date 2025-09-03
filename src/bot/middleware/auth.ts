@@ -29,6 +29,7 @@ export class AuthMiddleware {
         telegramId,
         chatId,
         state: EUserState.WAITING_FOR_CITY,
+        city: null,
       };
     } else {
       // Пользователь существует, устанавливаем состояние IDLE
@@ -36,7 +37,7 @@ export class AuthMiddleware {
         telegramId,
         chatId,
         state: EUserState.IDLE,
-        city: user.city,
+        city: user.city ?? null,
       };
     }
 

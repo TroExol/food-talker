@@ -588,7 +588,7 @@ ${menuList}
       if (typeof query.priceMin === 'number' || typeof query.priceMax === 'number') {
         repairedQuery.priceRange = {
           min: query.priceMin ?? 0,
-          max: query.priceMax ?? Number.MAX_SAFE_INTEGER,
+          max: query.priceMax ?? 99999,
         };
       }
     }
@@ -599,7 +599,7 @@ ${menuList}
       }
 
       if (repairedQuery.priceRange.max < 0) {
-        repairedQuery.priceRange = { min: repairedQuery.priceRange.min, max: Number.MAX_SAFE_INTEGER };
+        repairedQuery.priceRange = { min: repairedQuery.priceRange.min, max: 99999 };
       }
 
       if (repairedQuery.priceRange.min > repairedQuery.priceRange.max) {
@@ -607,8 +607,9 @@ ${menuList}
       }
     }
 
-    if (query.category) {
-      repairedQuery.category = query.category.toLowerCase().trim() as EDishCategory;
+    const category = query.category?.toLowerCase().trim();
+    if (query.category && Object.values(EDishCategory).includes(category as EDishCategory)) {
+      repairedQuery.category = category as EDishCategory;
     }
 
     if (
@@ -648,7 +649,7 @@ ${menuList}
         if (typeof query.exclusions_priceMin === 'number' || typeof query.exclusions_priceMax === 'number') {
           repairedQuery.exclusions.priceRange = {
             min: query.exclusions_priceMin ?? 0,
-            max: query.exclusions_priceMax ?? Number.MAX_SAFE_INTEGER,
+            max: query.exclusions_priceMax ?? 99999,
           };
         }
       }
@@ -667,8 +668,9 @@ ${menuList}
         }
       }
 
-      if (query.exclusions_category) {
-        repairedQuery.exclusions.category = query.exclusions_category.toLowerCase().trim() as EDishCategory;
+      const exclusionsCategory = query.exclusions_category?.toLowerCase().trim();
+      if (query.exclusions_category && Object.values(EDishCategory).includes(exclusionsCategory as EDishCategory)) {
+        repairedQuery.exclusions.category = exclusionsCategory as EDishCategory;
       }
     }
 

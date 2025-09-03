@@ -12,7 +12,7 @@ export const SEARCH_LIMITS_PER_DAY = {
 export interface TUser {
   telegramId: string;
   chatId: string;
-  city: EAvailableCities;
+  city: EAvailableCities | null;
   subscription: ESubscriptionType;
   subscriptionExpiry: Date | null;
   createdAt: Date;
@@ -22,7 +22,7 @@ export interface TUser {
 export interface TUserEntity {
   telegram_id: string;
   chat_id: string;
-  city: EAvailableCities;
+  city: EAvailableCities | null;
   subscription_type: string;
   subscription_expiry: string | null; // ISO string
   created_at: string; // ISO string

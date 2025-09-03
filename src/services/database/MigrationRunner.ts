@@ -192,7 +192,7 @@ const migrations: TMigration[] = [
         CREATE TABLE IF NOT EXISTS users (
           telegram_id TEXT PRIMARY KEY,
           chat_id TEXT NOT NULL,
-          city TEXT NOT NULL,
+          city TEXT,
           subscription_type TEXT NOT NULL DEFAULT 'basic',
           subscription_expiry TEXT,
           created_at TEXT DEFAULT now(),

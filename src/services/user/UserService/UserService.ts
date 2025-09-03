@@ -9,12 +9,12 @@ import type {
 } from '@/services/user/UserRepository/types';
 import type { NeuralRequestLoggingService } from '@/services/NeuralRequestLoggingService/NeuralRequestLoggingService';
 import type { CacheService } from '@/services/cacheService/CacheService';
+import type { EAvailableCities } from '@/config/bot/types';
 
 import { Validator } from '@/utils/Validator';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppError } from '@/utils/AppError';
 import { ESubscriptionType, SEARCH_LIMITS_PER_DAY } from '@/services/user/UserRepository/types';
-import { EAvailableCities } from '@/config/bot/types';
 
 import type { UserRepository } from '../UserRepository/UserRepository';
 
@@ -49,7 +49,7 @@ export class UserService {
       const userData = {
         telegramId,
         chatId,
-        city: EAvailableCities.PERM, // Город по умолчанию
+        city: null, // Город по умолчанию
         subscription: ESubscriptionType.BASIC,
         subscriptionExpiry: null,
       };

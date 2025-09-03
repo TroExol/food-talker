@@ -133,7 +133,7 @@ describe('MessageHandlers', () => {
         expect(mockAnalyticsService.trackMessageReceived).toHaveBeenCalled();
         expect(mockAnalyticsService.trackSearchLimitExceeded).toHaveBeenCalled();
         expect(mockContext.reply).toHaveBeenCalledWith(
-          'Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.',
+          'Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации',
         );
       }
     });
@@ -191,7 +191,7 @@ describe('MessageHandlers', () => {
         await textHandler.handler(mockContext as unknown as TBotContext);
 
         expect(mockContext.reply).toHaveBeenCalledWith(
-          'Ошибка при поиске. Попробуйте еще раз.',
+          'Ошибка при поиске. Попробуйте еще раз',
         );
       }
     });

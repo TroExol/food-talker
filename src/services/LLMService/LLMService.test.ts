@@ -545,7 +545,7 @@ describe('LLMService', () => {
 
       expect(result).toEqual({
         semanticQuery: 'тест',
-        priceRange: { min: 100, max: Number.MAX_SAFE_INTEGER },
+        priceRange: { min: 100, max: 99999 },
       });
     });
 
@@ -680,7 +680,7 @@ describe('LLMService', () => {
         semanticQuery: 'тест',
         restaurants: ['додо пицца', 'папа джонс'],
         tags: ['пицца', 'сыр'],
-        priceRange: { min: 0, max: Number.MAX_SAFE_INTEGER },
+        priceRange: { min: 0, max: 99999 },
         exclusions: {
           restaurants: ['додо пицца'],
           tags: ['ананас'],

@@ -107,7 +107,7 @@ export class MessageHandlers {
       this.analyticsService.trackCitySelectionCompleted({
         selectedCity,
         selectionMethod: 'callback',
-        oldCity,
+        oldCity: oldCity ?? null,
         userId,
       });
 
@@ -127,7 +127,7 @@ export class MessageHandlers {
 
       // Отправляем приветственное сообщение
       const userName = ctx.from?.first_name;
-      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName, selectedCity);
+      const formattedMessage = this.messageFormatter.formatWelcomeMessage(selectedCity, userName);
 
       await ctx.reply(formattedMessage.text, {
         parse_mode: formattedMessage.parseMode,
@@ -159,7 +159,7 @@ export class MessageHandlers {
     this.analyticsService.trackMessageReceived({
       messageLength: messageText.length,
       userState: ctx.user.state,
-      userCity: ctx.user.city,
+      userCity: ctx.user.city ?? null,
       messageType: 'text',
       userId,
     });
@@ -190,7 +190,7 @@ export class MessageHandlers {
 
     if (!supportedCities.includes(normalizedCity as EAvailableCities)) {
       await ctx.reply(
-        `Этот город пока не поддерживается. Доступные города: ${supportedCities.join(', ')}\n\nИспользуйте команду /address для выбора города.`,
+        `Этот город пока не поддерживается\nДоступные города: ${supportedCities.join(', ')}\n\nНапишите название города или используйте команду /address`,
       );
       return;
     }
@@ -223,7 +223,7 @@ export class MessageHandlers {
       });
 
       const userName = ctx.from?.first_name;
-      const formattedMessage = this.messageFormatter.formatWelcomeMessage(userName, normalizedCity);
+      const formattedMessage = this.messageFormatter.formatWelcomeMessage(normalizedCity, userName);
 
       await ctx.reply(formattedMessage.text, {
         parse_mode: formattedMessage.parseMode,
@@ -234,7 +234,7 @@ export class MessageHandlers {
         telegramId: userId,
         city: normalizedCity,
       });
-      await ctx.reply('Ошибка при установке города. Попробуйте еще раз.');
+      await ctx.reply('Ошибка при установке города. Попробуйте еще раз');
     }
   };
 
@@ -254,14 +254,14 @@ export class MessageHandlers {
     // Проверяем длину запроса
     if (query.length > botConfig.sanitizer.userSearchPrompt.maxLength) {
       await ctx.reply(
-        'Запрос слишком длинный. Максимальная длина - 500 символов.',
+        'Запрос слишком длинный. Максимальная длина - 500 символов',
       );
       return;
     }
 
     if (query.length < botConfig.sanitizer.userSearchPrompt.minLength) {
       await ctx.reply(
-        'Запрос слишком короткий. Опишите, что хотите найти.',
+        'Запрос слишком короткий. Опишите, что хотите найти',
       );
       return;
     }
@@ -281,7 +281,7 @@ export class MessageHandlers {
         userId,
       });
 
-      await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.');
+      await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации');
       return;
     }
 
@@ -339,7 +339,7 @@ export class MessageHandlers {
         city: ctx.user.city,
         query,
       });
-      await ctx.reply('Ошибка при поиске. Попробуйте еще раз.');
+      await ctx.reply('Ошибка при поиске. Попробуйте еще раз');
     } finally {
       ctx.user.state = EUserState.IDLE;
     }

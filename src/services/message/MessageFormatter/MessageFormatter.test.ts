@@ -38,7 +38,7 @@ describe('MessageFormatterService', () => {
 
   describe('formatWelcomeMessage', () => {
     it('должен форматировать приветственное сообщение без имени пользователя', () => {
-      const result = messageFormatter.formatWelcomeMessage();
+      const result = messageFormatter.formatWelcomeMessage(null);
 
       expect(result.text).toContain('Привет! 👋');
       expect(result.text).toContain('Food Talker');
@@ -47,7 +47,7 @@ describe('MessageFormatterService', () => {
     });
 
     it('должен форматировать приветственное сообщение с именем пользователя', () => {
-      const result = messageFormatter.formatWelcomeMessage('Иван');
+      const result = messageFormatter.formatWelcomeMessage(null, 'Иван');
 
       expect(result.text).toContain('Привет, Иван! 👋');
       expect(result.text).toContain('Food Talker');
