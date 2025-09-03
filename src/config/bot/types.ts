@@ -1,7 +1,7 @@
 export enum EAvailableCities {
-  // KAZAN = 'Казань',
+  KAZAN = 'Казань',
   // KRASNODAR = 'Краснодар',
-  // MOSCOW = 'Москва',
+  MOSCOW = 'Москва',
   // NIZHNY_NOVGOROD = 'Нижний Новгород',
   PERM = 'Пермь',
   // ST_PETERSBURG = 'Санкт-Петербург',

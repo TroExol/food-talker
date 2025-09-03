@@ -89,8 +89,8 @@ describe('YEDataCollectionService', () => {
       void dataCollectionService.updateRestaurants();
       await vi.runAllTimersAsync();
 
-      // В конфигурации только один город (Пермь) активен
-      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(1);
+      // В конфигурации 3 города
+      expect(mockCachedYEService.getRestaurants).toHaveBeenCalledTimes(3);
     });
 
     it('должен обработать ошибку API', async () => {
