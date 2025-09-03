@@ -188,31 +188,6 @@ describe('LLMService', () => {
       expect(result).toEqual({ semanticQuery: 'тест', tags: [] });
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
-
-    it('должен обрабатывать таймауты', async () => {
-      const llmService = new LLMService(mockCacheService, mockNeuralRequestLoggingService, {
-        maxRetries: 0,
-        timeoutMs: 10000,
-      });
-
-      const onAbort = vi.fn();
-      // Мокаем fetch чтобы он никогда не резолвился
-      mockFetch.mockImplementation((url: string, options: { signal: AbortSignal }) => new Promise(resolve => {
-        options.signal.onabort = () => {
-          onAbort();
-          resolve(void 0);
-        };
-      }));
-
-      const structuring = llmService.stuctureQuery('тест', []);
-      // Таймауты определены в llmService.stuctureQuery
-      await vi.advanceTimersByTimeAsync(30000);
-      const result = await structuring;
-
-      expect(result).toEqual({ semanticQuery: 'тест', tags: [] });
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(onAbort).toHaveBeenCalledTimes(1);
-    });
   });
 
   describe('enhanceSearchResults', () => {

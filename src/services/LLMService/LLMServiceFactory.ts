@@ -14,7 +14,7 @@ export class LLMServiceFactory {
         CacheServiceFactory.getRedisInstance(),
         await NeuralRequestLoggingServiceFactory.getInstance(),
         {
-          systemPrompt: 'Ты - помощник для поиска еды. Reasoning: low',
+          systemPrompt: 'Ты - помощник для поиска еды',
           timeoutMs: 40000,
         },
       );

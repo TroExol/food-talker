@@ -63,7 +63,6 @@ export class LLMService {
       }
 
       const MODEL = 'google/gemini-2.5-flash-lite:nitro';
-      const FALLBACK_MODEL = 'openai/gpt-5-mini';
 
       const availableRestaurants = restaurants.map(r => r.name);
       const {
@@ -71,18 +70,13 @@ export class LLMService {
         responseFormat,
         systemPrompt,
       } = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants, MODEL);
-      const {
-        systemPrompt: fallbackSystemPrompt,
-      } = this.buildStructureQueryPrompt(naturalQuery, availableRestaurants, FALLBACK_MODEL);
 
       const response = await this.callLLMWithLogging({
         prompt,
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_STRUCTURE_QUERY,
         model: MODEL,
-        fallbackModel: FALLBACK_MODEL,
         systemPrompt,
-        fallbackSystemPrompt,
         responseFormat,
         userTelegramId,
         params: {
@@ -92,7 +86,6 @@ export class LLMService {
         reasoning: {
           effort: 'medium',
         },
-        fallbackReasoning: {},
       });
       const structuredQuery = this.parseStructuredQuery(naturalQuery, availableRestaurants, response);
 
@@ -142,16 +135,14 @@ export class LLMService {
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_ENHANCE_RESULTS,
         model: 'google/gemini-2.5-flash-lite:nitro',
-        fallbackModel: 'openai/gpt-5-nano',
         userTelegramId,
         params: {
-          max_tokens: 50000,
+          max_tokens: 35000,
         },
         waitTimeoutMs: 60000,
         reasoning: {
           effort: 'medium',
         },
-        fallbackReasoning: {},
       });
       const enhancedResults = this.parseEnhancedResults(response, results);
 
@@ -405,11 +396,6 @@ ${menuList}
       }
 
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-        }, waitTimeoutMs || this.timeoutMs);
-
         const response = await fetch(`${this.apiBaseUrl}${url}`, {
           method: 'POST',
           headers: {
@@ -419,10 +405,8 @@ ${menuList}
             'HTTP-Referer': 'https://foodtalker.ru',
           },
           body: JSON.stringify(request),
-          signal: controller.signal,
+          signal: AbortSignal.timeout(waitTimeoutMs || this.timeoutMs),
         });
-
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
           throw AppError.llmError(`HTTP ${response.status}: ${response.statusText}`, {
@@ -460,7 +444,9 @@ ${menuList}
           });
 
           throw AppError.llmError('Пустой ответ от LLM', {
-            response,
+            status: response.status,
+            statusText: response.statusText,
+            responseData: JSON.stringify(data),
           });
         }
 
@@ -512,7 +498,11 @@ ${menuList}
             attempt: attempt + 1,
           },
           responseData: {
-            error: error instanceof Error ? error.message : String(error),
+            error: error instanceof AppError
+              ? JSON.stringify(error.details)
+              : error instanceof Error
+                ? error.message
+                : String(error),
             attempt: attempt + 1,
           },
           processingTimeMs: processingTime,
@@ -522,7 +512,14 @@ ${menuList}
           throw error;
         }
 
-        ConsoleLogger.warn(`LLM попытка ${attempt + 1} не удалась, повторяю...`, error as Error);
+        ConsoleLogger.warn(`LLM попытка ${attempt + 1} не удалась, повторяю...`, {
+          error: error instanceof AppError
+            ? JSON.stringify(error.details)
+            : error instanceof Error
+              ? error.message
+              : String(error),
+        },
+        );
         await sleep(1000 * (attempt + 1));
       }
     }
