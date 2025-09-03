@@ -1,9 +1,11 @@
+import type { TelegramUpdate, TelegramUser } from '@tonsolutions/telemetree-node';
+
 export interface AnalyticsEvent {
   name: string;
   parameters: Record<string, unknown>;
   timestamp: number;
-  user_id?: string;
-  session_id?: string;
+  user: TelegramUser; // Telegram пользователь
+  update?: TelegramUpdate; // Telegram обновление для trackUpdate
 }
 
 export interface NeuralSummary {
@@ -14,6 +16,7 @@ export interface NeuralSummary {
   average_response_time_ms: number;
   total_tokens_used?: number;
   total_vectors_processed?: number;
+  user: TelegramUser;
 }
 
 export interface TAnalyticsConfig {
@@ -27,23 +30,27 @@ export interface TAnalyticsConfig {
 export interface TTrackErrorParams {
   error: Error;
   context: Record<string, unknown>;
+  user: TelegramUser;
 }
 
 export interface TTrackPerformanceParams {
   operation: string;
   duration: number;
+  user: TelegramUser;
 }
 
 export interface TTrackNeuralSummaryParams {
   serviceType: 'llm' | 'embedding';
   summary: NeuralSummary;
+  user: TelegramUser;
 }
 
 export interface TTrackBotCommandParams {
   command: string;
   userState: string;
   userCity: string | null;
-  userId: string;
+  user: TelegramUser;
+  update?: TelegramUpdate; // Для отслеживания команды через trackUpdate
 }
 
 export interface TTrackSearchQueryStartedParams {
@@ -51,7 +58,7 @@ export interface TTrackSearchQueryStartedParams {
   query: string;
   userCity: string;
   searchOptions: Record<string, unknown>;
-  userId: string;
+  user: TelegramUser;
 }
 
 export interface TTrackSearchQueryCompletedParams {
@@ -62,14 +69,14 @@ export interface TTrackSearchQueryCompletedParams {
   searchMethod: string;
   hasLlmEnhancement: boolean;
   hasVectorSearch: boolean;
-  userId: string;
+  user: TelegramUser;
 }
 
 export interface TTrackUserStateChangedParams {
   oldState: string;
   newState: string;
   trigger: string;
-  userId: string;
+  user: TelegramUser;
 }
 
 export interface TTrackBotCommandErrorParams {
@@ -77,7 +84,7 @@ export interface TTrackBotCommandErrorParams {
   errorType: string;
   errorMessage: string;
   userState: string;
-  userId?: string;
+  user: TelegramUser;
 }
 
 export interface TTrackMessageReceivedParams {
@@ -85,17 +92,8 @@ export interface TTrackMessageReceivedParams {
   userState: string;
   userCity: string | null;
   messageType: string;
-  userId: string;
-}
-
-export interface TTrackSearchQueryErrorParams {
-  id: string;
-  queryLength: number;
-  errorType: string;
-  errorMessage: string;
-  processingTimeMs: number;
-  searchMethod: string;
-  userId?: string;
+  user: TelegramUser;
+  update: TelegramUpdate; // Обязательно для отслеживания сообщения
 }
 
 export interface TTrackSearchLimitExceededParams {
@@ -103,68 +101,48 @@ export interface TTrackSearchLimitExceededParams {
   searchesToday: number;
   searchLimit: number;
   remainingSearches: number;
-  userId: string;
+  user: TelegramUser;
 }
 
 export interface TTrackCallbackButtonClickedParams {
   buttonType: string;
   buttonData: string;
   userState: string;
-  userId: string;
+  user: TelegramUser;
 }
 
 export interface TTrackCitySelectionCompletedParams {
   selectedCity: string;
   selectionMethod: string;
   oldCity: string | null;
-  userId: string;
+  user: TelegramUser;
 }
 
 export interface TTrackItemSelectionCompletedParams {
   searchHistoryId: string;
   itemIndex: number;
   hasPhoto: boolean;
-  userId: string;
+  user: TelegramUser;
 }
 
 export interface TTrackPageNavigationCompletedParams {
   searchHistoryId: string;
   pageNumber: number;
   totalPages: number;
-  userId: string;
+  user: TelegramUser;
 }
 
 export interface TTrackHistoryItemRepeatedParams {
   historyItemId: string;
   originalQuery: string;
   queryLength: number;
-  userId: string;
-}
-
-export interface TTrackNeuralServiceErrorParams {
-  serviceType: 'llm' | 'embedding';
-  errorType: string;
-  errorMessage: string;
-  retryCount: number;
-}
-
-export interface TTrackRateLimitExceededParams {
-  limitType: string;
-  currentRequests: number;
-  limitValue: number;
-  userId?: string;
-}
-
-export interface TTrackCacheMissParams {
-  cacheType: string;
-  cacheKey: string;
-  dataType: string;
+  user: TelegramUser;
 }
 
 export interface TTrackSearchHistoryViewedParams {
   historyItemsCount: number;
   viewedItemsCount: number;
-  userId: string;
+  user: TelegramUser;
 }
 
 export interface TTrackUserStatsViewedParams {
@@ -172,17 +150,5 @@ export interface TTrackUserStatsViewedParams {
   searchesToday: number;
   searchesThisMonth: number;
   totalSearches: number;
-  userId: string;
-}
-
-export interface TTrackBotStartedParams {
-  botVersion: string;
-  environment: string;
-  startupTimeMs: number;
-}
-
-export interface TTrackBotStoppedParams {
-  uptimeMinutes: number;
-  totalRequests: number;
-  totalErrors: number;
+  user: TelegramUser;
 }

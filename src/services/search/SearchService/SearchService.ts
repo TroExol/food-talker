@@ -1,3 +1,5 @@
+import type { User } from 'telegraf/types';
+
 import { createHash } from 'crypto';
 
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
@@ -33,7 +35,7 @@ export class SearchService {
 
   public searchFood = async (
     naturalQuery: string,
-    telegramId: string,
+    user: User,
     options: TSearchOptions = {
       enableVectorSearch: false,
     },
@@ -41,29 +43,29 @@ export class SearchService {
     const startTime = Date.now();
 
     try {
-      ConsoleLogger.info('Начинаем поиск еды', { query: naturalQuery, telegramId, options });
+      ConsoleLogger.info('Начинаем поиск еды', { query: naturalQuery, telegramId: user.id, options });
 
       // Валидация входных данных
-      this.validateSearchInput(naturalQuery, telegramId);
+      this.validateSearchInput(naturalQuery, user.id.toString());
 
-      const user = await this.userService.getUser(telegramId);
-      if (!user) {
-        throw AppError.userNotFound(telegramId);
+      const userDb = await this.userService.getUser(user.id.toString());
+      if (!userDb) {
+        throw AppError.userNotFound(user.id.toString());
       }
 
-      if (!user.city) {
+      if (!userDb.city) {
         throw AppError.validationError('USER_CITY_NOT_FOUND', 'Город пользователя не найден');
       }
 
       // Параллельно получаем рестораны и структурируем запрос через менеджер
-      const restaurants = await this.getRestaurants(user.city);
+      const restaurants = await this.getRestaurants(userDb.city);
       const structuredQuery = await this.llmService.stuctureQuery(naturalQuery, restaurants);
 
       // Используем векторный поиск вместо структурированного
       let results = options.enableVectorSearch
         ? options.searchIn === 'lightRAG'
-          ? await this.searchWithLightRAG(user.city, structuredQuery.semanticQuery, structuredQuery)
-          : await this.searchWithRAG(user.city, structuredQuery.semanticQuery, structuredQuery)
+          ? await this.searchWithLightRAG(userDb.city, structuredQuery.semanticQuery, structuredQuery)
+          : await this.searchWithRAG(userDb.city, structuredQuery.semanticQuery, structuredQuery)
         : [];
 
       // Если векторный поиск не дал результатов, используем фильтрацию и ранжирование
@@ -72,7 +74,7 @@ export class SearchService {
           query: structuredQuery.semanticQuery,
           structuredQuery,
         });
-        results = await this.platformsSearch(structuredQuery, user.city);
+        results = await this.platformsSearch(structuredQuery, userDb.city);
       }
 
       // Ограничиваем количество результатов для LLM-обработки
@@ -82,34 +84,34 @@ export class SearchService {
         ? await this.llmService.enhanceSearchResults(results, structuredQuery.semanticQuery)
         : results;
 
-      await this.saveSearchHistory(telegramId, naturalQuery, structuredQuery, results);
+      await this.saveSearchHistory(user.id.toString(), naturalQuery, structuredQuery, results);
 
       const duration = Date.now() - startTime;
       ConsoleLogger.info('Поиск еды завершен', {
         query: naturalQuery,
-        telegramId,
+        telegramId: user.id,
         resultsCount: results.length,
         duration,
-        city: user.city,
+        city: userDb.city,
       });
 
       // Отслеживаем производительность поиска
-      this.analyticsService.trackPerformance({ operation: 'search_food', duration });
+      this.analyticsService.trackPerformance({ operation: 'search_food', duration, user });
 
       return results;
     } catch (error) {
       // Отслеживаем ошибку поиска
       this.analyticsService.trackError({
         error: error as Error,
+        user,
         context: {
           component: 'search_service',
           user_action: 'search_food',
-          user_id: telegramId,
           query: naturalQuery,
         },
       });
 
-      ConsoleLogger.error('Ошибка поиска еды', error as Error, { query: naturalQuery, telegramId });
+      ConsoleLogger.error('Ошибка поиска еды', error as Error, { query: naturalQuery, telegramId: user.id });
       throw this.handleSearchError(error, naturalQuery);
     }
   };

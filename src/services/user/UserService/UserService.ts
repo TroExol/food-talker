@@ -1,3 +1,5 @@
+import type { User } from 'telegraf/types';
+
 import { createHash } from 'crypto';
 
 import type { TSearchResultItem, TStructuredQuery } from '@/types/search';
@@ -305,26 +307,26 @@ export class UserService {
     return `user_service:${createHash('sha256').update(data).digest('hex')}`;
   };
 
-  public checkSearchLimit = async (telegramId: string): Promise<boolean> => {
-    const validation = Validator.validateTelegramId(telegramId);
+  public checkSearchLimit = async (user: User): Promise<boolean> => {
+    const validation = Validator.validateTelegramId(user.id.toString());
     if (!validation.isValid) {
       throw AppError.validationError('INVALID_TELEGRAM_ID', validation.errors[0]);
     }
 
     try {
-      const user = await this.getUser(telegramId);
-      if (!user) {
-        throw AppError.userNotFound(telegramId);
+      const userDb = await this.getUser(user.id.toString());
+      if (!userDb) {
+        throw AppError.userNotFound(user.id.toString());
       }
 
-      const searchLimit = SEARCH_LIMITS_PER_DAY[user.subscription];
-      const searchesToday = await this.getSearchesToday(telegramId);
+      const searchLimit = SEARCH_LIMITS_PER_DAY[userDb.subscription];
+      const searchesToday = await this.getSearchesToday(userDb.telegramId);
 
       const canSearch = searchesToday < searchLimit;
 
       ConsoleLogger.info('Проверка лимита поиска', {
-        telegramId,
-        subscription: user.subscription,
+        telegramId: user.id,
+        subscription: userDb.subscription,
         searchLimit,
         searchesToday,
         canSearch,
@@ -335,7 +337,7 @@ export class UserService {
       if (error instanceof AppError) {
         throw error;
       }
-      ConsoleLogger.error('Ошибка проверки лимита поиска', error as Error, { telegramId });
+      ConsoleLogger.error('Ошибка проверки лимита поиска', error as Error, { telegramId: user.id });
       throw AppError.systemError('SEARCH_LIMIT_CHECK_FAILED', 'Не удалось проверить лимит поиска');
     }
   };

@@ -3,7 +3,7 @@ import { botConfig } from '@/config/bot';
 import type { TAnalyticsConfig } from './types';
 
 import { AnalyticsService } from './AnalyticsService';
-import { YandexMetricaServiceFactory } from '../YandexMetricaService/YandexMetricaServiceFactory';
+import { TelemetreeServiceFactory } from '../TelemetreeService/TelemetreeServiceFactory';
 
 export class AnalyticsServiceFactory {
   private static instance: AnalyticsService | null = null;
@@ -19,7 +19,7 @@ export class AnalyticsServiceFactory {
       };
 
       AnalyticsServiceFactory.instance = new AnalyticsService(
-        YandexMetricaServiceFactory.getInstance(),
+        TelemetreeServiceFactory.getInstance(),
         config,
       );
     }

@@ -117,6 +117,7 @@ describe('CommandHandlers', () => {
     it('должен проверять лимит поиска перед выполнением', async () => {
       const mockContext = {
         user: { telegramId: 123456789, city: 'Пермь' },
+        from: { id: '123456789' },
         message: { text: '/search пицца' },
         reply: vi.fn(),
         chat: { id: 123 },
@@ -150,7 +151,7 @@ describe('CommandHandlers', () => {
       if (searchHandler) {
         await searchHandler.handler(mockContext as unknown as TBotContext);
 
-        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith(123456789);
+        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith({ id: '123456789' });
         expect(mockAnalyticsService.trackSearchLimitExceeded).toHaveBeenCalled();
         expect(mockContext.reply).toHaveBeenCalledWith(
           'Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации.',
@@ -161,6 +162,7 @@ describe('CommandHandlers', () => {
     it('должен выполнять поиск если лимит не превышен', async () => {
       const mockContext = {
         user: { telegramId: 123456789, city: 'Пермь' },
+        from: { id: '123456789' },
         message: { text: '/search пицца' },
         reply: vi.fn(),
         chat: { id: 123 },
@@ -185,7 +187,7 @@ describe('CommandHandlers', () => {
       if (searchHandler) {
         await searchHandler.handler(mockContext as unknown as TBotContext);
 
-        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith(123456789);
+        expect(mockUserService.checkSearchLimit).toHaveBeenCalledWith({ id: '123456789' });
         expect(mockSearchService.searchFood).toHaveBeenCalled();
       }
     });
@@ -195,6 +197,7 @@ describe('CommandHandlers', () => {
     it('должен показывать статистику поиска', async () => {
       const mockContext = {
         user: { telegramId: 123456789 },
+        from: { id: '123456789' },
         reply: vi.fn(),
       };
 
@@ -239,6 +242,7 @@ describe('CommandHandlers', () => {
     it('должен обрабатывать ошибки при получении статистики', async () => {
       const mockContext = {
         user: { telegramId: 123456789 },
+        from: { id: '123456789' },
         reply: vi.fn(),
       };
 

@@ -31,14 +31,16 @@ export enum EUserState {
   WAITING_FOR_SEARCH_QUERY = 'waiting_for_search_query',
 }
 
+export interface TContextUser {
+  telegramId: string;
+  chatId: string;
+  state: EUserState;
+  city: string | null;
+}
+
 // Bot middleware context extension
 export interface TBotContext<T extends Update = Update> extends TTelegrafContext<T> {
-  user?: {
-    telegramId: string;
-    chatId: string;
-    state: EUserState;
-    city: string | null;
-  };
+  user?: TContextUser;
   rateLimit?: {
     requests: number;
     lastReset: number;

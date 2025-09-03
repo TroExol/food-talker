@@ -24,16 +24,18 @@ export class ErrorHandlerMiddleware {
       ConsoleLogger.error('Bot error:', error as Error);
 
       // Отслеживаем ошибку в аналитике
-      this.analyticsService.trackError({
-        error: error as Error,
-        context: {
-          component: 'bot_middleware',
-          user_action: 'unknown',
-          user_id: userId,
-          chat_id: chatId,
-          username: ctx.from?.username,
-        },
-      });
+      if (ctx.from) {
+        this.analyticsService.trackError({
+          error: error as Error,
+          context: {
+            component: 'bot_middleware',
+            user_action: 'unknown',
+            chat_id: chatId,
+            username: ctx.from.username,
+          },
+          user: ctx.from,
+        });
+      }
 
       // Отправляем уведомление админу для критических ошибок
       if (error instanceof AppError) {

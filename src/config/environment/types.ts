@@ -17,9 +17,9 @@ export interface TEnvironment {
   EMBEDDING_API_KEY: string;
   ADMIN_TELEGRAM_ID?: string;
   PROXY_URL?: string;
-  YANDEX_METRIKA_COUNTER_ID?: string;
-  YANDEX_METRIKA_MS?: string;
   LIGHTRAG_BASE_URL: string;
   LIGHTRAG_API_KEY: string;
   OPENAI_API_KEY: string;
+  TELEMETREE_PROJECT_ID?: string;
+  TELEMETREE_API_KEY?: string;
 }

@@ -59,7 +59,7 @@ export class MessageHandlers {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
     const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
-    if (!ctx.user) {
+    if (!ctx.user || !ctx.from) {
       throw AppError.userNotFound(userId);
     }
 
@@ -89,11 +89,12 @@ export class MessageHandlers {
       const oldCity = ctx.user.city;
 
       // Отслеживаем нажатие на callback кнопку
+
       this.analyticsService.trackCallbackButtonClicked({
         buttonType: 'city_selection',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId,
+        user: ctx.from,
       });
 
       // Обновляем город пользователя
@@ -104,11 +105,12 @@ export class MessageHandlers {
       ctx.user.state = EUserState.IDLE;
 
       // Отслеживаем завершение выбора города
+
       this.analyticsService.trackCitySelectionCompleted({
         selectedCity,
         selectionMethod: 'callback',
         oldCity: oldCity ?? null,
-        userId,
+        user: ctx.from,
       });
 
       // Отслеживаем изменение состояния пользователя
@@ -116,7 +118,7 @@ export class MessageHandlers {
         oldState,
         newState: EUserState.IDLE,
         trigger: 'city_selection',
-        userId,
+        user: ctx.from,
       });
 
       await ctx.answerCbQuery(`Город изменен на: ${selectedCity}`);
@@ -134,6 +136,14 @@ export class MessageHandlers {
         reply_markup: formattedMessage.replyMarkup,
       });
     } catch (error) {
+      this.analyticsService.trackBotCommandError({
+        command: 'city_selection_callback',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        user: ctx.from,
+      });
+
       ConsoleLogger.error('Ошибка при обновлении города', error as Error, {
         telegramId: userId,
         city: selectedCity,
@@ -146,7 +156,7 @@ export class MessageHandlers {
     const ctx = _ctx as TBotContext<Update.MessageUpdate<Message.TextMessage>>;
     const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
-    if (!ctx.user) {
+    if (!ctx.user || !ctx.from) {
       throw AppError.userNotFound(userId);
     }
 
@@ -155,13 +165,16 @@ export class MessageHandlers {
       return;
     }
 
+    // Создаем объект TelegramUser для аналитики
+
     // Отслеживаем получение сообщения
     this.analyticsService.trackMessageReceived({
       messageLength: messageText.length,
       userState: ctx.user.state,
       userCity: ctx.user.city ?? null,
       messageType: 'text',
-      userId,
+      user: ctx.from,
+      update: ctx.update, // Передаем полный update для trackUpdate
     });
 
     // Если пользователь ожидает выбора города
@@ -188,6 +201,10 @@ export class MessageHandlers {
     const normalizedCity = cityText.trim();
     const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
+    if (!ctx.from) {
+      throw AppError.userNotFound(userId);
+    }
+
     if (!supportedCities.includes(normalizedCity as EAvailableCities)) {
       await ctx.reply(
         `Этот город пока не поддерживается\nДоступные города: ${supportedCities.join(', ')}\n\nНапишите название города или используйте команду /address`,
@@ -211,7 +228,7 @@ export class MessageHandlers {
         selectedCity: normalizedCity,
         selectionMethod: 'text_input',
         oldCity,
-        userId,
+        user: ctx.from,
       });
 
       // Отслеживаем изменение состояния пользователя
@@ -219,7 +236,7 @@ export class MessageHandlers {
         oldState,
         newState: EUserState.IDLE,
         trigger: 'text_input',
-        userId,
+        user: ctx.from,
       });
 
       const userName = ctx.from?.first_name;
@@ -230,6 +247,14 @@ export class MessageHandlers {
         reply_markup: formattedMessage.replyMarkup,
       });
     } catch (error) {
+      this.analyticsService.trackBotCommandError({
+        command: 'city_text_input',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        user: ctx.from,
+      });
+
       ConsoleLogger.error('Ошибка при установке города', error as Error, {
         telegramId: userId,
         city: normalizedCity,
@@ -243,6 +268,10 @@ export class MessageHandlers {
     query: string,
   ): Promise<void> => {
     const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
+
+    if (!ctx.from) {
+      throw AppError.userNotFound(userId);
+    }
 
     if (!ctx.user?.city) {
       await ctx.reply(
@@ -266,7 +295,7 @@ export class MessageHandlers {
       return;
     }
 
-    const canSearch = await this.userService.checkSearchLimit(ctx.user.telegramId);
+    const canSearch = await this.userService.checkSearchLimit(ctx.from);
     if (!canSearch) {
       // Получаем статистику для отслеживания превышения лимита
       const stats = await this.userService.getSearchStats(ctx.user.telegramId);
@@ -278,7 +307,7 @@ export class MessageHandlers {
         searchesToday: stats.searchesToday,
         searchLimit: stats.searchLimit,
         remainingSearches: stats.remainingSearches,
-        userId,
+        user: ctx.from,
       });
 
       await ctx.reply('Достигнут лимит поиска. Воспользуйтесь командой /stats для подробной информации');
@@ -294,7 +323,7 @@ export class MessageHandlers {
       oldState,
       newState: EUserState.WAITING_FOR_SEARCH_QUERY,
       trigger: 'text_message',
-      userId,
+      user: ctx.from,
     });
 
     try {
@@ -305,7 +334,7 @@ export class MessageHandlers {
       }, 10000);
 
       // Выполняем поиск через SearchService
-      const results = await this.searchService.searchFood(query, ctx.user.telegramId, {
+      const results = await this.searchService.searchFood(query, ctx.from, {
         enableLLMEnhancement: true,
         enableVectorSearch: true,
         searchIn: 'RAG',
@@ -334,6 +363,14 @@ export class MessageHandlers {
         reply_markup: formattedResults.replyMarkup,
       });
     } catch (error) {
+      this.analyticsService.trackBotCommandError({
+        command: 'search_query',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        user: ctx.from,
+      });
+
       ConsoleLogger.error('Ошибка при поиске', error as Error, {
         telegramId: userId,
         city: ctx.user.city,
@@ -350,7 +387,7 @@ export class MessageHandlers {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
     const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
-    if (!ctx.user) {
+    if (!ctx.user || !ctx.from) {
       throw AppError.userNotFound(userId);
     }
 
@@ -375,7 +412,7 @@ export class MessageHandlers {
         buttonType: 'item_selection',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId,
+        user: ctx.from,
       });
 
       await ctx.answerCbQuery('Загружаем информацию о блюде...');
@@ -396,7 +433,7 @@ export class MessageHandlers {
         searchHistoryId,
         itemIndex,
         hasPhoto: !!searchResultItem.image,
-        userId,
+        user: ctx.from,
       });
 
       const formattedMessage = this.messageFormatter.formatMenuItem(searchResultItem);
@@ -416,6 +453,14 @@ export class MessageHandlers {
         });
       }
     } catch (error) {
+      this.analyticsService.trackBotCommandError({
+        command: 'item_selection',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        user: ctx.from,
+      });
+
       ConsoleLogger.error('Ошибка при получении информации о блюде', error as Error, {
         telegramId: userId,
         itemIndex,
@@ -428,7 +473,7 @@ export class MessageHandlers {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
     const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
-    if (!ctx.user) {
+    if (!ctx.user || !ctx.from) {
       throw AppError.userNotFound(userId);
     }
 
@@ -452,7 +497,7 @@ export class MessageHandlers {
         buttonType: 'history_item',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId,
+        user: ctx.from,
       });
 
       await ctx.answerCbQuery('Повторяем поиск...');
@@ -469,7 +514,7 @@ export class MessageHandlers {
         historyItemId,
         originalQuery: historyItem.query,
         queryLength: historyItem.query.length,
-        userId,
+        user: ctx.from,
       });
 
       await this.handleSearchQuery(
@@ -477,6 +522,14 @@ export class MessageHandlers {
         historyItem.query,
       );
     } catch (error) {
+      this.analyticsService.trackBotCommandError({
+        command: 'history_item_selection',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        user: ctx.from,
+      });
+
       ConsoleLogger.error('Ошибка при повторном поиске', error as Error, {
         telegramId: userId,
         historyItemId,
@@ -489,7 +542,7 @@ export class MessageHandlers {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
     const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
-    if (!ctx.user) {
+    if (!ctx.user || !ctx.from) {
       throw AppError.userNotFound(userId);
     }
 
@@ -514,7 +567,7 @@ export class MessageHandlers {
         buttonType: 'page_navigation',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId,
+        user: ctx.from,
       });
 
       await ctx.answerCbQuery(`Переходим на страницу ${pageNumber}...`);
@@ -534,7 +587,7 @@ export class MessageHandlers {
         searchHistoryId,
         pageNumber,
         totalPages,
-        userId,
+        user: ctx.from,
       });
 
       // Форматируем результаты для указанной страницы
@@ -558,6 +611,14 @@ export class MessageHandlers {
         );
       }
     } catch (error) {
+      this.analyticsService.trackBotCommandError({
+        command: 'page_navigation',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        user: ctx.from,
+      });
+
       ConsoleLogger.error('Ошибка при навигации по страницам', error as Error, {
         telegramId: userId,
         searchHistoryId,
@@ -571,7 +632,7 @@ export class MessageHandlers {
     const ctx = _ctx as TBotContext<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
     const userId = ctx.from?.id ? ctx.from.id.toString() : '0';
 
-    if (!ctx.user) {
+    if (!ctx.user || !ctx.from) {
       throw AppError.userNotFound(userId);
     }
 
@@ -587,7 +648,7 @@ export class MessageHandlers {
         buttonType: 'delete_message',
         buttonData: callbackData,
         userState: ctx.user.state,
-        userId,
+        user: ctx.from,
       });
 
       await ctx.answerCbQuery('Удаляем сообщение...');
@@ -597,6 +658,14 @@ export class MessageHandlers {
         await ctx.telegram.deleteMessage(ctx.chat.id, ctx.callbackQuery.message.message_id);
       }
     } catch (error) {
+      this.analyticsService.trackBotCommandError({
+        command: 'delete_message',
+        errorType: 'execution_error',
+        errorMessage: (error as Error).message,
+        userState: ctx.user?.state ?? '',
+        user: ctx.from,
+      });
+
       ConsoleLogger.error('Ошибка при удалении сообщения', error as Error, {
         telegramId: userId,
         messageId: ctx.callbackQuery.message?.message_id,

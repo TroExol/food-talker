@@ -5,33 +5,27 @@ import type {
   TAnalyticsConfig,
   TTrackBotCommandErrorParams,
   TTrackBotCommandParams,
-  TTrackBotStartedParams,
-  TTrackBotStoppedParams,
-  TTrackCacheMissParams,
   TTrackCallbackButtonClickedParams,
   TTrackCitySelectionCompletedParams,
   TTrackErrorParams,
   TTrackHistoryItemRepeatedParams,
   TTrackItemSelectionCompletedParams,
   TTrackMessageReceivedParams,
-  TTrackNeuralServiceErrorParams,
   TTrackNeuralSummaryParams,
   TTrackPageNavigationCompletedParams,
   TTrackPerformanceParams,
-  TTrackRateLimitExceededParams,
   TTrackSearchHistoryViewedParams,
   TTrackSearchLimitExceededParams,
   TTrackSearchQueryCompletedParams,
-  TTrackSearchQueryErrorParams,
   TTrackSearchQueryStartedParams,
   TTrackUserStateChangedParams,
   TTrackUserStatsViewedParams,
 } from './types';
-import type { YandexMetricaService } from '../YandexMetricaService/YandexMetricaService';
+import type { TelemetreeService } from '../TelemetreeService/TelemetreeService';
 
 export class AnalyticsService {
   constructor(
-    private readonly yandexMetrica: YandexMetricaService,
+    private readonly telemetree: TelemetreeService,
     private readonly config: TAnalyticsConfig,
   ) { }
 
@@ -39,14 +33,16 @@ export class AnalyticsService {
     if (!this.config.enabled) return;
 
     try {
-      // Отправляем событие в Яндекс Метрику
-      this.yandexMetrica.trackEvent({
-        name: event.name,
-        parameters: event.parameters,
-        timestamp: event.timestamp,
-        user_id: event.user_id,
-        session_id: event.session_id,
-      });
+      if (event.update) {
+        // Отправляем как Telegram обновление
+        this.telemetree.trackUpdate(event.update, event.name, event.parameters);
+      } else if (event.user) {
+        // Отправляем как пользовательское событие
+        this.telemetree.trackCustomEvent(event.name, event.user, event.parameters);
+      } else {
+        ConsoleLogger.warn('Событие не содержит ни user, ни update. Пропускаем отправку.', { event: event.name });
+        return;
+      }
 
       ConsoleLogger.info('Событие отправлено в аналитику', { event: event.name });
     } catch (error) {
@@ -65,9 +61,8 @@ export class AnalyticsService {
         user_action: params.context.user_action || 'unknown',
         ...params.context,
       },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.context.user_id as string,
-      session_id: params.context.session_id as string,
+      timestamp: Math.floor(Date.now() / 1000),
+      user: params.user,
     });
   };
 
@@ -79,6 +74,7 @@ export class AnalyticsService {
         duration_ms: params.duration,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
+      user: params.user,
     });
   };
 
@@ -95,6 +91,7 @@ export class AnalyticsService {
         total_vectors_processed: params.summary.total_vectors_processed,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
+      user: params.user,
     });
   };
 
@@ -102,7 +99,7 @@ export class AnalyticsService {
     if (!this.config.enabled) return;
 
     try {
-      await this.yandexMetrica.flush();
+      await this.telemetree.flush();
     } catch (error) {
       ConsoleLogger.error('Ошибка при отправке событий в аналитику', error as Error);
     }
@@ -113,8 +110,7 @@ export class AnalyticsService {
 
     try {
       await this.flush();
-      this.yandexMetrica.destroy();
-      await this.yandexMetrica.flush();
+      await this.telemetree.destroy();
       ConsoleLogger.info('AnalyticsService завершен');
     } catch (error) {
       ConsoleLogger.error('Ошибка при завершении работы AnalyticsService:', error as Error);
@@ -130,8 +126,9 @@ export class AnalyticsService {
         user_state: params.userState,
         user_city: params.userCity,
       },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      timestamp: Math.floor(Date.now() / 1000),
+      user: params.user,
+      update: params.update, // Используем update если есть
     });
   };
 
@@ -145,8 +142,8 @@ export class AnalyticsService {
         user_city: params.userCity,
         search_options: JSON.stringify(params.searchOptions),
       },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      timestamp: Math.floor(Date.now() / 1000),
+      user: params.user,
     });
   };
 
@@ -162,8 +159,8 @@ export class AnalyticsService {
         has_llm_enhancement: params.hasLlmEnhancement,
         has_vector_search: params.hasVectorSearch,
       },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      timestamp: Math.floor(Date.now() / 1000),
+      user: params.user,
     });
   };
 
@@ -175,8 +172,8 @@ export class AnalyticsService {
         new_state: params.newState,
         trigger: params.trigger,
       },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      timestamp: Math.floor(Date.now() / 1000),
+      user: params.user,
     });
   };
 
@@ -191,7 +188,7 @@ export class AnalyticsService {
         user_state: params.userState,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      user: params.user,
     });
   };
 
@@ -204,24 +201,9 @@ export class AnalyticsService {
         user_city: params.userCity,
         message_type: params.messageType,
       },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
-    });
-  };
-
-  public trackSearchQueryError = (params: TTrackSearchQueryErrorParams): void => {
-    this.trackEvent({
-      name: 'search_query_error',
-      parameters: {
-        id: params.id,
-        query_length: params.queryLength,
-        error_type: params.errorType,
-        error_message: params.errorMessage,
-        processing_time_ms: params.processingTimeMs,
-        search_method: params.searchMethod,
-      },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      timestamp: Math.floor(Date.now() / 1000),
+      user: params.user,
+      update: params.update, // Используем trackUpdate для сообщений
     });
   };
 
@@ -235,7 +217,7 @@ export class AnalyticsService {
         remaining_searches: params.remainingSearches,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      user: params.user,
     });
   };
 
@@ -248,7 +230,7 @@ export class AnalyticsService {
         user_state: params.userState,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      user: params.user,
     });
   };
 
@@ -261,7 +243,7 @@ export class AnalyticsService {
         old_city: params.oldCity,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      user: params.user,
     });
   };
 
@@ -274,7 +256,7 @@ export class AnalyticsService {
         has_photo: params.hasPhoto,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      user: params.user,
     });
   };
 
@@ -287,7 +269,7 @@ export class AnalyticsService {
         total_pages: params.totalPages,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      user: params.user,
     });
   };
 
@@ -300,45 +282,7 @@ export class AnalyticsService {
         query_length: params.queryLength,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
-    });
-  };
-
-  public trackNeuralServiceError = (params: TTrackNeuralServiceErrorParams): void => {
-    this.trackEvent({
-      name: 'neural_service_error',
-      parameters: {
-        service_type: params.serviceType,
-        error_type: params.errorType,
-        error_message: params.errorMessage,
-        retry_count: params.retryCount,
-      },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-    });
-  };
-
-  public trackRateLimitExceeded = (params: TTrackRateLimitExceededParams): void => {
-    this.trackEvent({
-      name: 'rate_limit_exceeded',
-      parameters: {
-        limit_type: params.limitType,
-        current_requests: params.currentRequests,
-        limit_value: params.limitValue,
-      },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
-    });
-  };
-
-  public trackCacheMiss = (params: TTrackCacheMissParams): void => {
-    this.trackEvent({
-      name: 'cache_miss',
-      parameters: {
-        cache_type: params.cacheType,
-        cache_key: params.cacheKey,
-        data_type: params.dataType,
-      },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
+      user: params.user,
     });
   };
 
@@ -350,7 +294,7 @@ export class AnalyticsService {
         viewed_items_count: params.viewedItemsCount,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
+      user: params.user,
     });
   };
 
@@ -364,31 +308,7 @@ export class AnalyticsService {
         total_searches: params.totalSearches,
       },
       timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-      user_id: params.userId,
-    });
-  };
-
-  public trackBotStarted = (params: TTrackBotStartedParams): void => {
-    this.trackEvent({
-      name: 'bot_started',
-      parameters: {
-        bot_version: params.botVersion,
-        environment: params.environment,
-        startup_time_ms: params.startupTimeMs,
-      },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
-    });
-  };
-
-  public trackBotStopped = (params: TTrackBotStoppedParams): void => {
-    this.trackEvent({
-      name: 'bot_stopped',
-      parameters: {
-        uptime_minutes: params.uptimeMinutes,
-        total_requests: params.totalRequests,
-        total_errors: params.totalErrors,
-      },
-      timestamp: Math.floor(Date.now() / 1000), // Конвертируем в секунды для Measurement Protocol
+      user: params.user,
     });
   };
 }

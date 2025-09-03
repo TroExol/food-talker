@@ -1,3 +1,5 @@
+import type { User } from 'telegraf/types';
+
 import {
   beforeEach,
   describe,
@@ -381,10 +383,20 @@ describe('UserService', () => {
         },
       ];
 
+      const userTg: User = {
+        id: 123456789,
+        first_name: 'John',
+        last_name: 'Doe',
+        username: 'john_doe',
+        language_code: 'en',
+        is_premium: true,
+        is_bot: false,
+      };
+
       vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(user);
       vi.mocked(mockUserRepository.getSearchHistory).mockResolvedValue(history);
 
-      const result = await userService.checkSearchLimit(telegramId);
+      const result = await userService.checkSearchLimit(userTg);
 
       expect(result).toBe(true);
     });
@@ -410,20 +422,37 @@ describe('UserService', () => {
         timestamp: new Date(),
       }));
 
+      const userTg: User = {
+        id: 123456789,
+        first_name: 'John',
+        last_name: 'Doe',
+        username: 'john_doe',
+        language_code: 'en',
+        is_premium: true,
+        is_bot: false,
+      };
+
       vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(user);
       vi.mocked(mockUserRepository.getSearchHistory).mockResolvedValue(history);
 
-      const result = await userService.checkSearchLimit(telegramId);
+      const result = await userService.checkSearchLimit(userTg);
 
       expect(result).toBe(false);
     });
 
     it('должен выбросить ошибку если пользователь не найден', async () => {
-      const telegramId = '123456789';
-
       vi.mocked(mockUserRepository.findByTelegramId).mockResolvedValue(null);
 
-      await expect(userService.checkSearchLimit(telegramId)).rejects.toThrow(AppError);
+      const userTg: User = {
+        id: 123456789,
+        first_name: 'John',
+        last_name: 'Doe',
+        username: 'john_doe',
+        language_code: 'en',
+        is_premium: true,
+        is_bot: false,
+      };
+      await expect(userService.checkSearchLimit(userTg)).rejects.toThrow(AppError);
     });
   });
 

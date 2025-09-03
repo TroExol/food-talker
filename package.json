@@ -21,6 +21,7 @@
   "author": "troexol",
   "license": "ISC",
   "dependencies": {
+    "@tonsolutions/telemetree-node": "^0.5.3",
     "dotenv": "^17.2.1",
     "https-proxy-agent": "^7.0.6",
     "jsonrepair": "^3.13.0",

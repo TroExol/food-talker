@@ -1,7 +1,7 @@
 import { sleep } from '@/utils/sleep';
 import { ConsoleLogger } from '@/utils/ConsoleLogger';
 import { AppSchedulerServiceFactory } from '@/services/scheduler/AppSchedulerService/AppSchedulerServiceFactory';
-import { environment, validateEnvironment } from '@/config/environment';
+import { validateEnvironment } from '@/config/environment';
 import { BotFactory } from '@/bot/BotFactory';
 
 import { AnalyticsServiceFactory } from './services/analytics/AnalyticsService/AnalyticsServiceFactory';
@@ -19,7 +19,6 @@ async function main(): Promise<void> {
   try {
     ConsoleLogger.info('Запускаем Food Talker бота...');
 
-    const startTime = Date.now();
     const bot = await BotFactory.getInstance();
     const appSchedulerService = await AppSchedulerServiceFactory.getInstance();
 
@@ -28,25 +27,11 @@ async function main(): Promise<void> {
 
     void bot.start();
 
-    // Отслеживаем запуск бота
-    analyticsService.trackBotStarted({
-      botVersion: '1.0.0',
-      environment: environment.NODE_ENV || 'development',
-      startupTimeMs: Date.now() - startTime,
-    });
-
     ConsoleLogger.info('Food Talker бот запущен. Нажмите Ctrl+C для остановки.');
 
     // Обработка graceful shutdown
     const gracefulShutdown = async (signal: string): Promise<void> => {
       ConsoleLogger.info(`\nПолучен ${signal}. Завершаем работу...`);
-
-      // Отслеживаем остановку бота
-      analyticsService.trackBotStopped({
-        uptimeMinutes: Math.floor((Date.now() - startTime) / (1000 * 60)),
-        totalRequests: 0, // TODO: Добавить счетчик запросов
-        totalErrors: 0, // TODO: Добавить счетчик ошибок
-      });
 
       await analyticsService.gracefulShutdown();
       bot.gracefulShutdown();
