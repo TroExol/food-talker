@@ -458,6 +458,7 @@ ${itemsText}
     // const image = item.image;
     const description = this.truncateText(item.description, this.formattingConfig.maxDescriptionLength);
     const tags = item.tags.join(', ');
+    const formattedTags = tags ? tags.charAt(0).toUpperCase() + tags.slice(1) : '';
 
     return `${index}. <b><a href="${item.orderUrl}" target="_blank">${this.escapeHtml(item.name)}</a></b>
 🏪 <i>${this.escapeHtml(item.restaurant.name)}</i>
@@ -465,14 +466,15 @@ ${itemsText}
 ${description
   ? `
 📝 ${this.escapeHtml(description)}`
-  : ''}${!description && tags
+  : ''}${!description && formattedTags
   ? `
-📝 ${tags}`
+📝 ${formattedTags}`
   : ''}`.trim();
   };
 
   private formatMenuItemText = (item: TSearchResultItem): string => {
     const tags = item.tags.join(', ');
+    const formattedTags = tags ? tags.charAt(0).toUpperCase() + tags.slice(1) : '';
 
     return `🍽️ <b>${this.escapeHtml(item.name)}</b>
 🏪 <i>${this.escapeHtml(item.restaurant.name)}</i>
@@ -480,9 +482,9 @@ ${description
 ${item.description
   ? `
 📝 ${this.escapeHtml(item.description)}`
-  : ''}${!item.description && tags
+  : ''}${!item.description && formattedTags
   ? `
-📝 ${tags}`
+📝 ${formattedTags}`
   : ''}`.trim();
   };
 

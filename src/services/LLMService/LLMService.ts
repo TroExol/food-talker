@@ -58,7 +58,7 @@ export class LLMService {
       const cached = await this.cacheService.get<TStructuredQuery>(cacheKey);
 
       if (cached) {
-        ConsoleLogger.info('Найден кэшированный результат структуризации', { query: naturalQuery });
+        ConsoleLogger.info('Найден кэшированный результат структуризации', { query: naturalQuery, structured: cached });
         return cached;
       }
 
@@ -124,7 +124,11 @@ export class LLMService {
       const cached = await this.cacheService.get<TSearchResultItem[]>(cacheKey);
 
       if (cached) {
-        ConsoleLogger.info('Найден кэшированный результат улучшения', { query });
+        ConsoleLogger.info('Найден кэшированный результат улучшения', {
+          query,
+          originalCount: results.length,
+          enhancedCount: cached.length,
+        });
         return cached;
       }
 
@@ -134,14 +138,25 @@ export class LLMService {
         prompt,
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_ENHANCE_RESULTS,
-        model: 'google/gemini-2.5-flash-lite:nitro',
+        model: 'openai/gpt-oss-120b',
+        fallbackModel: 'google/gemini-2.5-flash-lite:nitro',
         userTelegramId,
         params: {
-          max_tokens: 35000,
+          max_tokens: 50000,
         },
         waitTimeoutMs: 60000,
+        provider: {
+          order: ['groq', 'cerebras'],
+          allow_fallbacks: false,
+          require_parameters: true,
+        },
+        fallbackProvider: {},
+        fallbackSystemPrompt: this.systemPrompt,
         reasoning: {
           effort: 'medium',
+        },
+        fallbackReasoning: {
+          effort: 'low',
         },
       });
       const enhancedResults = this.parseEnhancedResults(response, results);
@@ -274,7 +289,7 @@ availableRestaurants: ${JSON.stringify(availableRestaurants)}
   private buildEnhancementPrompt = (menuItems: TSearchResultItem[], naturalQuery: string): string => {
     const menuList = menuItems.map((menuItem, index) => {
       const category = (menuItem as unknown as TMenuItem).category || 'неизвестно';
-      return `${index + 1}. ${menuItem.name} [${category}] ${menuItem.description ? `- ${menuItem.description.substring(0, 80)}` : ''} - ${menuItem.price}₽`;
+      return `${index + 1}. ${menuItem.name} [${category}]${menuItem.description ? ` - ${menuItem.description}` : ''}${menuItem.tags.length > 0 ? ` - ${menuItem.tags.join(', ')}` : ''} - ${menuItem.price}₽`;
     }).join('\n');
 
     return `СИСТЕМА РАНЖИРОВАНИЯ БЛЮД ПО РЕЛЕВАНТНОСТИ

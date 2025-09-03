@@ -78,10 +78,10 @@ export class SearchService {
       }
 
       // Ограничиваем количество результатов для LLM-обработки
-      results = this.limitResults(results, options.maxEnhenceMenu || 50);
+      results = this.limitResults(results, options.maxEnhenceMenu || 100);
 
       results = options.enableLLMEnhancement
-        ? await this.llmService.enhanceSearchResults(results, structuredQuery.semanticQuery)
+        ? await this.llmService.enhanceSearchResults(results, naturalQuery)
         : results;
 
       await this.saveSearchHistory(user.id.toString(), naturalQuery, structuredQuery, results);
