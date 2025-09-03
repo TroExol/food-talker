@@ -29,6 +29,9 @@ export interface TLLMRequest {
     | ResponseFormatJSONSchema
     | ResponseFormatJSONObject;
   provider?: Record<string, unknown>;
+  reasoning?: {
+    effort?: 'low' | 'medium' | 'high';
+  };
 }
 
 export interface TLLMResponse {
@@ -69,6 +72,12 @@ export interface TLLMCallParams {
   waitTimeoutMs?: number;
   provider?: Record<string, unknown>;
   fallbackProvider?: Record<string, unknown>;
+  reasoning?: {
+    effort: 'low' | 'medium' | 'high';
+  };
+  fallbackReasoning?: {
+    effort?: 'low' | 'medium' | 'high';
+  };
 }
 
 export interface TLLMStructureQueryStructuredOutput {

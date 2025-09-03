@@ -62,7 +62,7 @@ export class LLMService {
         return cached;
       }
 
-      const MODEL = 'mistralai/mistral-small-3.2-24b-instruct:free';
+      const MODEL = 'google/gemini-2.5-flash-lite:nitro';
       const FALLBACK_MODEL = 'openai/gpt-5-mini';
 
       const availableRestaurants = restaurants.map(r => r.name);
@@ -89,10 +89,10 @@ export class LLMService {
           max_tokens: 20000,
         },
         waitTimeoutMs: 30000,
-        provider: {
-          order: ['venice/fp8'],
+        reasoning: {
+          effort: 'medium',
         },
-        fallbackProvider: {},
+        fallbackReasoning: {},
       });
       const structuredQuery = this.parseStructuredQuery(naturalQuery, availableRestaurants, response);
 
@@ -141,17 +141,17 @@ export class LLMService {
         prompt,
         url: '/v1/chat/completions',
         requestType: ENeuralRequestType.LLM_ENHANCE_RESULTS,
-        model: 'mistralai/mistral-small-3.2-24b-instruct:free',
+        model: 'google/gemini-2.5-flash-lite:nitro',
         fallbackModel: 'openai/gpt-5-nano',
         userTelegramId,
         params: {
-          max_tokens: 40000,
+          max_tokens: 50000,
         },
         waitTimeoutMs: 60000,
-        provider: {
-          order: ['venice/fp8'],
+        reasoning: {
+          effort: 'medium',
         },
-        fallbackProvider: {},
+        fallbackReasoning: {},
       });
       const enhancedResults = this.parseEnhancedResults(response, results);
 
@@ -368,6 +368,8 @@ ${menuList}
     waitTimeoutMs,
     provider,
     fallbackProvider,
+    reasoning,
+    fallbackReasoning,
   }: TLLMCallParams): Promise<string> => {
     const startTime = Date.now();
 
@@ -386,6 +388,7 @@ ${menuList}
       params: {
         ...params,
       },
+      reasoning,
       provider,
       response_format: responseFormat,
     };
@@ -394,6 +397,7 @@ ${menuList}
       if (attempt >= 1) {
         request.model = fallbackModel || request.model;
         request.provider = fallbackProvider || request.provider;
+        request.reasoning = fallbackReasoning || request.reasoning;
         request.messages.unshift({
           role: 'system',
           content: fallbackSystemPrompt || request.messages[0].content,
